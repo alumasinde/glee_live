@@ -101,6 +101,11 @@ class DB
         return new QueryBuilder($table);
     }
 
+        // ✅ ADD THIS (fix your error)
+    public static function lastInsertId(): string
+    {
+        return self::connect()->lastInsertId();
+    }
 
     /**
  * Run a database transaction with automatic commit/rollback.

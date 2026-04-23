@@ -22,6 +22,7 @@ use App\Modules\Roles\Controllers\UserRoleController;
 use App\Modules\Approval\Controllers\ApprovalController;
 use App\Modules\Settings\Controllers\WorkflowController;
 use App\Modules\Settings\Controllers\GatepassTypeController;
+use App\Modules\Settings\Controllers\DepartmentController;
 
 
 
@@ -142,6 +143,29 @@ $router->post('/settings/users/{id}', [UserManagementController::class, 'update'
 
 $router->get('/settings/gatepass-types', [GatepassTypeController::class, 'index'], $auth);
 $router->post('/settings/gatepass-types/update', [GatepassTypeController::class, 'update'], $auth);
+$router->get(
+    '/settings/departments',
+    [DepartmentController::class, 'index'],
+    $auth
+);
+
+$router->post(
+    '/settings/departments/create',
+    [DepartmentController::class, 'store'],
+    $auth
+);
+
+$router->post(
+    '/settings/departments/update',
+    [DepartmentController::class, 'update'],
+    $auth
+);
+
+$router->post(
+    '/settings/departments/deactivate',
+    [DepartmentController::class, 'deactivate'],
+    $auth
+);
 
 // ==============================
 // WORKFLOW SETTINGS

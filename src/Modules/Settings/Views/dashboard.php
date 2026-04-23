@@ -13,6 +13,11 @@
         <h3>User Management</h3>
         <p>Manage system users and access.</p>
     </a>
+        <a href="/settings/departments" class="report-card">
+        <i class="fa-solid fa-building"></i>
+        <h3>Departments</h3>
+        <p>Manage organizational departments.</p>
+    </a>
 
         <a href="/settings/gatepass-types" class="report-card">
         <i class="fa-solid fa-lock"></i>
