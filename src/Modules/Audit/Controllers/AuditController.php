@@ -8,17 +8,6 @@ use App\Modules\Audit\Services\AuditService;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
-/**
- * AuditController
- *
- * Exposes read-only endpoints for audit log inspection.
- * All routes must sit behind auth + admin/manager role middleware.
- *
- * Routes (register in your router):
- *   GET  /audit              → index()   – paginated list with filters
- *   GET  /audit/{id}         → show()    – single entry detail
- *   GET  /audit/export       → export()  – CSV download
- */
 class AuditController
 {
     private AuditService $service;
