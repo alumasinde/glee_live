@@ -11,16 +11,51 @@ class AuditReportRepository extends BaseRepository
 
     protected array $searchable = [
         'a.action',
-        'a.entity_type'
+        'a.entity_type',
+        'u.first_name',
+        'u.last_name',
+        'a.message'
     ];
 
     protected array $filterable = [
-        'entity_type',
-        'entity_id',
-        'user_id'
+        'a.entity_type',
+        'a.entity_id',
+        'a.user_id'
     ];
 
     protected array $sortable = [
-        'created_at'
+        'a.created_at',
+        'u.first_name',
+        'a.action'
     ];
+
+    /**
+     * ✅ JOIN users to replace user_id with name
+     */
+    protected function baseQuery(): string
+    {
+        return "
+            FROM audit_logs a
+
+            LEFT JOIN users u
+                ON u.id = a.user_id
+               AND u.tenant_id = a.tenant_id
+        ";
+    }
+
+    /**
+     * ✅ Select readable fields
+     */
+    protected function selectColumns(): string
+    {
+        return "
+            SELECT
+                a.*,
+
+                -- User info
+                u.first_name,
+                u.last_name,
+                CONCAT(u.first_name, ' ', u.last_name) AS user_name
+        ";
+    }
 }

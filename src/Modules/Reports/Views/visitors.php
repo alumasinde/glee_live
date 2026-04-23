@@ -3,9 +3,10 @@
 <?php include __DIR__ . '/partials/filters.php'; ?>
 
 <?php if (!empty($data['data'])): ?>
+    <div class="report-card">
 
-<table>
-    <thead>
+<table class="report-table">
+    <thead class="report-header">
         <tr>
             <?php include __DIR__ . '/partials/table-header.php'; ?>
             <?php sortLink('first_name', 'First Name'); ?>
@@ -25,6 +26,10 @@
         <?php endforeach; ?>
     </tbody>
 </table>
+    </div>
+<a href="/reports" class="btn btn-secondary">
+            Back
+        </a>
 
 <?php include __DIR__ . '/partials/pagination.php'; ?>
 

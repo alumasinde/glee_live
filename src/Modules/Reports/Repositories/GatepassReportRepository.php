@@ -17,6 +17,7 @@ class GatepassReportRepository extends BaseRepository
         'u.last_name',
         'd.name'
     ];
+    
 
     protected array $filterable = [
         'g.status_id',
@@ -53,15 +54,15 @@ class GatepassReportRepository extends BaseRepository
         ";
     }
 
-    protected function selectColumns(): string
-    {
-        return "
-            SELECT
-                g.*,
-                gs.name AS status_name,
-                u.first_name,
-                u.last_name,
-                d.name AS department_name
-        ";
-    }
+   protected function selectColumns(): string
+{
+    return "
+        SELECT
+            g.*,
+            gs.name AS status_name,
+            u.first_name,
+            u.last_name,
+            d.name AS department_name
+    ";
+}
 }

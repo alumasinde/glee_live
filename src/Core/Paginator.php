@@ -4,60 +4,49 @@ namespace App\Core;
 
 use PDO;
 
-/**
- * Paginator
- *
- * Accepts the BASE SQL (FROM … WHERE … without SELECT or ORDER BY),
- * runs a COUNT(*) query for the total, then appends LIMIT/OFFSET to
- * the full data query and returns both the rows and pagination metadata.
- *
- * The same $bindings array is reused for both queries, so search/filter
- * params are always in sync between the count and data fetches.
- */
 class Paginator
 {
-    private PDO    $db;
+    private PDO $db;
     private string $baseSql;
-    private array  $bindings;
-    private int    $page;
-    private int    $perPage;
+    private array $bindings;
+    private int $page;
+    private int $perPage;
 
-    /** Hard cap on per-page to prevent runaway queries */
     private const MAX_PER_PAGE = 100;
 
     public function __construct(
-        PDO    $db,
-        string $baseSql,    // FROM … WHERE … (no SELECT, no ORDER BY)
-        array  $bindings,   // All named params used in baseSql
-        int    $page    = 1,
-        int    $perPage = 20
+        PDO $db,
+        string $baseSql,   // FULL SELECT WITHOUT LIMIT/OFFSET
+        array $bindings,
+        int $page = 1,
+        int $perPage = 20
     ) {
-        $this->db       = $db;
-        $this->baseSql  = $baseSql;
+        $this->db = $db;
+        $this->baseSql = trim($baseSql);
         $this->bindings = $bindings;
-        $this->page     = max(1, $page);
-        $this->perPage  = max(1, min($perPage, self::MAX_PER_PAGE));
+        $this->page = max(1, $page);
+        $this->perPage = max(1, min($perPage, self::MAX_PER_PAGE));
     }
 
     /**
-     * Run the paginated query.
-     *
-     * @param string $dataSql Full SELECT … FROM … WHERE … ORDER BY query (no LIMIT/OFFSET)
-     * @return array{data: array, meta: array}
+     * Execute paginated query
      */
     public function paginate(string $dataSql): array
     {
-        $total  = $this->getTotal();
+        $total = $this->getTotal();
         $offset = ($this->page - 1) * $this->perPage;
 
-        $stmt = $this->db->prepare($dataSql . ' LIMIT :limit OFFSET :offset');
+        $sql = $dataSql . " LIMIT :limit OFFSET :offset";
+
+        $stmt = $this->db->prepare($sql);
 
         foreach ($this->bindings as $key => $value) {
             $stmt->bindValue($key, $value);
         }
 
-        $stmt->bindValue(':limit',  $this->perPage, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset,        PDO::PARAM_INT);
+        $stmt->bindValue(':limit', $this->perPage, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+
         $stmt->execute();
 
         $lastPage = $total > 0
@@ -67,21 +56,38 @@ class Paginator
         return [
             'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
             'meta' => [
-                'total'        => $total,
-                'per_page'     => $this->perPage,
+                'total' => $total,
+                'per_page' => $this->perPage,
                 'current_page' => $this->page,
-                'last_page'    => $lastPage,
-                'from'         => $total > 0 ? $offset + 1 : 0,
-                'to'           => min($offset + $this->perPage, $total),
+                'last_page' => $lastPage,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => min($offset + $this->perPage, $total),
             ],
         ];
     }
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
+    /**
+     * FIXED: Proper COUNT using subquery wrapper
+     */
     private function getTotal(): int
     {
-        $stmt = $this->db->prepare("SELECT COUNT(*) {$this->baseSql}");
+        $sql = trim($this->baseSql);
+
+        // Ensure it's a valid SELECT before wrapping
+        if (!str_starts_with(strtoupper(ltrim($sql)), 'SELECT')) {
+            throw new \RuntimeException(
+                "Paginator baseSql must start with SELECT. Got: " . substr($sql, 0, 50)
+            );
+        }
+
+        $stmt = $this->db->prepare("
+        SELECT COUNT(*)
+        FROM (
+            {$sql}
+        ) AS count_table
+    ");
 
         foreach ($this->bindings as $key => $value) {
             $stmt->bindValue($key, $value);

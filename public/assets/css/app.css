@@ -12,6 +12,7 @@
 @import "alerts.css";
 @import "pages.css";
 @import "errors.css";
+@import "reports.css";
 
 /* utilities last */
 @import "utilities.css";

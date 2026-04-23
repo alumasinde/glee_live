@@ -10,101 +10,84 @@ abstract class BaseRepository
     protected string $table;
     protected string $alias = 't';
 
-    /** Fully-qualified columns for full-text search, e.g. ['t.name', 't.email'] */
     protected array $searchable = [];
-
-    /**
-     * Whitelisted filter keys.
-     *
-     * Two formats are supported:
-     *   Indexed:   ['status', 'type']
-     *              Key = column used in SQL = request key (alias prepended automatically)
-     *   Associative: ['status' => 't.status', 'dept' => 'd.id']
-     *              Left = request key, Right = actual SQL column
-     */
     protected array $filterable = [];
-
-    /** Whitelisted sort columns (no table alias, just the bare column name) */
     protected array $sortable = [];
 
-    /** Default sort column */
+    /** Default sort column (can be alias-qualified or full column) */
     protected string $defaultSort = 'created_at';
 
     public function __construct()
     {
         $this->db = DB::connect();
     }
-    /**
-     * Paginated, searchable, filterable list for any module.
-     *
-     * @param int   $tenantId Tenant scope
-     * @param array $params   {q, search, page, per_page, sort_by, sort_dir, filters}
-     */
+
     public function list(int $tenantId, array $params = []): array
-{
-    $search  = $params['search'] ?? null;
-    $filters = $params['filters'] ?? [];
-    $sortBy  = $params['sort_by'] ?? 'created_at';
-    $sortDir = strtolower($params['sort_dir'] ?? 'desc');
-    $page    = (int)($params['page'] ?? 1);
-    $perPage = (int)($params['per_page'] ?? 10);
+    {
+        $search  = $params['search'] ?? null;
+        $filters = $params['filters'] ?? [];
+        $sortBy  = $params['sort_by'] ?? $this->defaultSort;
+        $sortDir = strtolower($params['sort_dir'] ?? 'desc');
+        $page    = (int)($params['page'] ?? 1);
+        $perPage = (int)($params['per_page'] ?? 10);
 
-    $bindings = [
-        ':tenant_id' => $tenantId
-    ];
+        $bindings = [
+            ':tenant_id' => $tenantId
+        ];
 
-    // FIX: start from FULL query, not baseQuery alone
-    $sql = "
-        {$this->selectColumns()}
-        {$this->baseQuery()}
-        WHERE {$this->alias}.tenant_id = :tenant_id
-    ";
+        // ✅ ALWAYS include full query (SELECT + JOINs)
+        $sql = "
+            {$this->selectColumns()}
+            {$this->baseQuery()}
+            WHERE {$this->alias}.tenant_id = :tenant_id
+        ";
 
-    // SEARCH
-    if (!empty($this->searchable)) {
-        $sql = QueryBuilder::applySearch(
-            $sql,
-            $this->searchable,
-            $bindings,
-            $search
-        );
-    }
-
-    // FILTERS
-    $allowedFilters = [];
-    foreach ($this->filterable as $column) {
-        if (array_key_exists($column, $filters)) {
-            $allowedFilters[$column] = $filters[$column];
+        // =========================
+        // SEARCH
+        // =========================
+        if (!empty($this->searchable) && !empty($search)) {
+            $sql = QueryBuilder::applySearch(
+                $sql,
+                $this->searchable,
+                $bindings,
+                $search
+            );
         }
+
+        // =========================
+        // FILTERS (FIXED)
+        // =========================
+        $normalizedFilters = $this->normaliseFilters($filters);
+
+        if (!empty($normalizedFilters)) {
+            $sql = QueryBuilder::applyFilters($sql, $normalizedFilters, $bindings);
+        }
+
+        // =========================
+        // SORT (FIXED)
+        // =========================
+        if (!in_array($sortBy, $this->sortable, true)) {
+            $sortBy = $this->defaultSort;
+        }
+
+        $sortDir = $sortDir === 'asc' ? 'ASC' : 'DESC';
+
+        // ✅ DO NOT prefix alias — sortable already contains full columns
+        $orderBy = " ORDER BY {$sortBy} {$sortDir}";
+
+        $dataSql = $sql . $orderBy;
+
+        $paginator = new Paginator(
+            $this->db,
+            $sql,       // base SQL (used for COUNT)
+            $bindings,
+            $page,
+            $perPage
+        );
+
+        return $paginator->paginate($dataSql);
     }
 
-    $sql = QueryBuilder::applyFilters($sql, $allowedFilters, $bindings);
-
-    // SORT SAFETY
-    if (!in_array($sortBy, $this->sortable, true)) {
-        $sortBy = 'created_at';
-    }
-
-    $sortDir = $sortDir === 'asc' ? 'ASC' : 'DESC';
-
-    $orderBy = " ORDER BY {$this->alias}.{$sortBy} {$sortDir}";
-
-    $dataSql = $sql . $orderBy;
-
-    $paginator = new Paginator(
-        $this->db,
-        $sql,
-        $bindings,
-        $page,
-        $perPage
-    );
-
-    return $paginator->paginate($dataSql);
-}
-
-    /**
-     * Simple total count for a tenant (no filters).
-     */
     public function count(int $tenantId): int
     {
         $stmt = $this->db->prepare(
@@ -115,32 +98,21 @@ abstract class BaseRepository
         return (int) $stmt->fetchColumn();
     }
 
-    // =========================================================================
-    // HOOKS — override in subclasses to customise queries
-    // =========================================================================
-
     /**
-     * The FROM … WHERE tenant_id = :tenant_id fragment.
-     * Override to add JOINs, extra base conditions, etc.
-     */
-    protected function baseQuery(): string
-    {
-        return "FROM {$this->table} {$this->alias}
-                WHERE {$this->alias}.tenant_id = :tenant_id";
-    }
-
-    /**
-     * The SELECT projection.
-     * Override to add specific columns, computed fields, joined columns, etc.
+     * Default SELECT (override in child)
      */
     protected function selectColumns(): string
     {
         return "SELECT {$this->alias}.*";
     }
 
-    // =========================================================================
-    // TRANSACTIONS
-    // =========================================================================
+    /**
+     * Default baseQuery (override in child)
+     */
+    protected function baseQuery(): string
+    {
+        return "FROM {$this->table} {$this->alias}";
+    }
 
     public function begin(): void
     {
@@ -160,55 +132,40 @@ abstract class BaseRepository
     }
 
     // =========================================================================
-    // PRIVATE HELPERS
+    // FILTER NORMALISATION (NOW ACTUALLY USED)
     // =========================================================================
 
-    /**
-     * Resolve and whitelist filters from the request.
-     *
-     * Handles both $filterable formats:
-     *   Indexed     ['status', 'type']           → key = column = alias.key
-     *   Associative ['status' => 't.status']     → maps request key → SQL column
-     *
-     * Also handles both filter value shapes:
-     *   Flat        'status' => 'active'
-     *   Structured  'status' => ['value' => 'active', 'operator' => '=']
-     *
-     * @param  array $rawFilters Filters straight from the request
-     * @return array             Normalised [sqlColumn => structuredEntry]
-     */
     private function normaliseFilters(array $rawFilters): array
     {
         if (empty($rawFilters) || empty($this->filterable)) {
             return [];
         }
 
-        // Build a lookup: requestKey → sqlColumn
         $columnMap = [];
+
         foreach ($this->filterable as $key => $value) {
             if (is_int($key)) {
-                // Indexed format: use alias prefix for the SQL column
-                $columnMap[$value] = "{$this->alias}.{$value}";
+                $columnMap[$value] = $value; // already fully qualified
             } else {
-                // Associative format: caller provides explicit SQL column
                 $columnMap[$key] = $value;
             }
         }
 
         $result = [];
+
         foreach ($rawFilters as $requestKey => $entry) {
             if (!array_key_exists($requestKey, $columnMap)) {
-                continue; // not whitelisted — skip silently
+                continue;
             }
 
             $sqlColumn = $columnMap[$requestKey];
 
-            // Normalise value shape to structured form
             if (!is_array($entry) || !array_key_exists('value', $entry)) {
-                // Flat scalar — wrap into structured shape
-                $result[$sqlColumn] = ['value' => $entry, 'operator' => '='];
+                $result[$sqlColumn] = [
+                    'value' => $entry,
+                    'operator' => '='
+                ];
             } else {
-                // Already structured
                 $result[$sqlColumn] = $entry;
             }
         }
