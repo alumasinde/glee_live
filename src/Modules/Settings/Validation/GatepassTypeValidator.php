@@ -2,14 +2,11 @@
 
 namespace App\Modules\Settings\Validation;
 
-use RuntimeException;
 
 class GatepassTypeValidator
 {
     public static function validateActions(bool $checkin, bool $checkout): void
     {
-        if (!$checkin && !$checkout) {
-            throw new RuntimeException("At least one action must be enabled.");
-        }
+        // Both false is valid — a type may have no actions permitted
     }
 }

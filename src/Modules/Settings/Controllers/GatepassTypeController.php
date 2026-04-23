@@ -14,8 +14,7 @@ class GatepassTypeController extends Controller
     public function __construct(
         private GatepassTypeService $service
     ) {
-        // FIX: Auth guard added — was missing
-        if (! Auth::check()) {
+        if (!Auth::check()) {
             Response::redirect('/login');
         }
     }
@@ -29,24 +28,40 @@ class GatepassTypeController extends Controller
 
     public function update(Request $request)
     {
-        $id = (int) $request->input('id');
+        $raw = file_get_contents('php://input');
+        $body = json_decode($raw, true);
 
-        if ($id <= 0) {
-            // FIX: Response::json() is typed never — drop the return keyword
-            Response::json(['message' => 'Invalid or missing gatepass type ID.'], 422);
+        if (!is_array($body)) {
+            $body = [];
         }
 
-        $checkin  = (bool) (int) $request->input('checkin',  0);
-        $checkout = (bool) (int) $request->input('checkout', 0);
+        $id = (int) ($body['id'] ?? $request->input('id', 0));
+
+        if ($id <= 0) {
+            return Response::json([
+                'message' => 'Invalid or missing gatepass type ID.'
+            ], 422);
+        }
+
+        $checkin = !empty($body['checkin']);
+        $checkout = !empty($body['checkout']);
 
         try {
             $this->service->updateActions($id, $checkin, $checkout);
-        } catch (RuntimeException $e) {
-            Response::json(['message' => $e->getMessage()], 404);
-        } catch (\Throwable $e) {
-            Response::json(['message' => 'An unexpected error occurred.'], 500);
-        }
 
-        Response::json(['success' => true]);
+            return Response::json(['success' => true]);
+
+        } catch (RuntimeException $e) {
+            return Response::json([
+                'message' => $e->getMessage()
+            ], 400);
+
+        } catch (\Throwable $e) {
+    Response::json([
+        'message' => $e->getMessage(),
+        'file'    => $e->getFile(),
+        'line'    => $e->getLine(),
+    ], 500);
+}
     }
 }

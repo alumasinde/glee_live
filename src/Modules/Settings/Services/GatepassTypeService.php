@@ -45,40 +45,50 @@ class GatepassTypeService
             throw new RuntimeException('Gatepass type not found.');
         }
 
-        $before = $type->allowedActions;
+        $before = $type->allowedActions ?? [];
 
         $after = [
-            'checkin'  => $checkin,
-            'checkout' => $checkout,
+            'checkin'  => (bool) $checkin,
+            'checkout' => (bool) $checkout,
         ];
 
-        // FIX: App\Core\Transaction does not exist — replaced with DB::transaction()
-        DB::transaction(function () use ($id, $after, $before) {
+        try {
+            DB::transaction(function () use ($id, $after, $before) {
 
-            $updated = $this->repo->updateActions(
-                id:      $id,
-                actions: $after
+                $updated = $this->repo->updateActions($id, $after);
+
+                // IMPORTANT FIX: rowCount() is unreliable for updates
+                if ($updated === false) {
+                    throw new RuntimeException('Update failed at database level.');
+                }
+
+                Audit::log(
+                    action:     'gatepass_type.updated_actions',
+                    entityType: 'gatepass_type',
+                    entityId:   $id,
+                    metadata:   [
+                        'before' => $before,
+                        'after'  => $after,
+                    ]
+                );
+            });
+
+        } catch (\Throwable $e) {
+            // IMPORTANT: rethrow so controller can show real error
+            throw new RuntimeException(
+                'Gatepass update failed: ' . $e->getMessage(),
+                0,
+                $e
             );
-
-            if (! $updated) {
-                throw new RuntimeException('Update failed.');
-            }
-
-            Audit::log(
-                action:     'gatepass_type.updated_actions',
-                entityType: 'gatepass_type',
-                entityId:   $id,
-                metadata:   [
-                    'before' => $before,
-                    'after'  => $after,
-                ]
-            );
-        });
+        }
     }
 
     public function resolveActions(GatepassDTO $gatepass, $type): array
     {
-        $allowed = $type->allowedActions;
+        $allowed = $type->allowedActions ?? [
+            'checkin' => false,
+            'checkout' => false
+        ];
 
         $eligibility = GatepassWorkflow::eligibility([
             'status_code'   => $gatepass->statusCode,
@@ -88,8 +98,8 @@ class GatepassTypeService
         ]);
 
         return [
-            'can_checkin'  => ($allowed['checkin']  ?? false) && $eligibility['checkin_eligible'],
-            'can_checkout' => ($allowed['checkout'] ?? false) && $eligibility['checkout_eligible'],
+            'can_checkin'  => !empty($allowed['checkin'])  && $eligibility['checkin_eligible'],
+            'can_checkout' => !empty($allowed['checkout']) && $eligibility['checkout_eligible'],
         ];
     }
 }

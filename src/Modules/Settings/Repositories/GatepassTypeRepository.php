@@ -13,7 +13,7 @@ class GatepassTypeRepository
         $tenantId = Tenant::require();
 
         $rows = DB::query("
-            SELECT *
+            SELECT id, tenant_id, name, allowed_actions,is_active, type_code AS code, workflow_id,created_at
             FROM gatepass_types
             WHERE tenant_id = ?
               AND is_active  = 1
@@ -50,15 +50,15 @@ class GatepassTypeRepository
         return $stmt->rowCount() > 0;
     }
 
-    private function map(array $row): GatepassTypeDTO
-{
-    return new GatepassTypeDTO(
-        id:             (int) $row['id'],
-        tenantId:       (int) $row['tenant_id'],
-        name:           $row['name'],
-        allowedActions: json_decode($row['allowed_actions'] ?? '{}', true) ?? [],
-        code:           $row['code'] ?? null,
-        isReturnable:   !empty($row['is_returnable'])
-    );
-}
+ private function map(array $row): GatepassTypeDTO
+    {
+        return new GatepassTypeDTO(
+            id:             (int) $row['id'],
+            tenantId:       (int) $row['tenant_id'],
+            name:           $row['name'],
+            allowedActions: json_decode($row['allowed_actions'] ?? '{}', true) ?? [],
+            code:           $row['code'] ?? null,
+            isReturnable:   !empty($row['is_returnable'])
+        );
+    }
 }
