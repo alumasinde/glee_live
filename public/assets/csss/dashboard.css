@@ -1,0 +1,155 @@
+/* ===================================================
+   DASHBOARD CONTAINER
+=================================================== */
+
+.dashboard-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.dashboard-title {
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin-bottom: 2rem;
+    color: var(--dark);
+}
+
+
+/* ===================================================
+   KPI GRID
+=================================================== */
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    margin-bottom: 3rem;
+}
+
+
+/* ===================================================
+   KPI CARDS (Extends base .card)
+=================================================== */
+
+.dashboard-grid .card {
+    padding: 22px 24px;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 120px;
+}
+
+.dashboard-grid .card h3 {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--gray);
+    margin-bottom: 12px;
+}
+
+.dashboard-grid .card-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--dark);
+    line-height: 1.2;
+}
+
+
+/* ===================================================
+   OPTIONAL KPI VARIANTS
+=================================================== */
+
+.card-success { border-left: 4px solid var(--success); }
+.card-warning { border-left: 4px solid var(--warning); }
+.card-danger  { border-left: 4px solid var(--danger); }
+.card-primary { border-left: 4px solid var(--primary); }
+
+
+/* ===================================================
+   CHART FILTERS
+=================================================== */
+
+.chart-filters {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1.5rem;
+}
+
+.chart-filters select {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    font-size: 0.9rem;
+    background: var(--white);
+}
+
+
+/* ===================================================
+   CHART GRID
+=================================================== */
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 25px;
+}
+
+
+/* ===================================================
+   CHART CARDS
+=================================================== */
+
+.chart-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 20px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-card h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: var(--dark);
+}
+
+
+/* Chart canvas wrapper */
+
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 90%;
+}
+
+
+/* ===================================================
+   RESPONSIVE
+=================================================== */
+
+@media (max-width: 768px) {
+
+    .dashboard-title {
+        font-size: 1.3rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .dashboard-grid {
+        gap: 16px;
+    }
+
+    .dashboard-grid .card {
+        padding: 18px;
+    }
+
+    .dashboard-grid .card-value {
+        font-size: 1.6rem;
+    }
+
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+}

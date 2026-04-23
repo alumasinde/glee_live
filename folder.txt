@@ -1,0 +1,217 @@
+gpms/
+│
+├── public/                        <-- ONLY browser-accessible directory
+│     ├── index.php
+│     ├── .htaccess
+│     └── assets/
+│            ├── css/
+│            ├── js/
+│            └── images/
+│
+├── bootstrap/
+│     └── app.php                 <-- loads env, config, session, container
+│
+├── src/
+│
+│   ├── Core/                     <-- Mini framework engine
+│   │     ├── App.php
+│   │     ├── Container.php       <-- Dependency Injection
+│   │     ├── Router.php
+│   │     ├── Request.php
+│   │     ├── Response.php
+│   │     ├── Controller.php
+│   │     ├── Policy.php
+│   │     ├── View.php
+│   │     ├── DB.php
+│   │     ├── Auth.php
+│   │     ├── Permission.php
+│   │     ├── Tenant.php
+│   │     ├── Validator.php
+│   │     └── Exceptions/
+│
+│   ├── Middleware/
+│   │     ├── AuthMiddleware.php
+│   │     ├── PermissionMiddleware.php
+│   │     ├── TenantMiddleware.php
+│   │     └── CSRFMiddleware.php
+│   ├── Policies/
+│   │     ├── GatepassPolicy.php
+│   │     ├── VisitorPolicy.php
+│   │     ├── UserPolicy.php│
+│   ├── Modules/                  <-- DOMAIN-DRIVEN (VERY IMPORTANT)
+│
+│   │   ├── Auth/
+│   │   │     ├── Controllers/
+│   │   │     │      ├── LoginController.php
+│   │   │     │      ├── LogoutController.php
+│   │   │     │      └── PasswordController.php
+│   │   │     │
+│   │   │     ├── Services/
+│   │   │     │      └── AuthService.php
+│   │   │     │
+│   │   │     ├── Repositories/
+│   │   │     │      └── UserRepository.php
+│   │   │     │
+│   │   │     └── Views/
+│   │   │            ├── login.php
+│   │   │            ├── forgot-password.php
+│   │   │            └── reset-password.php
+│
+│   │
+│   │   ├── Dashboard/
+│   │   │     ├── Controllers/
+│   │   │     │      └── DashboardController.php
+│   │   │     │
+│   │   │     ├── Services/
+│   │   │     │      └── DashboardService.php
+│   │   │     │
+│   │   │     └── Views/
+│   │   │            └── index.php
+│
+│   │
+│   │   ├── Gatepass/
+│   │   │     ├── Controllers/
+│   │   │     │      ├── GatepassController.php
+│   │   │     │      ├── GatepassApprovalController.php
+│   │   │     │      └── GateScanController.php
+│   │   │     │
+│   │   │     ├── Services/
+│   │   │     │      ├── GatepassService.php
+│   │   │     │      ├── GatepassApprovalService.php
+│   │   │     │      └── QRService.php     <-- talks to Go service
+│   │   │     │
+│   │   │     ├── Repositories/
+│   │   │     │      ├── GatepassRepository.php
+│   │   │     │      └── GatepassStatusRepository.php
+│   │   │     │
+│   │   │     ├── DTOs/
+│   │   │     │      └── GatepassDTO.php
+│   │   │     │
+│   │   │     ├── Policies/
+│   │   │     │      └── GatepassPolicy.php
+│   │   │     │
+│   │   │     ├── Events/
+│   │   │     │      └── GatepassCreated.php
+│   │   │     │
+│   │   │     └── Views/
+│   │   │            ├── index.php          <-- list
+│   │   │            ├── create.php
+│   │   │            ├── edit.php
+│   │   │            ├── show.php
+│   │   │            ├── approve.php
+│   │   │            └── scan.php
+│
+│   │
+│   │   ├── Visitors/
+│   │   │     ├── Controllers/
+│   │   │     │      └── VisitorController.php
+│   │   │     │
+│   │   │     ├── Services/
+│   │   │     │      └── VisitorService.php
+│   │   │     │
+│   │   │     ├── Repositories/
+│   │   │     │      └── VisitorRepository.php
+│   │   │     │
+│   │   │     └── Views/
+│   │   │            ├── index.php
+│   │   │            ├── create.php
+│   │   │            ├── edit.php
+│   │   │            ├── profile.php
+│   │   │            └── blacklist.php
+│
+│   │
+│   │   ├── Vehicles/            <-- STRONGLY recommended module
+│   │   │     ├── Controllers/
+│   │   │     ├── Services/
+│   │   │     ├── Repositories/
+│   │   │     └── Views/
+│   │   │            ├── index.php
+│   │   │            └── whitelist.php
+│
+│   │
+│   │   ├── Workflow/
+│   │   │     ├── Engine/
+│   │   │     │      └── WorkflowEngine.php
+│   │   │     │
+│   │   │     ├── Services/
+│   │   │     │      └── WorkflowService.php
+│   │   │     │
+│   │   │     └── Views/
+│   │   │            ├── workflows.php
+│   │   │            └── steps.php
+│
+│   │
+│   │   ├── RBAC/
+│   │   │     ├── Controllers/
+│   │   │     │      ├── RoleController.php
+│   │   │     │      └── PermissionController.php
+│   │   │     │
+│   │   │     ├── Services/
+│   │   │     │      ├── RoleService.php
+│   │   │     │      └── PermissionService.php
+│   │   │     │
+│   │   │     └── Views/
+│   │   │            ├── roles.php
+│   │   │            └── permissions.php
+│
+│   │
+│   │   ├── Audit/
+│   │   │     ├── Services/
+│   │   │     │      └── AuditLogger.php
+│   │   │     │
+│   │   │     └── Views/
+│   │   │            └── logs.php
+│
+│   │
+│   │   └── Settings/
+│   │         ├── Controllers/
+│   │         ├── Services/
+│   │         └── Views/
+│   │                ├── tenants.php
+│   │                └── tenant-settings.php
+│
+│
+├── resources/                   <-- GLOBAL UI SYSTEM
+│
+│   └── views/
+│         ├── layouts/
+│         │      ├── app.php
+│         │      └── guest.php
+│         │
+│         ├── templates/
+│         │      ├── sidebar.php
+│         │      ├── navbar.php
+│         │      └── footer.php
+│         │
+│         ├── components/
+│         │      ├── alert.php
+│         │      ├── modal.php
+│         │      ├── table.php
+│         │      ├── pagination.php
+│         │      └── form.php
+│         │
+│         └── errors/
+│                ├── 403.php
+│                ├── 404.php
+│                └── 500.php
+│
+│
+├── routes/
+│     ├── web.php
+│     └── api.php               <-- future Go / mobile integration
+│
+├── storage/
+│     ├── logs/
+│     ├── cache/
+│     ├── sessions/
+│     ├── uploads/
+│     └── qr/
+│
+├── config/
+│     ├── app.php
+│     ├── database.php
+│     ├── permissions.php
+│     └── workflow.php
+│
+├── composer.json
+└── vendor/
