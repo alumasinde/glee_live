@@ -3,6 +3,7 @@
 namespace App\Modules\Settings\Services;
 
 use App\Core\Tenant;
+use App\Core\Audit;
 use App\Modules\Settings\Repositories\DepartmentRepository;
 use RuntimeException;
 
@@ -40,8 +41,18 @@ class DepartmentService
             if (! $department) {
                 throw new RuntimeException('Department creation failed.');
             }
+          Audit::log(
+                action:     'department.created',
+                entityType: 'department',
+                entityId:   $department->id,
+                metadata:   [
+                    'name' => $department->name,
+                ]  
+                );
 
             return $department;
+
+            
 
         } catch (\Throwable $e) {
             throw new RuntimeException(
@@ -70,6 +81,19 @@ class DepartmentService
             if (! $updated) {
                 throw new RuntimeException('Department update failed.');
             }
+            Audit::log(
+                action:     'department.updated',
+                entityType: 'department',
+                entityId:   $id,
+                metadata:   [
+                    'before' => [
+                        'name' => $existing->name,
+                    ],
+                    'after'  => [
+                        'name' => $name,
+                    ],
+                ]
+            );
 
             return $updated;
 

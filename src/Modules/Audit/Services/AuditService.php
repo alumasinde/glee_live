@@ -59,6 +59,13 @@ class AuditService
         'gatepass.checked_in'     => '{actor} checked in gatepass {target}',
         'gatepass.checked_out'    => '{actor} checked out gatepass {target}',
 
+        //Department
+        'department.created'      => '{actor} created department {target}',
+        'department.updated'      => '{actor} updated department {target}',
+        'department.deleted'      => '{actor} deleted department {target}',
+        
+
+
         // Tenant / settings
         'tenant.settings_updated' => '{actor} updated tenant settings',
         'tenant.plan_changed'     => '{actor} changed subscription plan',
