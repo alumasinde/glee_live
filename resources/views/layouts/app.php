@@ -11,10 +11,7 @@ $title = $title ?? 'GPMS Dashboard';
 
     <!-- Main CSS -->
   <link rel="stylesheet" href="/assets/css/app.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'].'/assets/css/app.css'); ?>">
-  <link rel="stylesheet" href="/assets/css/base.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'].'/assets/css/base.css'); ?>">
-<link rel="stylesheet" href="/assets/css/header.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'].'/assets/css/header.css'); ?>">
-<link rel="stylesheet" href="/assets/css/dashboard.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'].'/assets/css/dashboard.css'); ?>">
-<link rel="stylesheet" href="/assets/css/create.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'].'/assets/css/create.css'); ?>">
+
 
     <!-- Font Awesome -->
     <link rel="stylesheet"

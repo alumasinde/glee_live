@@ -22,7 +22,7 @@ class RiskEngine
         }
 
         if ($previousVisits === 0) {
-            $score += 10;
+            $score += 0;
         }
 
         if ($isBlacklisted) {

@@ -13,10 +13,9 @@ class DepartmentRepository
         $tenantId = Tenant::require();
 
         $rows = DB::query("
-            SELECT id, tenant_id, name, is_active, created_at
+            SELECT id, tenant_id, name, code, is_active, created_at
             FROM departments
             WHERE tenant_id = ?
-              AND is_active = 1
             ORDER BY name ASC
         ", [$tenantId])->fetchAll();
 
@@ -26,7 +25,7 @@ class DepartmentRepository
     public function find(int $id, int $tenantId): ?DepartmentDTO
     {
         $row = DB::query("
-            SELECT id, tenant_id, name, is_active, created_at
+            SELECT id, tenant_id, name, code, is_active, created_at
             FROM departments
             WHERE id = ?
               AND tenant_id = ?
@@ -36,18 +35,17 @@ class DepartmentRepository
         return $row ? $this->map($row) : null;
     }
 
-    public function create(string $name): DepartmentDTO
+    public function create(string $name, string $code): DepartmentDTO
     {
         $tenantId = Tenant::require();
 
         DB::query("
-            INSERT INTO departments (tenant_id, name, is_active)
-            VALUES (?, ?, 1)
-        ", [$tenantId, $name]);
+            INSERT INTO departments (tenant_id, name, code, is_active)
+            VALUES (?, ?, ?, 1)
+        ", [$tenantId, $name, $code]);
 
         $id = DB::lastInsertId();
 
-        // Fetch fresh row (best practice for consistency)
         return $this->find((int)$id, $tenantId);
     }
 
@@ -87,12 +85,26 @@ class DepartmentRepository
         return $this->find($id, $tenantId);
     }
 
+    public function delete(int $id): bool
+    {
+        $tenantId = Tenant::require();
+
+        $stmt = DB::query("
+            DELETE FROM departments
+            WHERE id = ?
+              AND tenant_id = ?
+        ", [$id, $tenantId]);
+
+        return $stmt->rowCount() > 0;
+    }
+
     private function map(array $row): DepartmentDTO
     {
         return new DepartmentDTO(
             id:        (int) $row['id'],
             tenantId:  (int) $row['tenant_id'],
             name:      $row['name'],
+            code:      $row['code'],
             isActive:  (bool) $row['is_active'],
             createdAt: $row['created_at'] ?? null
         );

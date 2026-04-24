@@ -1,4 +1,9 @@
-/* ── 9. BUTTONS ───────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════
+   COMPONENTS.CSS  —  Buttons · Cards · Tables · Forms
+   ════════════════════════════════════════════════════════════ */
+
+
+/* ── Buttons ────────────────────────────────────────────────── */
 
 .btn {
     display: inline-flex;
@@ -12,45 +17,34 @@
     border: 1px solid transparent;
     cursor: pointer;
     text-decoration: none;
-    transition: background var(--tx), box-shadow var(--tx), opacity var(--tx), border-color var(--tx);
     white-space: nowrap;
     line-height: 1.4;
     vertical-align: middle;
+    transition: background var(--tx), box-shadow var(--tx), opacity var(--tx), border-color var(--tx);
 }
 
 .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
 .btn-lg { padding: 11px 22px; font-size: 1rem; }
 
-.btn-primary {
-    background: var(--color-primary);
-    color: #fff;
-    border-color: var(--color-primary);
-}
-.btn-primary:hover { background: var(--color-primary-dark); border-color: var(--color-primary-dark); }
+/* Solid variants */
+.btn-primary   { background: var(--color-primary);  color: #fff; border-color: var(--color-primary); }
+.btn-secondary { background: var(--color-surface);  color: var(--color-text-secondary); border-color: var(--color-border); }
+.btn-success   { background: var(--color-success);  color: #fff; border-color: var(--color-success); }
+.btn-danger    { background: var(--color-danger);   color: #fff; border-color: var(--color-danger); }
+.btn-warning   { background: var(--color-warning);  color: #fff; border-color: var(--color-warning); }
+.btn-info      { background: var(--color-info);     color: #fff; border-color: var(--color-info); }
+.btn-accent    { background: var(--color-accent);   color: #fff; border-color: var(--color-accent); }
 
-.btn-secondary {
-    background: var(--color-surface);
-    color: var(--color-text-secondary);
-    border-color: var(--color-border);
-}
-.btn-secondary:hover {
-    background: var(--color-surface-subtle);
-    color: var(--color-text);
-    border-color: #c9d0da;
-}
+/* Hover states */
+.btn-primary:hover   { background: var(--color-primary-dark);  border-color: var(--color-primary-dark); }
+.btn-secondary:hover { background: var(--color-surface-subtle); color: var(--color-text); border-color: #c9d0da; }
+.btn-success:hover   { background: var(--color-success-dark); }
+.btn-danger:hover    { background: var(--color-danger-dark); }
+.btn-warning:hover   { background: var(--color-warning-dark); }
+.btn-info:hover      { background: var(--color-info-dark); }
+.btn-accent:hover    { background: var(--color-accent-dark); }
 
-.btn-success { background: var(--color-success); color: #fff; border-color: var(--color-success); }
-.btn-success:hover { background: var(--color-success-dark); }
-
-.btn-danger { background: var(--color-danger); color: #fff; border-color: var(--color-danger); }
-.btn-danger:hover { background: var(--color-danger-dark); }
-
-.btn-warning { background: var(--color-warning); color: #fff; border-color: var(--color-warning); }
-.btn-warning:hover { background: var(--color-warning-dark); }
-
-.btn-info { background: var(--color-info); color: #fff; border-color: var(--color-info); }
-.btn-info:hover { background: var(--color-info-dark); }
-
+/* Outline variant */
 .btn-outline-primary {
     background: transparent;
     color: var(--color-primary);
@@ -58,16 +52,17 @@
 }
 .btn-outline-primary:hover { background: var(--color-primary-light); }
 
-/* Gatepass action button variants */
+/* Table action aliases — map to standard btn variants */
 .view-btn     { background: var(--color-info);    color: #fff; border-color: var(--color-info); }
 .view-btn:hover { background: var(--color-info-dark); }
 .edit-btn     { background: var(--color-warning); color: #fff; border-color: var(--color-warning); }
 .edit-btn:hover { background: var(--color-warning-dark); }
 .checkin-btn  { background: var(--color-success); color: #fff; border-color: var(--color-success); }
 .checkin-btn:hover { background: var(--color-success-dark); }
-.checkout-btn { background: #7c3aed; color: #fff; border-color: #7c3aed; }
-.checkout-btn:hover { background: #6d28d9; }
+.checkout-btn { background: var(--color-accent);  color: #fff; border-color: var(--color-accent); }
+.checkout-btn:hover { background: var(--color-accent-dark); }
 
+/* Login button (full-width form submit) */
 .btn-login {
     width: 100%;
     padding: 11px;
@@ -84,7 +79,7 @@
 .btn-login:hover { background: var(--color-primary-dark); }
 
 
-/* ── 10. CARDS ────────────────────────────────────────────── */
+/* ── Cards ──────────────────────────────────────────────────── */
 
 .card {
     background: var(--color-surface);
@@ -102,7 +97,7 @@
     font-size: 0.9rem;
 }
 
-.card-body { padding: var(--space-5); }
+.card-body   { padding: var(--space-5); }
 
 .card-footer {
     padding: var(--space-4) var(--space-5);
@@ -118,7 +113,7 @@
 .card-danger   { border-left: 3px solid var(--color-danger); }
 
 
-/* ── 11. TABLE SYSTEM ─────────────────────────────────────── */
+/* ── Table system ───────────────────────────────────────────── */
 
 .table-card {
     background: var(--color-surface);
@@ -151,17 +146,16 @@
     white-space: nowrap;
 }
 
-.table tbody tr:last-child td { border-bottom: none; }
-
-.table tbody tr:hover { background: #f7f9fc; }
-
-/* Bootstrap compat classes */
+.table tbody tr:last-child td  { border-bottom: none; }
+.table tbody tr:hover          { background: var(--color-surface-subtle); }
+.table-hover tbody tr:hover    { background: var(--color-primary-light); }
 .table-striped tbody tr:nth-child(even) { background: var(--color-surface-subtle); }
-.table-bordered th, .table-bordered td { border: 1px solid var(--color-border); }
-.table-sm th, .table-sm td { padding: 8px 12px; }
-.table-hover tbody tr:hover { background: #f0f4ff; }
-.table-light { background: var(--color-surface-subtle); }
-.table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table-bordered th,
+.table-bordered td             { border: 1px solid var(--color-border); }
+.table-sm th,
+.table-sm td                   { padding: 8px 12px; }
+.table-light                   { background: var(--color-surface-subtle); }
+.table-responsive              { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 .table-actions {
     display: flex;
@@ -169,12 +163,12 @@
     align-items: center;
     flex-wrap: nowrap;
 }
-.table-actions .btn { padding: 4px 9px; font-size: 0.78rem; }
-.table-actions form { margin: 0; display: inline-flex; }
-.table-action-button { margin: 0; display: inline-flex; }
+.table-actions .btn            { padding: 4px 9px; font-size: 0.78rem; }
+.table-actions form,
+.table-action-button           { margin: 0; display: inline-flex; }
 
 
-/* ── 12. FORM SYSTEM ──────────────────────────────────────── */
+/* ── Form system ────────────────────────────────────────────── */
 
 /* Shared input base */
 input[type="text"],
@@ -196,10 +190,11 @@ textarea,
     font-family: var(--font-base);
     color: var(--color-text);
     background: var(--color-surface);
-    transition: border-color var(--tx), box-shadow var(--tx);
     line-height: 1.5;
     appearance: none;
+    transition: border-color var(--tx), box-shadow var(--tx);
 }
+
 input:focus,
 select:focus,
 textarea:focus,
@@ -209,9 +204,11 @@ textarea:focus,
     border-color: var(--color-border-focus);
     box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
+
 textarea { resize: vertical; min-height: 88px; }
 
-select, .form-select {
+select,
+.form-select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 10px center;
@@ -219,7 +216,6 @@ select, .form-select {
     cursor: pointer;
 }
 
-/* Label */
 label,
 .form-label {
     display: block;
@@ -236,10 +232,6 @@ label,
     margin-top: 4px;
 }
 
-.text-danger { color: var(--color-danger) !important; }
-.text-muted  { color: var(--color-text-muted) !important; }
-
-/* Field wrapper */
 .form-group {
     display: flex;
     flex-direction: column;
@@ -254,11 +246,12 @@ label,
     gap: var(--space-2);
     cursor: pointer;
 }
+
 .form-check-input {
     width: 16px;
     height: 16px;
     border: 2px solid var(--color-border);
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     background: var(--color-surface);
     flex-shrink: 0;
     cursor: pointer;
@@ -277,29 +270,14 @@ label,
     outline: none;
     box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
-.form-check-label { font-size: 0.875rem; font-weight: 400; color: var(--color-text-secondary); cursor: pointer; }
-
-/* Bootstrap grid compat */
-.row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-4);
+.form-check-label {
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+    cursor: pointer;
 }
-.col-md-6 { flex: 1 1 calc(50% - var(--space-2)); min-width: 200px; }
 
-/* mb-N utilities */
-.mb-0 { margin-bottom: 0 !important; }
-.mb-3 { margin-bottom: var(--space-4) !important; }
-.mb-4 { margin-bottom: var(--space-5) !important; }
-.mt-1 { margin-top: var(--space-1) !important; }
-.mt-2 { margin-top: var(--space-2) !important; }
-.mt-4 { margin-top: var(--space-5) !important; }
-.pb-2 { padding-bottom: var(--space-2) !important; }
-.gap-2 { gap: var(--space-2) !important; }
-.me-2 { margin-right: var(--space-2) !important; }
-.fw-semibold { font-weight: 600 !important; }
-
-/* form-actions row */
+/* Form layout helpers */
 .form-actions {
     display: flex;
     gap: var(--space-3);
@@ -308,29 +286,31 @@ label,
     margin-top: var(--space-5);
 }
 
-/* Form card wrapper */
-.form-card, .card.shadow-sm { max-width: 600px; }
+.form-card { max-width: 600px; }
 
-/* Input with icon */
-.input-icon { position: relative; }
+/* Input with leading icon */
+.input-icon           { position: relative; }
 .input-icon i {
     position: absolute;
-    top: 50%; left: 11px;
+    top: 50%;
+    left: 11px;
     transform: translateY(-50%);
     color: var(--color-text-subtle);
     font-size: 0.9rem;
     pointer-events: none;
 }
-.input-icon input { padding-left: 34px; }
+.input-icon input     { padding-left: 34px; }
 
 /* Search strip */
 .global-search { margin-bottom: var(--space-5); }
+
 .search-group {
     display: flex;
     gap: var(--space-2);
     align-items: center;
     flex-wrap: wrap;
 }
+
 .search-input {
     flex: 1;
     min-width: 200px;
@@ -346,6 +326,7 @@ label,
     border-color: var(--color-border-focus);
     box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
+
 .search-btn {
     padding: 8px var(--space-4);
     background: var(--color-primary);
@@ -356,10 +337,11 @@ label,
     font-size: 0.875rem;
     font-family: var(--font-base);
     font-weight: 500;
-    transition: background var(--tx);
     white-space: nowrap;
+    transition: background var(--tx);
 }
 .search-btn:hover { background: var(--color-primary-dark); }
+
 .clear-btn {
     padding: 8px var(--space-4);
     background: var(--color-surface);
@@ -376,7 +358,7 @@ label,
 }
 .clear-btn:hover { background: var(--color-surface-subtle); color: var(--color-text); }
 
-/* Report filters */
+/* Report filter bar */
 .report-filters {
     display: flex;
     gap: var(--space-2);
@@ -388,3 +370,34 @@ label,
     border: 1px solid var(--color-border);
     box-shadow: var(--shadow-xs);
 }
+
+/* Toggle switch (used in config tables) */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 24px;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: var(--color-warning);
+    border-radius: var(--radius-pill);
+    transition: background var(--tx);
+}
+.slider::before {
+    content: "";
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform var(--tx);
+}
+.toggle-switch input:checked + .slider             { background: var(--color-success); }
+.toggle-switch input:checked + .slider::before     { transform: translateX(22px); }

@@ -14,7 +14,14 @@
                    class="form-control"
                    placeholder="e.g. Human Resources"
                    required>
+             <label class="form-label">Department Code</label>
+             <input type="text"
+                    name="code"
+                    class="form-control"
+                    placeholder="e.g. HR"
+                    required>
         </div>
+
 
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">
@@ -27,7 +34,7 @@
 </div>
 
 <!-- ===================== LIST ===================== -->
-<div class="form-card">
+<div class="table-card">
 
     <h3 style="margin-bottom: 15px;">Department List</h3>
 
@@ -36,6 +43,7 @@
             <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Code</th>
                     <th>Status</th>
                     <th>Created</th>
                     <th style="width: 220px;">Actions</th>
@@ -48,14 +56,17 @@
                         <td>
                             <?= htmlspecialchars($dept->name) ?>
                         </td>
-
                         <td>
-                            <?php if ($dept->isActive): ?>
-                                <span class="badge badge-success">Active</span>
-                            <?php else: ?>
-                                <span class="badge badge-danger">Inactive</span>
-                            <?php endif; ?>
+                            <?= htmlspecialchars($dept->code) ?>
                         </td>
+                      <td>
+    <label class="toggle-switch">
+        <input type="checkbox"
+               <?= $dept->isActive ? 'checked' : '' ?>
+               onchange="toggleDepartment(<?= $dept->id ?>)">
+        <span class="slider"></span>
+    </label>
+</td>
 
                         <td>
                             <?= htmlspecialchars($dept->createdAt ?? '-') ?>
@@ -69,14 +80,6 @@
                                 onclick="openEditModal(<?= $dept->id ?>, '<?= htmlspecialchars($dept->name) ?>')"
                             >
                                 Edit
-                            </button>
-
-                            <!-- DEACTIVATE / ACTIVATE -->
-                            <button 
-                                class="btn btn-sm btn-warning"
-                                onclick="toggleDepartment(<?= $dept->id ?>)"
-                            >
-                                Toggle
                             </button>
 
                             <!-- DELETE -->
@@ -144,11 +147,21 @@ function closeEditModal() {
 }
 
 function toggleDepartment(id) {
-    fetch('/settings/departments/deactivate', {
+    fetch('/settings/departments/toggle', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id})
-    }).then(() => location.reload());
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Toggle failed');
+        }
+    });
 }
 
 function deleteDepartment(id) {

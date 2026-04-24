@@ -1,5 +1,7 @@
-  
-/* Interactive card (report-card etc.) */
+/* ════════════════════════════════════════════════════════════
+   REPORTS.CSS  —  Report cards, tables & dashboard grid
+   ════════════════════════════════════════════════════════════ */
+
 .report-card {
     display: block;
     background: var(--color-surface);
@@ -8,33 +10,26 @@
     border: 1px solid var(--color-border);
     color: var(--color-text);
 }
-    .report-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
 
-    .report-table th,
-    .report-table td {
-        padding: 10px;
-        border: 1px solid #ddd;
-    }
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+}
 
-    .report-header {
-        background-color: #f8f9fa;
-    }
+.report-table th,
+.report-table td {
+    padding: 10px var(--space-3);
+    border: 1px solid var(--color-border);
+    font-size: 0.875rem;
+}
 
-    
-     .report-filters {
-        margin-bottom: 20px;
-    }
-    .report-filters input,
-    .report-filters select {
-        margin-right: 10px;
-        padding: 5px;
-    }
-    .report-filters button {
-        padding: 5px 10px;
-    }
+.report-table th {
+    background: var(--color-surface-subtle);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-align: left;
+}
+
 .report-dashboard {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

@@ -143,29 +143,11 @@ $router->post('/settings/users/{id}', [UserManagementController::class, 'update'
 
 $router->get('/settings/gatepass-types', [GatepassTypeController::class, 'index'], $auth);
 $router->post('/settings/gatepass-types/update', [GatepassTypeController::class, 'update'], $auth);
-$router->get(
-    '/settings/departments',
-    [DepartmentController::class, 'index'],
-    $auth
-);
-
-$router->post(
-    '/settings/departments/create',
-    [DepartmentController::class, 'store'],
-    $auth
-);
-
-$router->post(
-    '/settings/departments/update',
-    [DepartmentController::class, 'update'],
-    $auth
-);
-
-$router->post(
-    '/settings/departments/deactivate',
-    [DepartmentController::class, 'deactivate'],
-    $auth
-);
+$router->get('/settings/departments', [DepartmentController::class, 'index'], $auth );
+$router->post('/settings/departments/create',[DepartmentController::class, 'store'], $auth );
+$router->post('/settings/departments/update',[DepartmentController::class, 'update'],$auth );
+$router->post('/settings/departments/toggle',[DepartmentController::class, 'toggle'],$auth );
+$router->post('/settings/departments/delete',[DepartmentController::class, 'delete'],$auth );
 
 // ==============================
 // WORKFLOW SETTINGS

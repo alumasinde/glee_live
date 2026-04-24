@@ -1,0 +1,38 @@
+/* ════════════════════════════════════════════════════════════
+   ERRORS.CSS  —  Full-page error states (404, 500, etc.)
+   ════════════════════════════════════════════════════════════ */
+
+.error-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    text-align: center;
+    background: var(--color-bg);
+    color: var(--color-text);
+}
+
+.error-page .container { max-width: 500px; padding: 40px 20px; }
+
+.error-page .code {
+    font-size: 120px;
+    font-weight: 800;
+    color: var(--color-border);
+    position: relative;
+    line-height: 1;
+}
+
+.error-page .code span {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 35%;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+.error-page h2      { margin-top: var(--space-8); font-size: 1.75rem; font-weight: 700; }
+.error-page p       { margin-top: var(--space-4); color: var(--color-text-muted); line-height: 1.6; }
+.error-page .buttons { margin-top: var(--space-8); }
+.error-page footer  { margin-top: var(--space-8); font-size: 0.8rem; color: var(--color-text-subtle); }

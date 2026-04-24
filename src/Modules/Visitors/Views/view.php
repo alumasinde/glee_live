@@ -2,6 +2,10 @@
     <h2>
         <?= htmlspecialchars($visitor['first_name'] . ' ' . $visitor['last_name']) ?>
     </h2>
+
+    <a href="/visitors" class="btn btn-secondary btn-sm">
+        &laquo; Back
+    </a>
 </div>
 
 <div class="card mb-4">

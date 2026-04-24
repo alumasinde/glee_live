@@ -15,7 +15,7 @@ $title = $title ?? 'GPMS Dashboard';
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;400;500;600;700;800&display=swap">
 
     <!-- Main CSS (single token-driven file) -->
-    <link rel="stylesheet" href="/assets/css/app.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'].'/assets/css/app.css'); ?>">
+    <link rel="stylesheet" href="/assets/csss/app.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'].'/assets/csss/app.css'); ?>">
 
     <!-- Font Awesome -->
     <link rel="stylesheet"

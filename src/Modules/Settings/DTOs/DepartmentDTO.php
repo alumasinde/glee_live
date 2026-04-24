@@ -8,6 +8,7 @@ class DepartmentDTO
         public int $id,
         public int $tenantId,
         public string $name,
+        public string $code,
         public bool $isActive,
         public ?string $createdAt = null
     ) {}

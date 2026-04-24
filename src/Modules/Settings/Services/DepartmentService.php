@@ -31,28 +31,29 @@ class DepartmentService
         return $department;
     }
 
-    public function create(string $name)
+    public function create(string $name, string $code)
     {
         $this->validateName($name);
+        $this->validateCode($code);
 
         try {
-            $department = $this->repo->create($name);
+            $department = $this->repo->create($name, $code);
 
             if (! $department) {
                 throw new RuntimeException('Department creation failed.');
             }
-          Audit::log(
-                action:     'department.created',
+
+            Audit::log(
+                action: 'department.created',
                 entityType: 'department',
-                entityId:   $department->id,
-                metadata:   [
+                entityId: $department->id,
+                metadata: [
                     'name' => $department->name,
-                ]  
-                );
+                    'code' => $code,
+                ]
+            );
 
             return $department;
-
-            
 
         } catch (\Throwable $e) {
             throw new RuntimeException(
@@ -81,21 +82,22 @@ class DepartmentService
             if (! $updated) {
                 throw new RuntimeException('Department update failed.');
             }
+
             Audit::log(
-                action:     'department.updated',
+                action: 'department.updated',
                 entityType: 'department',
-                entityId:   $id,
-                metadata:   [
+                entityId: $id,
+                metadata: [
                     'before' => [
                         'name' => $existing->name,
                     ],
-                    'after'  => [
+                    'after' => [
                         'name' => $name,
                     ],
                 ]
             );
 
-            return $updated;
+            return $this->repo->find($id, $tenantId);
 
         } catch (\Throwable $e) {
             throw new RuntimeException(
@@ -106,7 +108,44 @@ class DepartmentService
         }
     }
 
-    public function deactivate(int $id): void
+    public function delete(int $id): bool
+    {
+        $tenantId = Tenant::require();
+
+        $existing = $this->repo->find($id, $tenantId);
+
+        if (! $existing) {
+            throw new RuntimeException('Department not found.');
+        }
+
+        try {
+            $deleted = $this->repo->delete($id);
+
+            if (! $deleted) {
+                throw new RuntimeException('Department deletion failed.');
+            }
+
+            Audit::log(
+                action: 'department.deleted',
+                entityType: 'department',
+                entityId: $id,
+                metadata: [
+                    'name' => $existing->name,
+                ]
+            );
+
+            return true;
+
+        } catch (\Throwable $e) {
+            throw new RuntimeException(
+                'Department deletion failed: ' . $e->getMessage(),
+                0,
+                $e
+            );
+        }
+    }
+
+    public function toggle(int $id)
     {
         $tenantId = Tenant::require();
 
@@ -117,15 +156,29 @@ class DepartmentService
         }
 
         try {
-            $updated = $this->repo->updateStatus($id, false);
+            $newStatus = ! (bool) $department->isActive;
+
+            $updated = $this->repo->updateStatus($id, $newStatus);
 
             if (! $updated) {
-                throw new RuntimeException('Department deactivation failed.');
+                throw new RuntimeException('Department status update failed.');
             }
+
+            Audit::log(
+                action: 'department.toggled',
+                entityType: 'department',
+                entityId: $id,
+                metadata: [
+                    'previous' => (bool) $department->isActive,
+                    'new' => $newStatus,
+                ]
+            );
+
+            return $this->repo->find($id, $tenantId);
 
         } catch (\Throwable $e) {
             throw new RuntimeException(
-                'Department deactivation failed: ' . $e->getMessage(),
+                'Department status toggle failed: ' . $e->getMessage(),
                 0,
                 $e
             );
@@ -146,6 +199,23 @@ class DepartmentService
 
         if (strlen($name) > 150) {
             throw new RuntimeException('Department name is too long.');
+        }
+    }
+
+    private function validateCode(string $code): void
+    {
+        $code = trim($code);
+
+        if ($code === '') {
+            throw new RuntimeException('Department code is required.');
+        }
+
+        if (strlen($code) < 2) {
+            throw new RuntimeException('Department code must be at least 2 characters.');
+        }
+
+        if (strlen($code) > 20) {
+            throw new RuntimeException('Department code is too long.');
         }
     }
 }
