@@ -7,55 +7,49 @@ use App\Core\Request;
 use App\Core\Router;
 use App\Core\Response;
 use Dotenv\Dotenv;
-
-//Detect errors in Development
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+function base_path($path = '')
+{
+    return dirname(__DIR__) . ($path ? '/' . $path : '');
+}
 
 require base_path('vendor/autoload.php');
 
-// Load environment variables
-$dotenv = Dotenv::createImmutable(base_path());
+$envFile = '.env';
+
+$dotenv = Dotenv::createImmutable(base_path(), $envFile);
 $dotenv->load();
 
-
-// Helper to access environment variables
 function env(string $key, $default = null)
 {
-    return $_ENV[$key] ?? $default;
+    return $_ENV[$key] ?? $_SERVER[$key] ?? $default;
 }
 
+if (env('APP_DEBUG', false)) {
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+} else {
+    error_reporting(0);
+    ini_set('display_errors', 0);
+}
 
-date_default_timezone_set(config('app.timezone'));
-
-// Start session with secure settings
+date_default_timezone_set(config('app.timezone') ?? 'UTC');
 
 if (session_status() === PHP_SESSION_NONE) {
-
     session_set_cookie_params([
         'httponly' => true,
         'secure' => isset($_SERVER['HTTPS']),
         'samesite' => 'Strict'
     ]);
-
     session_start();
 }
 
-// Initialize IoC Container
-
 $container = new Container();
-
 App::setContainer($container);
-
-
-//Bind core services
 
 $container->singleton(DB::class, function () {
     return DB::connect();
 });
-
-
 
 $container->bind(Request::class, function () {
     return new Request();
@@ -65,22 +59,15 @@ $container->singleton(Router::class, function () {
     return new Router();
 });
 
-/*
-|--------------------------------------------------------------------------
-| Error Handling (Production Safe)
-|--------------------------------------------------------------------------
-*/
-
 set_exception_handler(function ($e) {
 
     $code = $e->getCode();
 
-    // If invalid HTTP code → force 500
     if (!is_int($code) || $code < 400 || $code > 599) {
         $code = 500;
     }
 
-    if (config('app.debug')) {
+    if (env('APP_DEBUG', false)) {
         http_response_code($code);
         echo "<pre>";
         echo "Error: " . $e->getMessage() . "\n\n";
@@ -89,20 +76,8 @@ set_exception_handler(function ($e) {
         exit;
     }
 
-    Response::abort($code ?: 500, $e->getMessage());
+    Response::abort($code, 'Server Error');
 });
-
-
-/*
-|--------------------------------------------------------------------------
-| Helpers
-|--------------------------------------------------------------------------
-*/
-
-function base_path($path = '')
-{
-    return dirname(__DIR__) . '/' . $path;
-}
 
 function config(string $key): mixed
 {
@@ -112,7 +87,11 @@ function config(string $key): mixed
     $file  = array_shift($parts);
 
     if (!isset($cache[$file])) {
-        $cache[$file] = require base_path("config/{$file}.php");
+        $path = base_path("config/{$file}.php");
+        if (!file_exists($path)) {
+            return null;
+        }
+        $cache[$file] = require $path;
     }
 
     $config = $cache[$file];
@@ -126,6 +105,5 @@ function config(string $key): mixed
 
     return $config;
 }
-
 
 return $container;

@@ -12,7 +12,7 @@ return [
                 'mysql:host=%s;port=%s;dbname=%s;charset=%s',
                 env('DB_HOST', '127.0.0.1'),
                 env('DB_PORT', '3306'),
-                env('DB_DATABASE'),
+                env('DB_DATABASE', 'test'),
                 env('DB_CHARSET', 'utf8mb4')
             ),
 
