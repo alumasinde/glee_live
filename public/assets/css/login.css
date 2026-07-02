@@ -74,7 +74,7 @@ body {
     pointer-events: none;
 }
 .input-icon input {
-    width: 100%;
+    width: 70%;
     padding: 10px 12px 10px 34px;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);

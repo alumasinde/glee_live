@@ -20,10 +20,10 @@ CREATE TABLE IF NOT EXISTS `actions` (
   `name` varchar(120) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_action_name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=14112 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17456 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.actions: ~16 rows (approximately)
-INSERT IGNORE INTO `actions` (`id`, `name`) VALUES
+REPLACE INTO `actions` (`id`, `name`) VALUES
 	(1, 'view'),
 	(2, 'create'),
 	(3, 'update'),
@@ -60,10 +60,10 @@ CREATE TABLE IF NOT EXISTS `audit_logs` (
   KEY `fk_audit_user` (`user_id`,`tenant_id`),
   CONSTRAINT `fk_audit_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_audit_user` FOREIGN KEY (`user_id`, `tenant_id`) REFERENCES `users` (`id`, `tenant_id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=109 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=282 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table glee_live.audit_logs: ~105 rows (approximately)
-INSERT IGNORE INTO `audit_logs` (`id`, `tenant_id`, `user_id`, `action`, `entity_type`, `entity_id`, `metadata`, `ip_address`, `created_at`, `message`) VALUES
+-- Dumping data for table glee_live.audit_logs: ~271 rows (approximately)
+REPLACE INTO `audit_logs` (`id`, `tenant_id`, `user_id`, `action`, `entity_type`, `entity_id`, `metadata`, `ip_address`, `created_at`, `message`) VALUES
 	(1, 1, 1, 'user.login', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-10 20:34:55', 'Albert Masinde logged in'),
 	(2, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-10 20:36:13', 'Albert Masinde viewed the dashboard'),
 	(3, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-10 20:36:13', 'Albert Masinde viewed the dashboard'),
@@ -171,7 +171,180 @@ INSERT IGNORE INTO `audit_logs` (`id`, `tenant_id`, `user_id`, `action`, `entity
 	(105, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-11 19:20:44', 'Albert Masinde viewed the dashboard'),
 	(106, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-11 19:20:45', 'Albert Masinde viewed the gatepass list'),
 	(107, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses?q=d", "method": "GET"}}', '::1', '2026-04-11 19:20:48', 'Albert Masinde viewed the gatepass list'),
-	(108, 1, 1, 'user.logout', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-11 19:49:22', 'Albert Masinde logged out');
+	(108, 1, 1, 'user.logout', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-11 19:49:22', 'Albert Masinde logged out'),
+	(109, 1, 1, 'user.login', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-21 19:31:53', 'Albert Masinde logged in'),
+	(110, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 19:31:53', 'Albert Masinde viewed the dashboard'),
+	(111, 1, 1, 'user.logout', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-21 19:31:56', 'Albert Masinde logged out'),
+	(112, 1, NULL, 'user.login_failed', 'auth', NULL, '{"email": "alumasinde@gmail.com", "reason": "invalid_credentials", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-21 19:32:00', 'Failed login attempt for System'),
+	(113, 1, NULL, 'user.login_failed', 'auth', NULL, '{"email": "alumasinde@gmail.com", "reason": "invalid_credentials", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-21 19:32:24', 'Failed login attempt for System'),
+	(114, 1, 1, 'user.login', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-21 19:33:02', 'Albert Masinde logged in'),
+	(115, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 19:33:02', 'Albert Masinde viewed the dashboard'),
+	(116, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 20:44:00', 'Albert Masinde viewed the gatepass list'),
+	(117, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 20:44:07', 'Albert Masinde viewed the dashboard'),
+	(118, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 20:44:08', 'Albert Masinde viewed the gatepass list'),
+	(119, 1, 4, 'user.login', 'user', 4, '{"email": "hod@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-21 20:44:58', 'Alice Anyango logged in'),
+	(120, 1, 4, 'dashboard.viewed', 'dashboard', 4, '{"email": "hod@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 20:44:58', 'Alice Anyango viewed the dashboard'),
+	(121, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 20:45:05', 'Albert Masinde viewed the dashboard'),
+	(122, 1, 4, 'dashboard.viewed', 'dashboard', 4, '{"email": "hod@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 20:45:32', 'Alice Anyango viewed the dashboard'),
+	(123, 1, 4, 'user.logout', 'user', 4, '{"email": "hod@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-21 20:45:38', 'Alice Anyango logged out'),
+	(124, 1, 2, 'user.login', 'user', 2, '{"email": "security@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-21 20:45:42', 'John Guard logged in'),
+	(125, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 20:45:42', 'John Guard viewed the dashboard'),
+	(126, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 20:45:54', 'John Guard viewed the dashboard'),
+	(127, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 20:45:58', 'Albert Masinde viewed the dashboard'),
+	(128, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 20:46:15', 'Albert Masinde viewed the dashboard'),
+	(129, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 20:52:28', 'John Guard viewed the dashboard'),
+	(130, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 20:52:37', 'John Guard viewed the gatepass list'),
+	(131, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 20:52:39', 'John Guard viewed the dashboard'),
+	(132, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 20:52:41', 'John Guard viewed the gatepass list'),
+	(133, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 20:52:48', 'Albert Masinde viewed the gatepass list'),
+	(134, 1, 1, 'gatepass.checked_in', 'gatepass', 6, '{"user_id": 1, "_request": {"url": "/gatepasses/6/checkin", "method": "POST"}, "timestamp": "2026-04-21 20:52:56"}', '::1', '2026-04-21 20:52:56', 'Albert Masinde checked in gatepass '),
+	(135, 1, 1, 'gatepass.checked_in', 'gatepass', 6, '{"_request": {"url": "/gatepasses/6/checkin", "method": "POST"}, "target_label": "GPN-2026-0004"}', '::1', '2026-04-21 20:52:56', 'Albert Masinde checked in gatepass GPN-2026-0004'),
+	(136, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 20:52:56', 'Albert Masinde viewed the gatepass list'),
+	(137, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 20:53:01', 'John Guard viewed the dashboard'),
+	(138, 1, 1, 'gatepass.checked_out', 'gatepass', 6, '{"user_id": 1, "_request": {"url": "/gatepasses/6/checkout", "method": "POST"}, "timestamp": "2026-04-21 20:53:07"}', '::1', '2026-04-21 20:53:07', 'Albert Masinde checked out gatepass '),
+	(139, 1, 1, 'gatepass.checked_out', 'gatepass', 6, '{"_request": {"url": "/gatepasses/6/checkout", "method": "POST"}, "target_label": "GPN-2026-0004"}', '::1', '2026-04-21 20:53:07', 'Albert Masinde checked out gatepass GPN-2026-0004'),
+	(140, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 20:53:07', 'Albert Masinde viewed the gatepass list'),
+	(141, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 20:53:12', 'John Guard viewed the dashboard'),
+	(142, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 20:53:27', 'John Guard viewed the gatepass list'),
+	(143, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 20:58:52', 'John Guard viewed the gatepass list'),
+	(144, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 20:59:08', 'Albert Masinde viewed the gatepass list'),
+	(145, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:03:01', 'John Guard viewed the gatepass list'),
+	(146, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:03:26', 'John Guard viewed the gatepass list'),
+	(147, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:03:30', 'Albert Masinde viewed the gatepass list'),
+	(148, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:03:31', 'Albert Masinde viewed the gatepass list'),
+	(149, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:03:32', 'Albert Masinde viewed the gatepass list'),
+	(150, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:03:33', 'Albert Masinde viewed the gatepass list'),
+	(151, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:03:33', 'Albert Masinde viewed the gatepass list'),
+	(152, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:03:35', 'Albert Masinde viewed the gatepass list'),
+	(153, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:04:24', 'John Guard viewed the gatepass list'),
+	(154, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:04:28', 'Albert Masinde viewed the gatepass list'),
+	(155, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:04:28', 'Albert Masinde viewed the gatepass list'),
+	(156, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:04:28', 'Albert Masinde viewed the gatepass list'),
+	(157, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:04:29', 'Albert Masinde viewed the gatepass list'),
+	(158, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:04:29', 'Albert Masinde viewed the gatepass list'),
+	(159, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:22:08', 'John Guard viewed the gatepass list'),
+	(160, 1, 2, 'user.logout', 'user', 2, '{"email": "security@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-21 21:22:11', 'John Guard logged out'),
+	(161, 1, 1, 'user.login', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-21 21:22:15', 'Albert Masinde logged in'),
+	(162, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 21:22:15', 'Albert Masinde viewed the dashboard'),
+	(163, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:22:17', 'Albert Masinde viewed the gatepass list'),
+	(164, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:22:42', 'Albert Masinde viewed the gatepass list'),
+	(165, 1, 1, 'user.logout', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-21 21:24:21', 'Albert Masinde logged out'),
+	(166, 1, 3, 'user.login', 'user', 3, '{"email": "gm@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-21 21:24:30', 'Jane Gm logged in'),
+	(167, 1, 3, 'dashboard.viewed', 'dashboard', 3, '{"email": "gm@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 21:24:30', 'Jane Gm viewed the dashboard'),
+	(168, 1, 3, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:24:34', 'Jane Gm viewed the gatepass list'),
+	(169, 1, 3, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:26:30', 'Jane Gm viewed the gatepass list'),
+	(170, 1, 3, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:27:37', 'Jane Gm viewed the gatepass list'),
+	(171, 1, 3, 'dashboard.viewed', 'dashboard', 3, '{"email": "gm@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 21:30:14', 'Jane Gm viewed the dashboard'),
+	(172, 1, 3, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:30:17', 'Jane Gm viewed the gatepass list'),
+	(173, 1, 3, 'user.logout', 'user', 3, '{"email": "gm@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-21 21:30:20', 'Jane Gm logged out'),
+	(174, 1, 3, 'user.login', 'user', 3, '{"email": "gm@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-21 21:30:21', 'Jane Gm logged in'),
+	(175, 1, 3, 'dashboard.viewed', 'dashboard', 3, '{"email": "gm@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 21:30:21', 'Jane Gm viewed the dashboard'),
+	(176, 1, 3, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:30:24', 'Jane Gm viewed the gatepass list'),
+	(177, 1, 3, 'user.logout', 'user', 3, '{"email": "gm@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-21 21:30:27', 'Jane Gm logged out'),
+	(178, 1, 1, 'user.login', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-21 21:30:32', 'Albert Masinde logged in'),
+	(179, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 21:30:32', 'Albert Masinde viewed the dashboard'),
+	(180, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:30:34', 'Albert Masinde viewed the gatepass list'),
+	(181, 1, 1, 'user.logout', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-21 21:30:37', 'Albert Masinde logged out'),
+	(182, 1, 4, 'user.login', 'user', 4, '{"email": "hod@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-21 21:30:40', 'Alice Anyango logged in'),
+	(183, 1, 4, 'dashboard.viewed', 'dashboard', 4, '{"email": "hod@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 21:30:41', 'Alice Anyango viewed the dashboard'),
+	(184, 1, 4, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:30:42', 'Alice Anyango viewed the gatepass list'),
+	(185, 1, 4, 'user.logout', 'user', 4, '{"email": "hod@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-21 21:30:48', 'Alice Anyango logged out'),
+	(186, 1, 2, 'user.login', 'user', 2, '{"email": "security@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-21 21:30:55', 'John Guard logged in'),
+	(187, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-21 21:30:55', 'John Guard viewed the dashboard'),
+	(188, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-21 21:30:56', 'John Guard viewed the gatepass list'),
+	(189, 1, 1, 'user.login', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-22 22:29:57', 'Albert Masinde logged in'),
+	(190, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-22 22:29:57', 'Albert Masinde viewed the dashboard'),
+	(191, 1, 1, 'user.logout', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-22 22:30:05', 'Albert Masinde logged out'),
+	(192, 1, 1, 'user.login', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-22 22:31:24', 'Albert Masinde logged in'),
+	(193, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-22 22:31:24', 'Albert Masinde viewed the dashboard'),
+	(194, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-22 22:32:45', 'Albert Masinde viewed the dashboard'),
+	(195, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-22 22:32:48', 'Albert Masinde viewed the gatepass list'),
+	(196, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-22 22:36:23', 'Albert Masinde viewed the gatepass list'),
+	(197, 1, 2, 'user.login', 'user', 2, '{"email": "security@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-23 14:28:49', 'John Guard logged in'),
+	(198, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 14:28:49', 'John Guard viewed the dashboard'),
+	(199, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-23 14:28:51', 'John Guard viewed the gatepass list'),
+	(200, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-23 14:29:41', 'John Guard viewed the gatepass list'),
+	(201, 1, 2, 'gatepass.created', 'gatepass', 7, '{"_request": {"url": "/gatepasses", "method": "POST"}, "needs_approval": true, "gatepass_number": "GPN-2026-0005"}', '::1', '2026-04-23 14:33:54', 'John Guard created gatepass '),
+	(202, 1, 2, 'gatepass.created', 'gatepass', 7, '{"_request": {"url": "/gatepasses", "method": "POST"}, "target_label": "Gatepass #7"}', '::1', '2026-04-23 14:33:54', 'John Guard created gatepass Gatepass #7'),
+	(203, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-23 14:33:54', 'John Guard viewed the gatepass list'),
+	(204, 1, 2, 'gatepass.viewed', 'gatepass', 7, '{"_request": {"url": "/gatepasses/7", "method": "GET"}, "target_label": "GPN-2026-0005"}', '::1', '2026-04-23 14:34:39', 'John Guard viewed gatepass GPN-2026-0005'),
+	(205, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-23 14:34:42', 'John Guard viewed the gatepass list'),
+	(206, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-23 15:08:46', 'John Guard viewed the gatepass list'),
+	(207, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-23 15:08:49', 'John Guard viewed the gatepass list'),
+	(208, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 15:08:53', 'John Guard viewed the dashboard'),
+	(209, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 15:09:49', 'John Guard viewed the dashboard'),
+	(210, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 15:09:54', 'John Guard viewed the dashboard'),
+	(211, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-23 15:09:56', 'John Guard viewed the gatepass list'),
+	(212, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-23 15:10:17', 'John Guard viewed the gatepass list'),
+	(213, 1, 2, 'gatepass.viewed', 'gatepass', 7, '{"_request": {"url": "/gatepasses/7", "method": "GET"}, "target_label": "GPN-2026-0005"}', '::1', '2026-04-23 15:10:19', 'John Guard viewed gatepass GPN-2026-0005'),
+	(214, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 15:10:30', 'John Guard viewed the dashboard'),
+	(215, 1, 2, 'user.logout', 'user', 2, '{"email": "security@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-23 15:16:02', 'John Guard logged out'),
+	(216, 1, 2, 'user.login', 'user', 2, '{"email": "security@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-23 15:16:09', 'John Guard logged in'),
+	(217, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 15:16:09', 'John Guard viewed the dashboard'),
+	(218, 1, 2, 'user.logout', 'user', 2, '{"email": "security@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-23 15:16:15', 'John Guard logged out'),
+	(219, 1, 2, 'user.login', 'user', 2, '{"email": "security@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-23 15:20:42', 'John Guard logged in'),
+	(220, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 15:20:42', 'John Guard viewed the dashboard'),
+	(221, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 15:22:02', 'John Guard viewed the dashboard'),
+	(222, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 15:35:05', 'John Guard viewed the dashboard'),
+	(223, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-23 15:35:12', 'John Guard viewed the gatepass list'),
+	(224, 1, 2, 'visit.badge_returned', 'visit', 1, '{"_request": {"url": "/badges/1/return", "method": "POST"}, "tenant_id": 1}', '::1', '2026-04-23 15:35:25', 'John Guard visit.badge_returned'),
+	(225, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 15:37:48', 'John Guard viewed the dashboard'),
+	(226, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 15:38:34', 'John Guard viewed the dashboard'),
+	(227, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 15:38:38', 'John Guard viewed the dashboard'),
+	(228, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 15:38:56', 'John Guard viewed the dashboard'),
+	(229, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 15:39:29', 'John Guard viewed the dashboard'),
+	(230, 1, 2, 'gatepass_type.updated_actions', 'gatepass_type', 1, '{"after": {"checkin": true, "checkout": true}, "before": {"checkin": false, "checkout": false}, "_request": {"url": "/settings/gatepass-types/update", "method": "POST"}}', '::1', '2026-04-23 17:50:04', 'John Guard gatepass_type.updated_actions'),
+	(231, 1, 2, 'gatepass_type.updated_actions', 'gatepass_type', 5, '{"after": {"checkin": true, "checkout": true}, "before": {"checkin": false, "checkout": false}, "_request": {"url": "/settings/gatepass-types/update", "method": "POST"}}', '::1', '2026-04-23 18:02:31', 'John Guard gatepass_type.updated_actions'),
+	(232, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-23 18:09:01', 'John Guard viewed the dashboard'),
+	(233, 1, 2, 'user.login', 'user', 2, '{"email": "security@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-24 17:46:33', 'John Guard logged in'),
+	(234, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-24 17:46:33', 'John Guard viewed the dashboard'),
+	(235, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-24 18:00:43', 'John Guard viewed the dashboard'),
+	(236, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-24 18:02:08', 'John Guard viewed the dashboard'),
+	(237, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-24 18:04:09', 'John Guard viewed the dashboard'),
+	(238, 1, 2, 'user.logout', 'user', 2, '{"email": "security@gmail.com", "_request": {"url": "/logout", "method": "POST"}}', '::1', '2026-04-24 18:04:12', 'John Guard logged out'),
+	(239, 1, 2, 'user.login', 'user', 2, '{"email": "security@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-24 18:04:14', 'John Guard logged in'),
+	(240, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-24 18:04:14', 'John Guard viewed the dashboard'),
+	(241, 1, 1, 'user.login', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '::1', '2026-04-24 18:05:46', 'Albert Masinde logged in'),
+	(242, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-24 18:05:46', 'Albert Masinde viewed the dashboard'),
+	(243, 1, 1, 'visitor.updated', 'visitor', 2, '{"_request": {"url": "/visitors/2/update", "method": "POST"}, "tenant_id": 1}', '::1', '2026-04-24 18:07:58', 'Albert Masinde visitor.updated'),
+	(244, 1, 1, 'visitor.blacklisted', 'visitor', 1, '{"_request": {"url": "/visitors/1/blacklist", "method": "POST"}, "tenant_id": 1}', '::1', '2026-04-24 18:08:15', 'Albert Masinde visitor.blacklisted'),
+	(245, 1, 1, 'visitor.unblacklisted', 'visitor', 1, '{"_request": {"url": "/visitors/1/unblacklist", "method": "POST"}, "tenant_id": 1}', '::1', '2026-04-24 18:09:37', 'Albert Masinde visitor.unblacklisted'),
+	(246, 1, 1, 'visitor.blacklisted', 'visitor', 2, '{"_request": {"url": "/visitors/2/blacklist", "method": "POST"}, "tenant_id": 1}', '::1', '2026-04-24 18:09:39', 'Albert Masinde visitor.blacklisted'),
+	(247, 1, 1, 'visitor.unblacklisted', 'visitor', 2, '{"_request": {"url": "/visitors/2/unblacklist", "method": "POST"}, "tenant_id": 1}', '::1', '2026-04-24 18:09:40', 'Albert Masinde visitor.unblacklisted'),
+	(248, 1, 1, 'visitor.created', 'visitor', 3, '{"name": "Peter Nyadera", "_request": {"url": "/visitors", "method": "POST"}, "id_number": "24965305", "tenant_id": 1}', '::1', '2026-04-24 18:11:44', 'Albert Masinde visitor.created'),
+	(249, 1, 1, 'visitor.created', 'visitor', 4, '{"name": "Denis Muthui", "_request": {"url": "/visitors", "method": "POST"}, "id_number": "238648937", "tenant_id": 1}', '::1', '2026-04-24 18:12:26', 'Albert Masinde visitor.created'),
+	(250, 1, 1, 'visitor.created', 'visitor', 5, '{"name": "Sam Nyanjui", "_request": {"url": "/visitors", "method": "POST"}, "id_number": "386593908", "tenant_id": 1}', '::1', '2026-04-24 18:13:48', 'Albert Masinde visitor.created'),
+	(251, 1, 1, 'visitor.blacklisted', 'visitor', 3, '{"_request": {"url": "/visitors/3/blacklist", "method": "POST"}, "tenant_id": 1}', '::1', '2026-04-24 18:14:19', 'Albert Masinde visitor.blacklisted'),
+	(252, 1, 1, 'visitor.unblacklisted', 'visitor', 3, '{"_request": {"url": "/visitors/3/unblacklist", "method": "POST"}, "tenant_id": 1}', '::1', '2026-04-24 18:14:20', 'Albert Masinde visitor.unblacklisted'),
+	(253, 1, 1, 'visitor.blacklisted', 'visitor', 5, '{"_request": {"url": "/visitors/5/blacklist", "method": "POST"}, "tenant_id": 1}', '::1', '2026-04-24 18:14:23', 'Albert Masinde visitor.blacklisted'),
+	(254, 1, 1, 'visitor.unblacklisted', 'visitor', 5, '{"_request": {"url": "/visitors/5/unblacklist", "method": "POST"}, "tenant_id": 1}', '::1', '2026-04-24 18:14:23', 'Albert Masinde visitor.unblacklisted'),
+	(255, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-24 18:44:42', 'John Guard viewed the dashboard'),
+	(256, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-24 18:44:43', 'John Guard viewed the gatepass list'),
+	(257, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-24 18:45:31', 'John Guard viewed the gatepass list'),
+	(258, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-24 18:45:33', 'John Guard viewed the gatepass list'),
+	(259, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-24 18:45:33', 'John Guard viewed the gatepass list'),
+	(260, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-24 18:46:05', 'John Guard viewed the gatepass list'),
+	(261, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-24 18:46:06', 'John Guard viewed the gatepass list'),
+	(262, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-24 18:46:06', 'John Guard viewed the gatepass list'),
+	(263, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-24 18:46:06', 'John Guard viewed the gatepass list'),
+	(264, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-24 18:48:00', 'John Guard viewed the gatepass list'),
+	(265, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-24 21:10:29', 'John Guard viewed the dashboard'),
+	(266, 1, 2, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '::1', '2026-04-24 21:12:58', 'John Guard viewed the gatepass list'),
+	(267, 1, 2, 'dashboard.viewed', 'dashboard', 2, '{"email": "security@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '::1', '2026-04-24 21:17:11', 'John Guard viewed the dashboard'),
+	(268, 1, 2, 'department.created', 'department', 7, '{"name": "Front Office", "_request": {"url": "/settings/departments/create", "method": "POST"}}', '::1', '2026-04-24 21:23:44', 'John Guard created department '),
+	(269, 1, 2, 'department.created', 'department', 8, '{"name": "Front Office", "_request": {"url": "/settings/departments/create", "method": "POST"}}', '::1', '2026-04-24 21:25:23', 'John Guard created department '),
+	(270, 1, 2, 'department.created', 'department', 9, '{"name": "Front Office", "_request": {"url": "/settings/departments/create", "method": "POST"}}', '::1', '2026-04-24 21:29:03', 'John Guard created department '),
+	(271, 1, 2, 'department.deleted', 'department', 9, '{"name": "Front Office", "_request": {"url": "/settings/departments/delete", "method": "POST"}}', '::1', '2026-04-24 21:34:52', 'John Guard deleted department '),
+	(272, 1, NULL, 'user.login_failed', 'auth', NULL, '{"email": "alumasinde@gmail.com", "reason": "invalid_credentials", "_request": {"url": "/login", "method": "POST"}}', '127.0.0.1', '2026-05-05 15:21:43', 'Failed login attempt for System'),
+	(273, 1, 1, 'user.login', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '127.0.0.1', '2026-05-05 15:21:58', 'Albert Masinde logged in'),
+	(274, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '127.0.0.1', '2026-05-05 15:21:58', 'Albert Masinde viewed the dashboard'),
+	(275, 1, 1, 'user.login', 'user', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/login", "method": "POST"}}', '127.0.0.1', '2026-07-02 17:03:31', 'Albert Masinde logged in'),
+	(276, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '127.0.0.1', '2026-07-02 17:03:31', 'Albert Masinde viewed the dashboard'),
+	(277, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '127.0.0.1', '2026-07-02 17:03:41', 'Albert Masinde viewed the dashboard'),
+	(278, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '127.0.0.1', '2026-07-02 17:03:42', 'Albert Masinde viewed the gatepass list'),
+	(279, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '127.0.0.1', '2026-07-02 17:04:00', 'Albert Masinde viewed the gatepass list'),
+	(280, 1, 1, 'gatepass.list_viewed', 'gatepass', NULL, '{"_request": {"url": "/gatepasses", "method": "GET"}}', '127.0.0.1', '2026-07-02 17:04:10', 'Albert Masinde viewed the gatepass list'),
+	(281, 1, 1, 'dashboard.viewed', 'dashboard', 1, '{"email": "alumasinde@gmail.com", "_request": {"url": "/dashboard", "method": "GET"}}', '127.0.0.1', '2026-07-02 17:04:11', 'Albert Masinde viewed the dashboard');
 
 -- Dumping structure for table glee_live.departments
 CREATE TABLE IF NOT EXISTS `departments` (
@@ -187,12 +360,12 @@ CREATE TABLE IF NOT EXISTS `departments` (
   KEY `idx_depts_tenant` (`tenant_id`),
   KEY `idx_depts_tenant_active` (`tenant_id`,`is_active`),
   CONSTRAINT `fk_depts_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.departments: ~6 rows (approximately)
-INSERT IGNORE INTO `departments` (`id`, `tenant_id`, `name`, `code`, `is_active`, `created_at`) VALUES
+REPLACE INTO `departments` (`id`, `tenant_id`, `name`, `code`, `is_active`, `created_at`) VALUES
 	(1, 1, 'Reception', 'REC', 1, '2026-04-08 19:29:16'),
-	(2, 1, 'Information Technology', 'IT', 1, '2026-04-08 19:29:16'),
+	(2, 1, 'Information Communication Technology', 'IT', 1, '2026-04-08 19:29:16'),
 	(3, 1, 'Finance', 'FIN', 1, '2026-04-08 19:29:16'),
 	(4, 1, 'Human Resources', 'HR', 1, '2026-04-08 19:29:16'),
 	(5, 1, 'Security', 'SEC', 1, '2026-04-08 19:29:16'),
@@ -243,16 +416,17 @@ CREATE TABLE IF NOT EXISTS `gatepasses` (
   CONSTRAINT `fk_gatepass_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_gatepass_type` FOREIGN KEY (`gatepass_type_id`, `tenant_id`) REFERENCES `gatepass_types` (`id`, `tenant_id`) ON DELETE CASCADE,
   CONSTRAINT `fk_gatepass_visit` FOREIGN KEY (`visit_id`, `tenant_id`) REFERENCES `visits` (`id`, `tenant_id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table glee_live.gatepasses: ~5 rows (approximately)
-INSERT IGNORE INTO `gatepasses` (`id`, `tenant_id`, `visit_id`, `gatepass_type_id`, `gatepass_number`, `status_id`, `department_id`, `checked_in_by`, `checked_out_by`, `actual_in`, `actual_out`, `created_by`, `created_at`, `purpose`, `is_returnable`, `expected_return_date`, `actual_return_date`, `is_fully_returned`, `needs_approval`) VALUES
+-- Dumping data for table glee_live.gatepasses: ~7 rows (approximately)
+REPLACE INTO `gatepasses` (`id`, `tenant_id`, `visit_id`, `gatepass_type_id`, `gatepass_number`, `status_id`, `department_id`, `checked_in_by`, `checked_out_by`, `actual_in`, `actual_out`, `created_by`, `created_at`, `purpose`, `is_returnable`, `expected_return_date`, `actual_return_date`, `is_fully_returned`, `needs_approval`) VALUES
 	(1, 1, NULL, 3, '0000', 5, 2, 1, 1, '2026-04-09 16:45:29', '2026-04-09 16:45:32', 1, '2026-04-08 20:38:22', 'Test Gate Pass', 0, '2026-04-10 00:00:00', NULL, 0, 0),
 	(2, 1, NULL, 4, '0001', 5, 2, 1, 1, '2026-04-09 16:45:26', '2026-04-09 16:45:31', 1, '2026-04-08 22:04:35', 'Test', 1, '2026-04-10 00:00:00', NULL, 0, 0),
 	(3, 1, NULL, 4, '0002', 5, 2, 1, 1, '2026-04-09 20:30:32', '2026-04-09 20:31:19', 1, '2026-04-08 22:13:52', 'Test Update', 1, '2026-04-10 00:00:00', NULL, 0, 1),
-	(4, 1, NULL, 4, '0003', 5, 2, 1, 1, '2026-04-09 20:30:31', '2026-04-09 20:31:18', 1, '2026-04-08 22:23:48', 'Test', 1, '2026-04-10 00:00:00', NULL, 0, 1),
+	(4, 1, NULL, 4, '0003', 5, 5, 1, 1, '2026-04-09 20:30:31', '2026-04-09 20:31:18', 1, '2026-04-08 22:23:48', 'Test', 1, '2026-04-10 00:00:00', NULL, 0, 1),
 	(5, 1, NULL, 4, 'GPN-2026-0003', 5, 2, 1, 1, '2026-04-09 20:30:29', '2026-04-09 20:31:16', 1, '2026-04-08 22:28:54', 'Test Latest Changes', 1, '2026-04-10 00:00:00', NULL, 0, 1),
-	(6, 1, 1, 4, 'GPN-2026-0004', 1, 2, NULL, NULL, NULL, NULL, 1, '2026-04-11 15:26:22', 'Test Changes', 0, '2026-04-14 00:00:00', NULL, 0, 1);
+	(6, 1, 1, 4, 'GPN-2026-0004', 5, 2, 1, 1, '2026-04-21 20:52:56', '2026-04-21 20:53:07', 1, '2026-04-11 15:26:22', 'Test Changes', 0, '2026-04-14 00:00:00', NULL, 0, 1),
+	(7, 1, 1, 4, 'GPN-2026-0005', 2, 5, NULL, NULL, NULL, NULL, 2, '2026-04-23 14:33:54', 'Test', 1, '2026-04-29 00:00:00', NULL, 0, 1);
 
 -- Dumping structure for table glee_live.gatepass_approvals
 CREATE TABLE IF NOT EXISTS `gatepass_approvals` (
@@ -278,10 +452,10 @@ CREATE TABLE IF NOT EXISTS `gatepass_approvals` (
   CONSTRAINT `fk_ga_step` FOREIGN KEY (`workflow_step_id`, `tenant_id`) REFERENCES `workflow_steps` (`id`, `tenant_id`) ON DELETE RESTRICT,
   CONSTRAINT `fk_ga_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_ga_user` FOREIGN KEY (`approver_user_id`, `tenant_id`) REFERENCES `users` (`id`, `tenant_id`) ON DELETE RESTRICT
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table glee_live.gatepass_approvals: ~9 rows (approximately)
-INSERT IGNORE INTO `gatepass_approvals` (`id`, `tenant_id`, `workflow_instance_id`, `workflow_step_id`, `approver_user_id`, `status`, `comments`, `acted_at`, `created_at`) VALUES
+-- Dumping data for table glee_live.gatepass_approvals: ~15 rows (approximately)
+REPLACE INTO `gatepass_approvals` (`id`, `tenant_id`, `workflow_instance_id`, `workflow_step_id`, `approver_user_id`, `status`, `comments`, `acted_at`, `created_at`) VALUES
 	(1, 1, 1, 1, 4, 'approved', NULL, '2026-04-09 20:23:58', '2026-04-08 22:13:52'),
 	(2, 1, 2, 1, 4, 'approved', NULL, '2026-04-09 20:23:53', '2026-04-08 22:23:48'),
 	(3, 1, 3, 1, 4, 'approved', NULL, '2026-04-09 20:23:49', '2026-04-08 22:28:54'),
@@ -291,7 +465,12 @@ INSERT IGNORE INTO `gatepass_approvals` (`id`, `tenant_id`, `workflow_instance_i
 	(7, 1, 3, 3, 1, 'approved', NULL, '2026-04-09 20:29:21', '2026-04-09 20:27:11'),
 	(8, 1, 2, 3, 1, 'approved', NULL, '2026-04-09 20:29:39', '2026-04-09 20:27:15'),
 	(9, 1, 1, 3, 1, 'approved', NULL, '2026-04-09 20:29:41', '2026-04-09 20:27:17'),
-	(10, 1, 4, 1, 4, 'pending', NULL, NULL, '2026-04-11 15:26:22');
+	(10, 1, 4, 1, 4, 'approved', NULL, '2026-04-21 20:45:29', '2026-04-11 15:26:22'),
+	(11, 1, 4, 2, 2, 'approved', NULL, '2026-04-21 20:45:52', '2026-04-21 20:45:29'),
+	(12, 1, 4, 3, 1, 'approved', NULL, '2026-04-21 20:46:13', '2026-04-21 20:45:52'),
+	(13, 1, 5, 1, 2, 'approved', NULL, '2026-04-23 15:39:06', '2026-04-23 14:33:54'),
+	(14, 1, 5, 2, 2, 'approved', NULL, '2026-04-23 15:39:24', '2026-04-23 15:39:06'),
+	(15, 1, 5, 3, 1, 'approved', NULL, '2026-05-05 15:22:07', '2026-04-23 15:39:24');
 
 -- Dumping structure for table glee_live.gatepass_items
 CREATE TABLE IF NOT EXISTS `gatepass_items` (
@@ -312,16 +491,17 @@ CREATE TABLE IF NOT EXISTS `gatepass_items` (
   KEY `idx_gi_serial` (`tenant_id`,`serial_number`),
   CONSTRAINT `fk_gi_gatepass` FOREIGN KEY (`gatepass_id`, `tenant_id`) REFERENCES `gatepasses` (`id`, `tenant_id`) ON DELETE CASCADE,
   CONSTRAINT `fk_gi_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table glee_live.gatepass_items: ~4 rows (approximately)
-INSERT IGNORE INTO `gatepass_items` (`id`, `tenant_id`, `gatepass_id`, `item_name`, `description`, `quantity`, `serial_number`, `is_returnable`, `returned_quantity`, `created_at`) VALUES
+-- Dumping data for table glee_live.gatepass_items: ~7 rows (approximately)
+REPLACE INTO `gatepass_items` (`id`, `tenant_id`, `gatepass_id`, `item_name`, `description`, `quantity`, `serial_number`, `is_returnable`, `returned_quantity`, `created_at`) VALUES
 	(1, 1, 1, 'HP Laptop', 'HP Laptop Test', 1, 'DDPE84NFI4', 0, 0, '2026-04-08 17:38:22'),
 	(2, 1, 2, 'Kyocera Printer', 'Kyocera Printer going for repair', 1, 'DJ349DSN4', 0, 0, '2026-04-08 19:04:35'),
 	(3, 1, 3, 'Dell Laptop', 'Going to work at home', 1, 'FKJE9RHKNO', 0, 0, '2026-04-08 19:13:52'),
 	(4, 1, 4, 'Samsung 85 inch TV', 'Going for Out event', 1, 'LJDEN083403UJ', 0, 0, '2026-04-08 19:23:48'),
 	(5, 1, 5, 'Samsung Phone', 'Samsung phone going for screen repair', 1, 'RJ0354RDF0EN', 0, 0, '2026-04-08 19:28:54'),
-	(6, 1, 6, 'Dell Laptop', 'Laptop Test', 1, 'FKJE9RHKNO', 0, 0, '2026-04-11 12:26:22');
+	(6, 1, 6, 'Dell Laptop', 'Laptop Test', 1, 'FKJE9RHKNO', 0, 0, '2026-04-11 12:26:22'),
+	(7, 1, 7, 'Kyocera Printer', 'Kyocera Printer going for repair', 1, 'FKJE9RHKNO', 0, 0, '2026-04-23 11:33:54');
 
 -- Dumping structure for table glee_live.gatepass_statuses
 CREATE TABLE IF NOT EXISTS `gatepass_statuses` (
@@ -338,7 +518,7 @@ CREATE TABLE IF NOT EXISTS `gatepass_statuses` (
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.gatepass_statuses: ~7 rows (approximately)
-INSERT IGNORE INTO `gatepass_statuses` (`id`, `tenant_id`, `name`, `code`) VALUES
+REPLACE INTO `gatepass_statuses` (`id`, `tenant_id`, `name`, `code`) VALUES
 	(1, 1, 'Pending', 'pending'),
 	(2, 1, 'Approved', 'approved'),
 	(3, 1, 'Rejected', 'rejected'),
@@ -370,12 +550,12 @@ CREATE TABLE IF NOT EXISTS `gatepass_types` (
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.gatepass_types: ~6 rows (approximately)
-INSERT IGNORE INTO `gatepass_types` (`id`, `tenant_id`, `name`, `type_code`, `description`, `is_active`, `created_at`, `workflow_id`, `allowed_actions`) VALUES
-	(1, 1, 'Visitor Pass', 'VISITOR', 'Standard visitor entry pass', 1, '2026-04-08 19:29:16', NULL, NULL),
+REPLACE INTO `gatepass_types` (`id`, `tenant_id`, `name`, `type_code`, `description`, `is_active`, `created_at`, `workflow_id`, `allowed_actions`) VALUES
+	(1, 1, 'Visitor Pass', 'VISITOR', 'Standard visitor entry pass', 1, '2026-04-08 19:29:16', NULL, '{"checkin": true, "checkout": true}'),
 	(2, 1, 'Contractor Pass', 'CONTRACTOR', 'Pass for contracted workers', 1, '2026-04-08 19:29:16', 1, NULL),
 	(3, 1, 'Delivery Pass', 'DELIVERY', 'Inbound/outbound delivery pass', 1, '2026-04-08 19:29:16', NULL, NULL),
 	(4, 1, 'Equipment Out', 'EQUIP_OUT', 'Pass for equipment leaving premises', 1, '2026-04-08 19:29:16', 1, NULL),
-	(5, 1, 'Vehicle Pass', 'VEHICLE', 'Vehicle entry/exit pass', 1, '2026-04-08 19:29:16', NULL, NULL),
+	(5, 1, 'Vehicle Pass', 'VEHICLE', 'Vehicle entry/exit pass', 1, '2026-04-08 19:29:16', NULL, '{"checkin": true, "checkout": true}'),
 	(6, 1, 'Temporary Staff', 'TEMP_STAFF', 'Temporary staff access pass', 1, '2026-04-08 19:29:16', 1, NULL);
 
 -- Dumping structure for table glee_live.gatepass_workflow_instances
@@ -399,14 +579,15 @@ CREATE TABLE IF NOT EXISTS `gatepass_workflow_instances` (
   CONSTRAINT `fk_gwi_gatepass` FOREIGN KEY (`gatepass_id`, `tenant_id`) REFERENCES `gatepasses` (`id`, `tenant_id`) ON DELETE CASCADE,
   CONSTRAINT `fk_gwi_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_gwi_workflow` FOREIGN KEY (`workflow_id`, `tenant_id`) REFERENCES `workflows` (`id`, `tenant_id`) ON DELETE RESTRICT
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table glee_live.gatepass_workflow_instances: ~3 rows (approximately)
-INSERT IGNORE INTO `gatepass_workflow_instances` (`id`, `tenant_id`, `gatepass_id`, `workflow_id`, `current_step_order`, `status`, `started_at`, `completed_at`) VALUES
+-- Dumping data for table glee_live.gatepass_workflow_instances: ~5 rows (approximately)
+REPLACE INTO `gatepass_workflow_instances` (`id`, `tenant_id`, `gatepass_id`, `workflow_id`, `current_step_order`, `status`, `started_at`, `completed_at`) VALUES
 	(1, 1, 3, 1, 3, 'approved', '2026-04-08 22:13:52', '2026-04-09 20:29:41'),
 	(2, 1, 4, 1, 3, 'approved', '2026-04-08 22:23:48', '2026-04-09 20:29:39'),
 	(3, 1, 5, 1, 3, 'approved', '2026-04-08 22:28:54', '2026-04-09 20:29:21'),
-	(4, 1, 6, 1, 1, 'in_progress', '2026-04-11 15:26:22', NULL);
+	(4, 1, 6, 1, 3, 'approved', '2026-04-11 15:26:22', '2026-04-21 20:46:13'),
+	(5, 1, 7, 1, 3, 'approved', '2026-04-23 14:33:54', '2026-05-05 15:22:07');
 
 -- Dumping structure for table glee_live.identification_types
 CREATE TABLE IF NOT EXISTS `identification_types` (
@@ -421,7 +602,7 @@ CREATE TABLE IF NOT EXISTS `identification_types` (
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.identification_types: ~5 rows (approximately)
-INSERT IGNORE INTO `identification_types` (`id`, `tenant_id`, `name`) VALUES
+REPLACE INTO `identification_types` (`id`, `tenant_id`, `name`) VALUES
 	(1, 1, 'National ID'),
 	(2, 1, 'Passport'),
 	(3, 1, 'Driving Licence'),
@@ -434,10 +615,10 @@ CREATE TABLE IF NOT EXISTS `modules` (
   `name` varchar(120) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_module_name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=4498 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5562 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.modules: ~15 rows (approximately)
-INSERT IGNORE INTO `modules` (`id`, `name`) VALUES
+REPLACE INTO `modules` (`id`, `name`) VALUES
 	(1, 'gatepasses'),
 	(2, 'visits'),
 	(3, 'visitors'),
@@ -464,10 +645,10 @@ CREATE TABLE IF NOT EXISTS `permissions` (
   KEY `idx_perm_module` (`module_id`),
   CONSTRAINT `fk_perm_action` FOREIGN KEY (`action_id`) REFERENCES `actions` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_perm_module` FOREIGN KEY (`module_id`) REFERENCES `modules` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=14230 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=17574 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.permissions: ~106 rows (approximately)
-INSERT IGNORE INTO `permissions` (`id`, `action_id`, `module_id`) VALUES
+REPLACE INTO `permissions` (`id`, `action_id`, `module_id`) VALUES
 	(1, 1, 7),
 	(2, 3, 7),
 	(3, 6, 7),
@@ -588,12 +769,12 @@ CREATE TABLE IF NOT EXISTS `roles` (
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.roles: ~5 rows (approximately)
-INSERT IGNORE INTO `roles` (`id`, `tenant_id`, `name`) VALUES
-	(1, 1, 'Super Admin'),
+REPLACE INTO `roles` (`id`, `tenant_id`, `name`) VALUES
+	(1, 1, 'admin'),
 	(2, 1, 'Security Officer'),
 	(3, 1, 'Receptionist'),
 	(4, 1, 'Department Head'),
-	(5, 1, 'Approver');
+	(5, 1, 'General Manager');
 
 -- Dumping structure for table glee_live.role_permissions
 CREATE TABLE IF NOT EXISTS `role_permissions` (
@@ -610,8 +791,8 @@ CREATE TABLE IF NOT EXISTS `role_permissions` (
   CONSTRAINT `fk_rp_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table glee_live.role_permissions: ~227 rows (approximately)
-INSERT IGNORE INTO `role_permissions` (`role_id`, `tenant_id`, `permission_id`) VALUES
+-- Dumping data for table glee_live.role_permissions: ~234 rows (approximately)
+REPLACE INTO `role_permissions` (`role_id`, `tenant_id`, `permission_id`) VALUES
 	(1, 1, 1),
 	(1, 1, 2),
 	(1, 1, 3),
@@ -810,13 +991,17 @@ INSERT IGNORE INTO `role_permissions` (`role_id`, `tenant_id`, `permission_id`) 
 	(4, 1, 84),
 	(4, 1, 90),
 	(5, 1, 1),
+	(5, 1, 2),
 	(5, 1, 3),
+	(5, 1, 7),
+	(5, 1, 8),
 	(5, 1, 9),
 	(5, 1, 10),
 	(5, 1, 12),
 	(5, 1, 18),
 	(5, 1, 19),
 	(5, 1, 21),
+	(5, 1, 26),
 	(5, 1, 27),
 	(5, 1, 28),
 	(5, 1, 30),
@@ -838,7 +1023,10 @@ INSERT IGNORE INTO `role_permissions` (`role_id`, `tenant_id`, `permission_id`) 
 	(5, 1, 81),
 	(5, 1, 82),
 	(5, 1, 84),
-	(5, 1, 90);
+	(5, 1, 90),
+	(5, 1, 130),
+	(5, 1, 131),
+	(5, 1, 133);
 
 -- Dumping structure for table glee_live.sessions
 CREATE TABLE IF NOT EXISTS `sessions` (
@@ -867,9 +1055,9 @@ CREATE TABLE IF NOT EXISTS `tenants` (
   UNIQUE KEY `uk_tenant_code` (`code`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table glee_live.tenants: ~1 rows (approximately)
-INSERT IGNORE INTO `tenants` (`id`, `name`, `code`, `logo`, `email`, `phone`, `country`, `is_active`, `created_at`, `updated_at`) VALUES
-	(1, 'Glee Demo', 'glee', 'acme-logo.png', 'admin@glee.com', '+254700000000', 'Kenya', 1, '2026-04-08 19:29:15', '2026-04-09 22:20:05');
+-- Dumping data for table glee_live.tenants: ~0 rows (approximately)
+REPLACE INTO `tenants` (`id`, `name`, `code`, `logo`, `email`, `phone`, `country`, `is_active`, `created_at`, `updated_at`) VALUES
+	(1, 'Glee Demo', 'gpms', 'acme-logo.png', 'admin@glee.com', '+254700000000', 'Kenya', 1, '2026-04-08 19:29:15', '2026-05-05 15:21:34');
 
 -- Dumping structure for table glee_live.tenant_settings
 CREATE TABLE IF NOT EXISTS `tenant_settings` (
@@ -886,8 +1074,8 @@ CREATE TABLE IF NOT EXISTS `tenant_settings` (
 ) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.tenant_settings: ~3 rows (approximately)
-INSERT IGNORE INTO `tenant_settings` (`id`, `tenant_id`, `setting_key`, `config_json`, `setting_value`, `updated_at`) VALUES
-	(1, 1, 'gatepass_numbering', '{"prefix": "GPN", "padding": 4, "sequence": 5, "current_year": "2026", "include_year": true, "reset_yearly": true, "include_month": false}', '{"last_seq": 0, "sequence": 4}', '2026-04-08 19:22:51'),
+REPLACE INTO `tenant_settings` (`id`, `tenant_id`, `setting_key`, `config_json`, `setting_value`, `updated_at`) VALUES
+	(1, 1, 'gatepass_numbering', '{"prefix": "GPN", "padding": 4, "sequence": 6, "current_year": "2026", "include_year": true, "reset_yearly": true, "include_month": false}', '{"last_seq": 0, "sequence": 4}', '2026-04-08 19:22:51'),
 	(2, 1, 'badge_expiry_hours', '{"max": 72, "min": 1, "type": "number"}', '{"value": 8}', NULL),
 	(3, 1, 'auto_checkout_hours', '{"max": 24, "min": 1, "type": "number"}', '{"value": 12}', NULL);
 
@@ -923,10 +1111,10 @@ CREATE TABLE IF NOT EXISTS `users` (
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.users: ~6 rows (approximately)
-INSERT IGNORE INTO `users` (`id`, `tenant_id`, `email`, `password_hash`, `first_name`, `last_name`, `username`, `is_active`, `is_admin`, `created_at`, `updated_at`, `reset_token`, `reset_expires`, `department_id`) VALUES
+REPLACE INTO `users` (`id`, `tenant_id`, `email`, `password_hash`, `first_name`, `last_name`, `username`, `is_active`, `is_admin`, `created_at`, `updated_at`, `reset_token`, `reset_expires`, `department_id`) VALUES
 	(1, 1, 'alumasinde@gmail.com', '$2y$10$9dbXPBzS8s4.cix8jf9Zruq8YlgWotbSP14VdwWoJF3IOaEv28V3e', 'Albert', 'Masinde', 'alumasinde', 1, 1, '2026-04-08 19:29:16', '2026-04-09 16:55:12', NULL, NULL, 2),
 	(2, 1, 'security@gmail.com', '$2y$10$PHduosarn3mz9uzWRH4bNuUgFjWRyBCpgL9RwVVoPAGzBw03FFNT2', 'John', 'Guard', 'jguard', 1, 0, '2026-04-08 19:29:16', '2026-04-09 20:25:28', NULL, NULL, 5),
-	(3, 1, 'reception@acme.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Jane', 'Desk', 'jdesk', 1, 0, '2026-04-08 19:29:16', NULL, NULL, NULL, 1),
+	(3, 1, 'gm@gmail.com', '$2y$10$IxSLy5NQSDVOsu7EOs4X2O5LJoKrUwk7Qcq2PTdlGWhh8vVxCw49.', 'Jane', 'Gm', 'jdesk', 1, 0, '2026-04-08 19:29:16', '2026-04-21 21:24:15', NULL, NULL, 1),
 	(4, 1, 'hod@gmail.com', '$2y$10$bZ/nVOar2FMmkxlCzCKT9OA40Hgi8C9J5N2MO8uia8Nqaa/yDI4i6', 'Alice', 'Anyango', 'atech', 1, 0, '2026-04-08 19:29:16', '2026-04-09 20:23:30', NULL, NULL, 2),
 	(5, 1, 'finance.head@acme.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Bob', 'Funds', 'bfunds', 1, 0, '2026-04-08 19:29:16', NULL, NULL, NULL, 3),
 	(6, 1, 'hr.head@acme.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Carol', 'People', 'cpeople', 1, 0, '2026-04-08 19:29:16', NULL, NULL, NULL, 4);
@@ -967,15 +1155,14 @@ CREATE TABLE IF NOT EXISTS `user_roles` (
   CONSTRAINT `fk_ur_user` FOREIGN KEY (`user_id`, `tenant_id`) REFERENCES `users` (`id`, `tenant_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table glee_live.user_roles: ~8 rows (approximately)
-INSERT IGNORE INTO `user_roles` (`user_id`, `role_id`, `tenant_id`) VALUES
+-- Dumping data for table glee_live.user_roles: ~7 rows (approximately)
+REPLACE INTO `user_roles` (`user_id`, `role_id`, `tenant_id`) VALUES
 	(1, 1, 1),
 	(2, 2, 1),
-	(3, 3, 1),
+	(2, 4, 1),
+	(3, 5, 1),
 	(4, 4, 1),
-	(4, 5, 1),
 	(5, 4, 1),
-	(5, 5, 1),
 	(6, 4, 1);
 
 -- Dumping structure for table glee_live.visitors
@@ -1005,12 +1192,15 @@ CREATE TABLE IF NOT EXISTS `visitors` (
   CONSTRAINT `fk_visitors_company` FOREIGN KEY (`company_id`, `tenant_id`) REFERENCES `visitor_companies` (`id`, `tenant_id`) ON DELETE CASCADE,
   CONSTRAINT `fk_visitors_id_type` FOREIGN KEY (`id_type_id`, `tenant_id`) REFERENCES `identification_types` (`id`, `tenant_id`) ON DELETE CASCADE,
   CONSTRAINT `fk_visitors_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table glee_live.visitors: ~0 rows (approximately)
-INSERT IGNORE INTO `visitors` (`id`, `tenant_id`, `first_name`, `last_name`, `id_type_id`, `id_number`, `phone`, `email`, `company_id`, `risk_score`, `is_blacklisted`, `created_at`, `created_by`) VALUES
-	(1, 1, 'Amos', 'Barasa', 1, '404147595', '0758465475', 'amosbarasa@gmail.com', 1, 10, 0, '2026-04-09 16:46:46', 0),
-	(2, 1, 'Christina', 'Maumo', 1, '2864946209', '07473096493', 'cmaumo@gmail.com', 1, 10, 0, '2026-04-11 16:43:52', 0);
+-- Dumping data for table glee_live.visitors: ~5 rows (approximately)
+REPLACE INTO `visitors` (`id`, `tenant_id`, `first_name`, `last_name`, `id_type_id`, `id_number`, `phone`, `email`, `company_id`, `risk_score`, `is_blacklisted`, `created_at`, `created_by`) VALUES
+	(1, 1, 'Amos', 'Barasa', 1, '404147595', '0758465475', 'amosbarasa@gmail.com', 1, 0, 0, '2026-04-09 16:46:46', 0),
+	(2, 1, 'Christina', 'Maumo', 1, '6654', '07473096493', 'cmaumo@gmail.com', 1, 0, 0, '2026-04-11 16:43:52', 0),
+	(3, 1, 'Peter', 'Nyadera', 1, '24965305', '0757394637', 'pnyadera@gmail.com', 2, 0, 0, '2026-04-24 18:11:44', 0),
+	(4, 1, 'Denis', 'Muthui', 1, '238648937', '0734638462', 'dmuthui@gmail.com', 2, 0, 0, '2026-04-24 18:12:26', 0),
+	(5, 1, 'Sam', 'Nyanjui', 1, '386593908', NULL, 'snyanjui@gmail.com', 3, 0, 0, '2026-04-24 18:13:48', 0);
 
 -- Dumping structure for table glee_live.visitor_companies
 CREATE TABLE IF NOT EXISTS `visitor_companies` (
@@ -1024,11 +1214,13 @@ CREATE TABLE IF NOT EXISTS `visitor_companies` (
   UNIQUE KEY `uk_vc_tenant_id` (`id`,`tenant_id`),
   KEY `idx_vc_tenant` (`tenant_id`),
   CONSTRAINT `fk_vc_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table glee_live.visitor_companies: ~0 rows (approximately)
-INSERT IGNORE INTO `visitor_companies` (`id`, `tenant_id`, `name`, `created_at`, `updated_at`) VALUES
-	(1, 1, 'AmoHub Limited', '2026-04-09 16:46:46', NULL);
+-- Dumping data for table glee_live.visitor_companies: ~3 rows (approximately)
+REPLACE INTO `visitor_companies` (`id`, `tenant_id`, `name`, `created_at`, `updated_at`) VALUES
+	(1, 1, 'AmoHub Limited', '2026-04-09 16:46:46', NULL),
+	(2, 1, 'PN Technologies', '2026-04-24 18:11:44', NULL),
+	(3, 1, 'SM Logistics', '2026-04-24 18:13:48', NULL);
 
 -- Dumping structure for table glee_live.visitor_watchlist
 CREATE TABLE IF NOT EXISTS `visitor_watchlist` (
@@ -1088,8 +1280,8 @@ CREATE TABLE IF NOT EXISTS `visits` (
   CONSTRAINT `fk_visits_visitor` FOREIGN KEY (`visitor_id`, `tenant_id`) REFERENCES `visitors` (`id`, `tenant_id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table glee_live.visits: ~1 rows (approximately)
-INSERT IGNORE INTO `visits` (`id`, `tenant_id`, `department_id`, `visitor_id`, `host_user_id`, `visit_type_id`, `visit_status_id`, `purpose`, `expected_in`, `expected_out`, `checkin_time`, `checkout_time`, `created_by`, `created_at`, `updated_at`) VALUES
+-- Dumping data for table glee_live.visits: ~0 rows (approximately)
+REPLACE INTO `visits` (`id`, `tenant_id`, `department_id`, `visitor_id`, `host_user_id`, `visit_type_id`, `visit_status_id`, `purpose`, `expected_in`, `expected_out`, `checkin_time`, `checkout_time`, `created_by`, `created_at`, `updated_at`) VALUES
 	(1, 1, 2, 1, 1, 1, 2, 'Test Visit', '2026-04-09 17:00:00', '2026-04-09 19:30:00', '2026-04-09 16:48:20', NULL, 1, '2026-04-09 16:47:46', '2026-04-09 16:48:20');
 
 -- Dumping structure for table glee_live.visit_badges
@@ -1111,8 +1303,8 @@ CREATE TABLE IF NOT EXISTS `visit_badges` (
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.visit_badges: ~0 rows (approximately)
-INSERT IGNORE INTO `visit_badges` (`id`, `tenant_id`, `visit_id`, `badge_code`, `is_active`, `printed_at`, `returned_at`) VALUES
-	(1, 1, 1, 'BDG-B07D702C', 1, '2026-04-09 16:48:25', NULL);
+REPLACE INTO `visit_badges` (`id`, `tenant_id`, `visit_id`, `badge_code`, `is_active`, `printed_at`, `returned_at`) VALUES
+	(1, 1, 1, 'BDG-B07D702C', 0, '2026-04-09 16:48:25', '2026-04-23 15:35:25');
 
 -- Dumping structure for table glee_live.visit_statuses
 CREATE TABLE IF NOT EXISTS `visit_statuses` (
@@ -1129,7 +1321,7 @@ CREATE TABLE IF NOT EXISTS `visit_statuses` (
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.visit_statuses: ~5 rows (approximately)
-INSERT IGNORE INTO `visit_statuses` (`id`, `tenant_id`, `name`, `code`) VALUES
+REPLACE INTO `visit_statuses` (`id`, `tenant_id`, `name`, `code`) VALUES
 	(1, 1, 'Scheduled', 'scheduled'),
 	(2, 1, 'Checked In', 'checked_in'),
 	(3, 1, 'Checked Out', 'checked_out'),
@@ -1149,7 +1341,7 @@ CREATE TABLE IF NOT EXISTS `visit_types` (
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.visit_types: ~6 rows (approximately)
-INSERT IGNORE INTO `visit_types` (`id`, `tenant_id`, `name`) VALUES
+REPLACE INTO `visit_types` (`id`, `tenant_id`, `name`) VALUES
 	(1, 1, 'Business Meeting'),
 	(2, 1, 'Interview'),
 	(3, 1, 'Delivery'),
@@ -1174,7 +1366,7 @@ CREATE TABLE IF NOT EXISTS `workflows` (
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.workflows: ~0 rows (approximately)
-INSERT IGNORE INTO `workflows` (`id`, `tenant_id`, `name`, `description`, `is_active`, `created_at`) VALUES
+REPLACE INTO `workflows` (`id`, `tenant_id`, `name`, `description`, `is_active`, `created_at`) VALUES
 	(1, 1, 'Standard Approval', 'Two-step: Department Head then Security Officer', 1, '2026-04-08 19:29:16');
 
 -- Dumping structure for table glee_live.workflow_gatepass_type
@@ -1195,7 +1387,7 @@ CREATE TABLE IF NOT EXISTS `workflow_gatepass_type` (
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.workflow_gatepass_type: ~0 rows (approximately)
-INSERT IGNORE INTO `workflow_gatepass_type` (`id`, `tenant_id`, `workflow_id`, `gatepass_type_id`, `created_at`) VALUES
+REPLACE INTO `workflow_gatepass_type` (`id`, `tenant_id`, `workflow_id`, `gatepass_type_id`, `created_at`) VALUES
 	(1, 1, 1, 4, '2026-04-08 22:02:00');
 
 -- Dumping structure for table glee_live.workflow_steps
@@ -1224,7 +1416,7 @@ CREATE TABLE IF NOT EXISTS `workflow_steps` (
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table glee_live.workflow_steps: ~3 rows (approximately)
-INSERT IGNORE INTO `workflow_steps` (`id`, `tenant_id`, `workflow_id`, `name`, `role_id`, `step_order`, `is_mandatory`, `department_id`) VALUES
+REPLACE INTO `workflow_steps` (`id`, `tenant_id`, `workflow_id`, `name`, `role_id`, `step_order`, `is_mandatory`, `department_id`) VALUES
 	(1, 1, 1, 'Department Head', 4, 1, 1, NULL),
 	(2, 1, 1, 'Security Clearance', 2, 2, 1, NULL),
 	(3, 1, 1, 'Admin Sign-off', 1, 3, 0, NULL);
