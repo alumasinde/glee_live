@@ -8,9 +8,17 @@ use App\Core\View;
     <i class="fa-solid fa-id-card"></i> Gatepasses</h1>
 
 <div class="page-actions">
-    <a href="/gatepasses/create" class="btn btn-primary">
-        <i class="fa-solid fa-plus"></i> Create Gatepass
-    </a>
+    <?php if (can('gatepass.scan')): ?>
+        <a href="/gatepasses/scan" class="btn btn-secondary">
+            <i class="fa-solid fa-qrcode"></i> Scan
+        </a>
+    <?php endif; ?>
+
+    <?php if (can('gatepass.create')): ?>
+        <a href="/gatepasses/create" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Create Gatepass
+        </a>
+    <?php endif; ?>
 </div>
 </div>
 
@@ -56,25 +64,27 @@ use App\Core\View;
         View
     </a>
 
-    <a href="/gatepasses/<?= (int)$g['id'] ?>/edit" 
-       class="btn edit-btn ">
-        Edit
-    </a>
+    <?php if (can('gatepass.update')): ?>
+        <a href="/gatepasses/<?= (int)$g['id'] ?>/edit"
+           class="btn edit-btn ">
+            Edit
+        </a>
+    <?php endif; ?>
 
 <?php $id = (int)$g['id'];  ?>
 
-<?php if (!empty($g['can_checkin'])): ?>
+<?php if (!empty($g['can_checkin']) && can('gatepass.checkin')): ?>
     <form method="POST" action="/gatepasses/<?= $id ?>/checkin" class="table-action-button">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
         <button type="submit" class="btn checkin-btn">
             Check In
         </button>
     </form>
 <?php endif; ?>
 
-<?php if (!empty($g['can_checkout'])): ?>
+<?php if (!empty($g['can_checkout']) && can('gatepass.checkout')): ?>
     <form method="POST" action="/gatepasses/<?= $id ?>/checkout" class="table-action-button">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
         <button type="submit" class="btn checkout-btn">
             Check Out
         </button>

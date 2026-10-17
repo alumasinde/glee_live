@@ -7,6 +7,7 @@
 <?php endif; ?>
 
 <form method="POST" action="/visitors">
+    <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
     <div class="form-group">
         <label>First Name</label>

@@ -44,9 +44,14 @@ class Router
         if (preg_match($pattern, $uri, $matches)) {
             array_shift($matches);
 
-            // Run middleware
+            // Run middleware ("Class:arg" passes $arg as second parameter)
             foreach ($route['middleware'] as $middleware) {
-                App::make($middleware)->handle($request);
+                if (is_string($middleware) && str_contains($middleware, ':')) {
+                    [$class, $argument] = explode(':', $middleware, 2);
+                    App::make($class)->handle($request, $argument);
+                } else {
+                    App::make($middleware)->handle($request);
+                }
             }
 
             $handler = $route['handler'];
@@ -63,7 +68,9 @@ class Router
             // CAST PARAMETERS
             // -------------------------
             $matches = array_map(function($v) {
-                return ctype_digit($v) ? (int) $v : $v;
+                // Cast only realistic ids; long digit strings (64-hex scan
+                // tokens that are all digits) must stay intact as strings.
+                return ctype_digit($v) && strlen($v) <= 15 ? (int) $v : $v;
             }, $matches);
 
             return $controller->$action($request, ...$matches);

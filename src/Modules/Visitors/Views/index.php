@@ -7,9 +7,11 @@ use App\Core\View;
     <h1 class="page-heading">Visitors</h1>
 
     <div class="page-actions">
+    <?php if (can('visitors.create')): ?>
     <a href="/visitors/create" class="btn btn-primary">
          <i class="fa-solid fa-plus"></i> New Visitor
     </a>
+    <?php endif; ?>
 </div>
 </div>
 
@@ -84,24 +86,31 @@ use App\Core\View;
 
                 <td class="table-actions">
 
+                        <?php if (can('visitors.blacklist')): ?>
                         <?php if ((int)$v['is_blacklisted'] === 1): ?>
                             <form method="POST" action="/visitors/<?= $v['id'] ?>/unblacklist">
+                                <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
                                 <button class="btn btn-sm btn-success">
                                     Unblacklist
                                 </button>
                             </form>
                         <?php else: ?>
                             <form method="POST" action="/visitors/<?= $v['id'] ?>/blacklist">
+                                <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
                                 <button class="btn btn-sm btn-warning">
                                     Blacklist
                                 </button>
                             </form>
                         <?php endif; ?>
+                        <?php endif; ?>
+<?php if (can('visits.create')): ?>
 <a href="/visits/create?visitor_id=<?= $v['id'] ?>"class="btn btn-sm btn-primary">New Visit</a>
-
+<?php endif; ?>
+<?php if (can('visitors.update')): ?>
 <a href="/visitors/<?= (int)$v['id'] ?>/edit" class="btn btn-sm btn-secondary">
    Edit
 </a>
+<?php endif; ?>
 <a href="/visitors/<?= $v['id'] ?>"class="btn btn-sm btn-info text-white">View</a>
 
                 </td>

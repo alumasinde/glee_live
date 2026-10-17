@@ -6,7 +6,6 @@ use App\Modules\Auth\Services\AuthService;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Audit;
-use RuntimeException;
 
 class LogoutController
 {
@@ -24,9 +23,7 @@ class LogoutController
             return Response::abort(405, 'Method Not Allowed');
         }
 
-        $this->assertValidCsrf($request->input('csrf_token'));
-        
-    $user = $_SESSION['user'];
+        $user = $_SESSION['user'];
 
           Audit::log(
         'user.logout',
@@ -45,22 +42,5 @@ class LogoutController
 
         header('Location: /login');
         exit;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CSRF Protection
-    |--------------------------------------------------------------------------
-    */
-
-    private function assertValidCsrf(?string $token): void
-    {
-        if (
-            empty($token) ||
-            empty($_SESSION['csrf_token']) ||
-            !hash_equals($_SESSION['csrf_token'], $token)
-        ) {
-            throw new RuntimeException('Invalid CSRF token.');
-        }
     }
 }

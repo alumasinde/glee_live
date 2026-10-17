@@ -2,18 +2,23 @@
 
 namespace App\Middleware;
 
+use App\Core\Request;
 use App\Core\Response;
 
 class CSRFMiddleware
 {
-    public function handle()
+    public function handle(?Request $request = null)
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-            $token = $_POST['_token'] ?? '';
+            $token = $_POST['_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 
-            if (!isset($_SESSION['_token']) || $token !== $_SESSION['_token']) {
-                Response::abort(419, 'CSRF token mismatch');
+            if (
+                empty($token) ||
+                !isset($_SESSION['_token']) ||
+                !hash_equals($_SESSION['_token'], $token)
+            ) {
+                Response::abort(403, 'CSRF token mismatch');
             }
         }
     }

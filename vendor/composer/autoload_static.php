@@ -79,6 +79,7 @@ class ComposerStaticInitf41b98b2a791d5bf9a12fa172592c5aa
             'PhpParser\\' => 10,
             'PhpOption\\' => 10,
             'PHPStan\\PhpDocParser\\' => 21,
+            'PHPMailer\\PHPMailer\\' => 20,
         ),
         'L' =>
         array (
@@ -109,12 +110,17 @@ class ComposerStaticInitf41b98b2a791d5bf9a12fa172592c5aa
         array (
             'Dotenv\\' => 7,
             'Doctrine\\Deprecations\\' => 22,
+            'DASPRiD\\Enum\\' => 13,
         ),
         'C' =>
         array (
             'Composer\\XdebugHandler\\' => 23,
             'Composer\\Semver\\' => 16,
             'Composer\\Pcre\\' => 14,
+        ),
+        'B' =>
+        array (
+            'BaconQrCode\\' => 12,
         ),
         'A' =>
         array (
@@ -238,6 +244,10 @@ class ComposerStaticInitf41b98b2a791d5bf9a12fa172592c5aa
         array (
             0 => __DIR__ . '/..' . '/phpstan/phpdoc-parser/src',
         ),
+        'PHPMailer\\PHPMailer\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
+        ),
         'LibDNS\\' =>
         array (
             0 => __DIR__ . '/..' . '/daverandom/libdns/src',
@@ -287,6 +297,10 @@ class ComposerStaticInitf41b98b2a791d5bf9a12fa172592c5aa
         array (
             0 => __DIR__ . '/..' . '/doctrine/deprecations/src',
         ),
+        'DASPRiD\\Enum\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/dasprid/enum/src',
+        ),
         'Composer\\XdebugHandler\\' =>
         array (
             0 => __DIR__ . '/..' . '/composer/xdebug-handler/src',
@@ -298,6 +312,10 @@ class ComposerStaticInitf41b98b2a791d5bf9a12fa172592c5aa
         'Composer\\Pcre\\' =>
         array (
             0 => __DIR__ . '/..' . '/composer/pcre/src',
+        ),
+        'BaconQrCode\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/bacon/bacon-qr-code/src',
         ),
         'App\\' =>
         array (

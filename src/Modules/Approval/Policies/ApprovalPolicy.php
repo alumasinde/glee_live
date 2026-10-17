@@ -41,15 +41,7 @@ return $this->permission->can('approval.view');
 
 public function view(array $user, array $approval): bool
 {
-    if (!$this->permission->can('approval.view')) {
-        return false;
-    }
-
-    if (isset($user['role']) && $user['role'] === 'admin') {
-        return true;
-    }
-
-    return true;
+    return $this->permission->can('approval.view');
 }
 
 }

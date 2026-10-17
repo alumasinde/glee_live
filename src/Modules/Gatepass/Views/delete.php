@@ -9,6 +9,8 @@
 
     <form method="POST" action="/gatepasses/<?= $gatepass['id'] ?>/delete">
 
+        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+
         <button type="submit" class="btn btn-danger">
             Yes, Delete
         </button>

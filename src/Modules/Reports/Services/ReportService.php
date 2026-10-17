@@ -3,6 +3,7 @@
 namespace App\Modules\Reports\Services;
 
 use App\Modules\Reports\Repositories\GatepassReportRepository;
+use App\Modules\Reports\Repositories\OccupancyReportRepository;
 use App\Modules\Reports\Repositories\VisitorReportRepository;
 use App\Modules\Reports\Repositories\VisitReportRepository;
 use App\Modules\Reports\Repositories\AuditReportRepository;
@@ -13,13 +14,15 @@ class ReportService
     private VisitorReportRepository $visitor;
     private VisitReportRepository $visit;
     private AuditReportRepository $audit;
+    private OccupancyReportRepository $occupancy;
 
     public function __construct()
     {
-        $this->gatepass = new GatepassReportRepository();
-        $this->visitor  = new VisitorReportRepository();
-        $this->visit    = new VisitReportRepository();
-        $this->audit    = new AuditReportRepository();
+        $this->gatepass  = new GatepassReportRepository();
+        $this->visitor   = new VisitorReportRepository();
+        $this->visit     = new VisitReportRepository();
+        $this->audit     = new AuditReportRepository();
+        $this->occupancy = new OccupancyReportRepository();
     }
 
     public function summary(int $tenantId): array
@@ -49,5 +52,10 @@ class ReportService
     public function auditLogs(int $tenantId, array $params = [])
     {
         return $this->audit->list($tenantId, $params);
+    }
+
+    public function occupancy(int $tenantId): array
+    {
+        return $this->occupancy->summary($tenantId);
     }
 }

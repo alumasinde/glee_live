@@ -2,19 +2,19 @@
 
 namespace App\Middleware;
 
+use App\Core\DB;
 use App\Core\Permission;
+use App\Core\Request;
+use App\Core\Response;
 
 class PermissionMiddleware
 {
-    public function handle(string $permission)
+    public function handle(Request $request, string $permission): void
     {
-        $perm = new Permission(\App\Core\DB::connect());
+        $perm = new Permission(DB::connect());
 
         if (!$perm->can($permission)) {
-
-            http_response_code(403);
-
-            die("403 Forbidden — Missing Permission: {$permission}");
+            Response::abort(403, 'You do not have permission to access this resource.');
         }
     }
 }

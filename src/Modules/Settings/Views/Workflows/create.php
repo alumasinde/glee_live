@@ -10,6 +10,7 @@
     <div class="card-body">
 
         <form method="POST" action="/settings/workflows">
+            <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
             <div class="form-group">
                 <label for="name">

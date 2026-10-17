@@ -1,59 +1,100 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| Permission Blueprint — single source of truth for the permission matrix
+|--------------------------------------------------------------------------
+|
+| module => actions[]
+|
+| Mirrored by database/migrations/0012_permissions_matrix.sql.
+| If you change this file, ship a matching migration; runtime checks
+| read the database, never this file (fully dynamic roles).
+|
+*/
+
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Permission Blueprint
-    |--------------------------------------------------------------------------
-    |
-    | module => actions[]
-    |
-    | These are used ONLY for seeding the database.
-    |
-    */
-
     'dashboard' => [
-        'access'
+        'access',
     ],
 
     'gatepass' => [
+        'view',       // department-scoped listing
+        'view_all',   // org-wide listing
         'create',
-        'view',
         'update',
         'delete',
-        'approve',
         'checkin',
         'checkout',
-        'print'
+        'scan',
+        'print',
+    ],
+
+    'approval' => [
+        'view',
+        'approve',
+        'reject',
     ],
 
     'visitors' => [
-        'create',
         'view',
+        'create',
         'update',
-        'blacklist'
+        'delete',
+        'blacklist',
+        'issue_badge',
     ],
 
-    'users' => [
-        'create',
+    'visits' => [
         'view',
-        'update',
-        'disable'
-    ],
-
-    'roles' => [
         'create',
-        'assign',
-        'update'
+        'check_in',
+        'check_out',
+        'export',
     ],
 
-    'settings' => [
-        'update'
+    'reports' => [
+        'view',
+        'export',
     ],
 
     'audit' => [
-        'view'
-    ]
+        'view',
+    ],
+
+    'roles' => [
+        'view',
+        'create',
+        'update',
+        'delete',
+        'assign',
+    ],
+
+    'users' => [
+        'view',
+        'create',
+        'update',
+        'disable',
+    ],
+
+    'settings' => [
+        'view',
+        'update',
+    ],
+
+    'workflows' => [
+        'view',
+        'create',
+        'update',
+        'delete',
+    ],
+
+    'departments' => [
+        'view',
+        'create',
+        'update',
+        'delete',
+    ],
 
 ];

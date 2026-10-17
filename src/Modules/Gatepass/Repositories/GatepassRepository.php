@@ -26,11 +26,11 @@ final class GatepassRepository
     {
         $stmt = $this->db->prepare("
             INSERT INTO gatepasses (
-                tenant_id, visit_id, gatepass_number, gatepass_type_id,
+                tenant_id, visit_id, gatepass_number, scan_token, gatepass_type_id,
                 status_id, created_by, purpose, is_returnable,
                 expected_return_date, needs_approval, department_id
             ) VALUES (
-                :tenant_id, :visit_id, :gatepass_number, :gatepass_type_id,
+                :tenant_id, :visit_id, :gatepass_number, :scan_token, :gatepass_type_id,
                 :status_id, :created_by, :purpose, :is_returnable,
                 :expected_return_date, :needs_approval, :department_id
             )
@@ -40,6 +40,7 @@ final class GatepassRepository
             ':tenant_id'            => (int) $data['tenant_id'],
             ':visit_id'             => isset($data['visit_id']) ? (int) $data['visit_id'] : null,
             ':gatepass_number'      => trim($data['gatepass_number']),
+            ':scan_token'           => bin2hex(random_bytes(32)),
             ':gatepass_type_id'     => isset($data['gatepass_type_id']) ? (int) $data['gatepass_type_id'] : null,
             ':status_id'            => (int) $data['status_id'],
             ':created_by'           => (int) $data['created_by'],
@@ -140,24 +141,26 @@ final class GatepassRepository
     public function checkIn(
         int    $tenantId,
         int    $gatepassId,
-        int    $userId,
+        ?int   $userId,
         string $timestamp,
         int    $checkedInStatusId,
         int    $checkedOutStatusId,
-        int    $approvedStatusId
+        int    $approvedStatusId,
+        ?int   $gateId = null
     ): bool {
         $stmt = $this->db->prepare("
             UPDATE gatepasses
             SET actual_in     = :timestamp,
                 checked_in_by = :user_id,
                 status_id     = :checked_in_status
+                " . ($gateId ? ", last_in_gate_id = :gate_id" : '') . "
             WHERE tenant_id = :tenant_id
               AND id        = :id
               AND actual_in IS NULL
               AND status_id IN (:checked_out_status, :approved_status)
         ");
 
-        $stmt->execute([
+        $params = [
             ':timestamp'          => $timestamp,
             ':user_id'            => $userId,
             ':checked_in_status'  => $checkedInStatusId,
@@ -165,7 +168,13 @@ final class GatepassRepository
             ':id'                 => $gatepassId,
             ':checked_out_status' => $checkedOutStatusId,
             ':approved_status'    => $approvedStatusId,
-        ]);
+        ];
+
+        if ($gateId) {
+            $params[':gate_id'] = $gateId;
+        }
+
+        $stmt->execute($params);
 
         return $stmt->rowCount() > 0;
     }
@@ -179,27 +188,38 @@ final class GatepassRepository
     public function checkOut(
         int    $tenantId,
         int    $gatepassId,
-        int    $userId,
+        ?int   $userId,
         string $timestamp,
-        int    $checkedOutStatusId
+        int    $checkedOutStatusId,
+        ?int   $gateId = null
     ): bool {
-        $stmt = $this->db->prepare("
-            UPDATE gatepasses
-            SET actual_out     = :timestamp,
+        $set = "
+                actual_out     = :timestamp,
                 checked_out_by = :user_id,
-                status_id      = :status_id
-            WHERE tenant_id    = :tenant_id
-              AND id           = :id
-              AND actual_out IS NULL
-        ");
+                status_id      = :status_id";
 
-        $stmt->execute([
+        $params = [
             ':timestamp' => $timestamp,
             ':user_id'   => $userId,
             ':status_id' => $checkedOutStatusId,
             ':tenant_id' => $tenantId,
             ':id'        => $gatepassId,
-        ]);
+        ];
+
+        if ($gateId) {
+            $set .= ",\n                last_out_gate_id = :gate_id";
+            $params[':gate_id'] = $gateId;
+        }
+
+        $stmt = $this->db->prepare("
+            UPDATE gatepasses
+            SET $set
+            WHERE tenant_id    = :tenant_id
+              AND id           = :id
+              AND actual_out IS NULL
+        ");
+
+        $stmt->execute($params);
 
         return $stmt->rowCount() > 0;
     }
@@ -213,7 +233,7 @@ final class GatepassRepository
     {
         $stmt = $this->db->prepare("
             SELECT
-                g.id, g.tenant_id, g.gatepass_number, g.visit_id,
+                g.id, g.tenant_id, g.gatepass_number, g.scan_token, g.visit_id,
                 g.gatepass_type_id, g.status_id, g.department_id,
                 g.checked_in_by, g.checked_out_by,
                 g.actual_in, g.actual_out,
@@ -292,6 +312,25 @@ final class GatepassRepository
         $row['type_code']   = strtoupper($row['type_code']);
 
         return $row;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FIND BY SCAN TOKEN
+    |--------------------------------------------------------------------------
+    */
+    public function findByToken(int $tenantId, string $token): ?array
+    {
+        $stmt = $this->db->prepare("
+            SELECT g.* FROM gatepasses g
+            WHERE g.tenant_id = :tenant_id
+              AND g.scan_token = :token
+            LIMIT 1
+        ");
+
+        $stmt->execute([':tenant_id' => $tenantId, ':token' => $token]);
+
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
     /*

@@ -13,7 +13,7 @@ class TenantService
     public function __construct()
     {
         $this->tenantRepo = new TenantRepository();
-        $this->uploadPath = __DIR__ . '/../../../public/uploads/tenants/';
+        $this->uploadPath = dirname(__DIR__, 4) . '/public/uploads/tenants/';
     }
 
     public function uploadAndSaveLogo(array $file, int $tenantId): bool

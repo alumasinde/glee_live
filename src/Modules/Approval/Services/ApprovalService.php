@@ -4,7 +4,19 @@ namespace App\Modules\Approval\Services;
 
 use App\Core\DB;
 use PDO;
+use RuntimeException;
 
+/**
+ * Workflow approval engine.
+ *
+ * Steps are resolved from configuration, not code paths:
+ *   workflow_steps.approval_mode      'any' = first responder advances, 'all' = unanimous
+ *   workflow_steps.department_source  'none' | 'step' (step's department_id) | 'gatepass' (requester's department)
+ *   workflow_steps.is_mandatory       0 = step auto-skips when it resolves to zero approvers
+ *
+ * All mutations lock the workflow instance row first, so concurrent approvals on the
+ * same instance serialize and can never leave a step stalled or double-advanced.
+ */
 class ApprovalService
 {
     private PDO $db;
@@ -15,534 +27,525 @@ class ApprovalService
     }
 
     /* ============================================================
+       START WORKFLOW
+    ============================================================ */
+
+    public function startWorkflow(int $tenantId, int $gatepassId, int $workflowId): void
+    {
+        $this->runExclusive(function () use ($tenantId, $gatepassId, $workflowId): void {
+
+            $this->fetchOne("
+                SELECT id FROM gatepasses
+                WHERE id = ? AND tenant_id = ?
+                FOR UPDATE
+            ", [$gatepassId, $tenantId])
+                ?? throw new RuntimeException("Gatepass not found.");
+
+            $this->fetchOne("
+                SELECT id FROM workflows
+                WHERE id = ? AND tenant_id = ? AND is_active = 1
+            ", [$workflowId, $tenantId])
+                ?? throw new RuntimeException("Workflow not found or inactive.");
+
+            if ($this->hasActiveWorkflow($tenantId, $gatepassId)) {
+                throw new RuntimeException("Workflow already started.");
+            }
+
+            $firstStep = $this->fetchOne("
+                SELECT step_order FROM workflow_steps
+                WHERE workflow_id = ? AND tenant_id = ?
+                ORDER BY step_order
+                LIMIT 1
+            ", [$workflowId, $tenantId])
+                ?? throw new RuntimeException("Workflow has no steps.");
+
+            $stmt = $this->db->prepare("
+                INSERT INTO gatepass_workflow_instances
+                (tenant_id, gatepass_id, workflow_id, current_step_order, status, started_at)
+                VALUES (?, ?, ?, ?, 'in_progress', NOW())
+            ");
+            $stmt->execute([$tenantId, $gatepassId, $workflowId, (int) $firstStep['step_order']]);
+
+            $instanceId = (int) $this->db->lastInsertId();
+
+            $this->materializeStep($tenantId, $instanceId, (int) $firstStep['step_order']);
+        });
+    }
+
+    /* ============================================================
        APPROVE
     ============================================================ */
-public function approve(int $approvalId, int $userId): int
-{
-    $this->db->beginTransaction();
 
-    try {
+    public function approve(int $approvalId, int $userId, ?string $comment = null): int
+    {
+        return $this->runExclusive(function () use ($approvalId, $userId, $comment): int {
 
-        // 🔹 Lock approval row
-        $stmt = $this->db->prepare("
-            SELECT
-                ga.id,
-                ga.status AS approval_status,
-                ga.workflow_instance_id,
-                ga.workflow_step_id,
+            $pre = $this->fetchOne("
+                SELECT workflow_instance_id, tenant_id
+                FROM gatepass_approvals
+                WHERE id = ? AND approver_user_id = ?
+            ", [$approvalId, $userId])
+                ?? throw new RuntimeException("Approval not found.");
 
-                gwi.workflow_id,
-                gwi.current_step_order,
-                gwi.status AS workflow_status,
-                gwi.tenant_id,
-                gwi.gatepass_id
+            $tenantId   = (int) $pre['tenant_id'];
+            $instanceId = (int) $pre['workflow_instance_id'];
 
-            FROM gatepass_approvals ga
+            $instance = $this->lockInstance($instanceId, $tenantId);
+            $approval = $this->lockCurrentStepApproval($approvalId, $userId, $instance);
 
-            INNER JOIN gatepass_workflow_instances gwi
-                ON gwi.id = ga.workflow_instance_id
+            $this->db->prepare("
+                UPDATE gatepass_approvals
+                SET status = 'approved',
+                    acted_at = NOW(),
+                    comments = COALESCE(?, comments)
+                WHERE id = ? AND tenant_id = ?
+            ")->execute([$comment, $approvalId, $tenantId]);
 
-            WHERE ga.id = ?
-              AND ga.approver_user_id = ?
-            FOR UPDATE
-        ");
+            $step = $this->fetchOne("
+                SELECT ws.step_order, ws.approval_mode
+                FROM workflow_steps ws
+                WHERE ws.id = ? AND ws.tenant_id = ?
+            ", [$approval['workflow_step_id'], $tenantId]);
 
-        $stmt->execute([$approvalId, $userId]);
-        $approval = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($step['approval_mode'] === 'any') {
+                $this->cancelPendingForStep($instanceId, (int) $approval['workflow_step_id'], $tenantId);
+            } elseif ($this->countPendingForStep($instanceId, (int) $approval['workflow_step_id'], $tenantId) > 0) {
+                return $instanceId;
+            }
 
-        if (!$approval) {
-            throw new \RuntimeException("Approval not found.");
-        }
+            $this->materializeStep($tenantId, $instanceId, (int) $step['step_order'] + 1);
 
-        if ($approval['approval_status'] !== 'pending') {
-            throw new \RuntimeException("Already processed.");
-        }
-
-        if ($approval['workflow_status'] !== 'in_progress') {
-            throw new \RuntimeException("Workflow not active.");
-        }
-
-        $instanceId  = (int)$approval['workflow_instance_id'];
-        $currentStep = (int)$approval['current_step_order'];
-
-        // 🔹 Validate step matches current workflow step
-        $stmt = $this->db->prepare("
-            SELECT step_order
-            FROM workflow_steps
-            WHERE id = ?
-              AND workflow_id = ?
-        ");
-        $stmt->execute([
-            $approval['workflow_step_id'],
-            $approval['workflow_id']
-        ]);
-
-        $stepOrder = (int)$stmt->fetchColumn();
-
-        if ($stepOrder !== $currentStep) {
-            throw new \RuntimeException("Invalid approval step.");
-        }
-
-        // 🔹 Mark approval approved
-        $stmt = $this->db->prepare("
-            UPDATE gatepass_approvals
-            SET status = 'approved',
-                acted_at = NOW()
-            WHERE id = ?
-        ");
-        $stmt->execute([$approvalId]);
-
-        // 🔹 Check if other approvals still pending at this step
-        $stmt = $this->db->prepare("
-            SELECT COUNT(*)
-            FROM gatepass_approvals ga
-            INNER JOIN workflow_steps ws
-                ON ws.id = ga.workflow_step_id
-            WHERE ga.workflow_instance_id = ?
-              AND ws.step_order = ?
-              AND ga.status = 'pending'
-        ");
-        $stmt->execute([$instanceId, $currentStep]);
-
-        if ((int)$stmt->fetchColumn() > 0) {
-            $this->db->commit();
             return $instanceId;
-        }
-
-        // 🔹 Move to next step
-        $this->advanceToNextStep($instanceId);
-
-        $this->db->commit();
-        return $instanceId;
-
-    } catch (\Throwable $e) {
-        $this->db->rollBack();
-        throw $e;
+        });
     }
-}
+
     /* ============================================================
        REJECT
     ============================================================ */
 
-public function reject(int $approvalId, int $userId, string $comments): int
-{
-    $this->db->beginTransaction();
+    public function reject(int $approvalId, int $userId, string $comments): int
+    {
+        return $this->runExclusive(function () use ($approvalId, $userId, $comments): int {
 
-    try {
+            $pre = $this->fetchOne("
+                SELECT workflow_instance_id, tenant_id
+                FROM gatepass_approvals
+                WHERE id = ? AND approver_user_id = ?
+            ", [$approvalId, $userId])
+                ?? throw new RuntimeException("Approval not found.");
 
-        // 🔹 Lock approval row
-        $stmt = $this->db->prepare("
-            SELECT 
-                ga.id,
-                ga.status,
-                ga.workflow_instance_id,
-                gwi.status AS workflow_status,
-                gwi.tenant_id,
-                gwi.gatepass_id
-            FROM gatepass_approvals ga
-            INNER JOIN gatepass_workflow_instances gwi
-                ON ga.workflow_instance_id = gwi.id
-            WHERE ga.id = ?
-              AND ga.approver_user_id = ?
-            FOR UPDATE
-        ");
+            $tenantId   = (int) $pre['tenant_id'];
+            $instanceId = (int) $pre['workflow_instance_id'];
 
-        $stmt->execute([$approvalId, $userId]);
-        $approval = $stmt->fetch(PDO::FETCH_ASSOC);
+            $instance = $this->lockInstance($instanceId, $tenantId);
+            $this->lockCurrentStepApproval($approvalId, $userId, $instance);
 
-        if (!$approval) {
-            throw new \RuntimeException("Approval not found.");
-        }
+            $this->db->prepare("
+                UPDATE gatepass_approvals
+                SET status = 'rejected',
+                    acted_at = NOW(),
+                    comments = ?
+                WHERE id = ? AND tenant_id = ?
+            ")->execute([$comments, $approvalId, $tenantId]);
 
-        if ($approval['status'] !== 'pending') {
-            throw new \RuntimeException("Already processed.");
-        }
+            $this->cancelPendingForInstance($instanceId, $tenantId);
 
-        if ($approval['workflow_status'] !== 'in_progress') {
-            throw new \RuntimeException("Workflow not active.");
-        }
+            $this->db->prepare("
+                UPDATE gatepass_workflow_instances
+                SET status = 'rejected',
+                    completed_at = NOW()
+                WHERE id = ? AND tenant_id = ?
+            ")->execute([$instanceId, $tenantId]);
 
-        $instanceId = (int)$approval['workflow_instance_id'];
-        $tenantId   = (int)$approval['tenant_id'];
-        $gatepassId = (int)$approval['gatepass_id'];
+            $this->setGatepassStatus(
+                $tenantId,
+                (int) $instance['gatepass_id'],
+                'rejected',
+                'Rejected status not configured.'
+            );
 
-        // 🔹 Mark approval rejected
-        $stmt = $this->db->prepare("
-            UPDATE gatepass_approvals
-            SET status = 'rejected',
-                acted_at = NOW(),
-                comments = ?
-            WHERE id = ?
-        ");
-        $stmt->execute([$comments, $approvalId]);
-
-        // 🔹 Mark workflow rejected
-        $stmt = $this->db->prepare("
-            UPDATE gatepass_workflow_instances
-            SET status = 'rejected',
-                completed_at = NOW()
-            WHERE id = ?
-              AND tenant_id = ?
-        ");
-        $stmt->execute([$instanceId, $tenantId]);
-
-        // 🔹 Get Rejected status_id safely
-        $stmt = $this->db->prepare("
-            SELECT id
-            FROM gatepass_statuses
-            WHERE tenant_id = ?
-              AND name = 'Rejected'
-            LIMIT 1
-        ");
-        $stmt->execute([$tenantId]);
-
-        $statusId = $stmt->fetchColumn();
-
-        if (!$statusId) {
-            throw new \RuntimeException("Rejected status not configured.");
-        }
-
-        // 🔹 Update gatepass status
-        $stmt = $this->db->prepare("
-            UPDATE gatepasses
-            SET status_id = ?
-            WHERE id = ?
-              AND tenant_id = ?
-        ");
-        $stmt->execute([$statusId, $gatepassId, $tenantId]);
-
-        $this->db->commit();
-        return $instanceId;
-
-    } catch (\Throwable $e) {
-        $this->db->rollBack();
-        throw $e;
+            return $instanceId;
+        });
     }
-}
+
     /* ============================================================
-       ADVANCE STEP
+       ENGINE CORE
     ============================================================ */
 
-    private function advanceToNextStep(int $instanceId): void
-{
-    $stmt = $this->db->prepare("
-        SELECT *
-        FROM gatepass_workflow_instances
-        WHERE id = ?
-        FOR UPDATE
-    ");
-    $stmt->execute([$instanceId]);
-    $instance = $stmt->fetch(PDO::FETCH_ASSOC);
+    /**
+     * Activate the step at $stepOrder: skip empty non-mandatory steps, finalize the
+     * workflow past the last step, otherwise fan out pending approvals and move the
+     * instance cursor. Caller must already hold the instance lock.
+     */
+    private function materializeStep(int $tenantId, int $instanceId, int $stepOrder): void
+    {
+        $instance = $this->fetchOne("
+            SELECT gwi.workflow_id, gwi.gatepass_id, g.department_id AS gatepass_department_id
+            FROM gatepass_workflow_instances gwi
+            INNER JOIN gatepasses g ON g.id = gwi.gatepass_id AND g.tenant_id = gwi.tenant_id
+            WHERE gwi.id = ? AND gwi.tenant_id = ?
+        ", [$instanceId, $tenantId]);
 
-    if (!$instance) {
-        throw new \RuntimeException("Workflow instance not found.");
+        while (true) {
+
+            $step = $this->fetchOne("
+                SELECT id, name, role_id, step_order, is_mandatory, department_source, department_id
+                FROM workflow_steps
+                WHERE workflow_id = ? AND tenant_id = ? AND step_order = ?
+                LIMIT 1
+            ", [$instance['workflow_id'], $tenantId, $stepOrder]);
+
+            if (!$step) {
+                $this->finalizeApproved($tenantId, $instanceId, (int) $instance['gatepass_id']);
+                return;
+            }
+
+            $approvers = $this->resolveApprovers($tenantId, $step, (int) $instance['gatepass_department_id']);
+
+            if ($approvers) {
+                $this->db->prepare("
+                    UPDATE gatepass_workflow_instances
+                    SET current_step_order = ?
+                    WHERE id = ? AND tenant_id = ?
+                ")->execute([$stepOrder, $instanceId, $tenantId]);
+
+                $insert = $this->db->prepare("
+                    INSERT INTO gatepass_approvals
+                    (tenant_id, workflow_instance_id, workflow_step_id, approver_user_id, status)
+                    VALUES (?, ?, ?, ?, 'pending')
+                ");
+
+                foreach ($approvers as $approverId) {
+                    $insert->execute([$tenantId, $instanceId, (int) $step['id'], $approverId]);
+                }
+
+                return;
+            }
+
+            if ((int) $step['is_mandatory'] === 1) {
+                throw new RuntimeException("Step '{$step['name']}' has no eligible approvers.");
+            }
+
+            $stepOrder++;
+        }
     }
 
-    $currentStep = (int)$instance['current_step_order'];
-    $nextStep = $currentStep + 1;
+    /** @return int[] user ids */
+    private function resolveApprovers(int $tenantId, array $step, int $gatepassDepartmentId): array
+    {
+        $query = "
+            SELECT u.id
+            FROM users u
+            INNER JOIN user_roles ur ON ur.user_id = u.id AND ur.tenant_id = u.tenant_id
+            WHERE ur.role_id = ?
+              AND u.tenant_id = ?
+              AND u.is_active = 1
+        ";
+        $params = [(int) $step['role_id'], $tenantId];
 
-    // Check if next step exists
-    $stmt = $this->db->prepare("
-        SELECT id
-        FROM workflow_steps
-        WHERE workflow_id = ?
-          AND step_order = ?
-        LIMIT 1
-    ");
-    $stmt->execute([$instance['workflow_id'], $nextStep]);
-    $step = $stmt->fetch(PDO::FETCH_ASSOC);
+        $departmentId = match ($step['department_source']) {
+            'step'     => $step['department_id'] !== null ? (int) $step['department_id'] : null,
+            'gatepass' => $gatepassDepartmentId ?: null,
+            default    => null,
+        };
 
-    if (!$step) {
+        if ($departmentId !== null) {
+            $query .= " AND u.department_id = ?";
+            $params[] = $departmentId;
+        }
 
-        // FINAL STEP → APPROVED
+        $rows = $this->fetchAll($query, $params);
+
+        return array_map(fn(array $r) => (int) $r['id'], $rows);
+    }
+
+    private function lockInstance(int $instanceId, int $tenantId): array
+    {
+        $instance = $this->fetchOne("
+            SELECT id, tenant_id, gatepass_id, workflow_id, current_step_order, status
+            FROM gatepass_workflow_instances
+            WHERE id = ? AND tenant_id = ?
+            FOR UPDATE
+        ", [$instanceId, $tenantId])
+            ?? throw new RuntimeException("Workflow instance not found.");
+
+        if ($instance['status'] !== 'in_progress') {
+            throw new RuntimeException("Workflow not active.");
+        }
+
+        return $instance;
+    }
+
+    /** Lock and re-validate the acting approval row (instance lock must be held). */
+    private function lockCurrentStepApproval(int $approvalId, int $userId, array $instance): array
+    {
+        $approval = $this->fetchOne("
+            SELECT ga.id, ga.workflow_step_id, ga.status, ws.step_order
+            FROM gatepass_approvals ga
+            INNER JOIN workflow_steps ws ON ws.id = ga.workflow_step_id AND ws.tenant_id = ga.tenant_id
+            WHERE ga.id = ? AND ga.approver_user_id = ? AND ga.tenant_id = ?
+            FOR UPDATE
+        ", [$approvalId, $userId, (int) $instance['tenant_id']])
+            ?? throw new RuntimeException("Approval not found.");
+
+        if ($approval['status'] !== 'pending') {
+            throw new RuntimeException("Already processed.");
+        }
+
+        if ((int) $approval['step_order'] !== (int) $instance['current_step_order']) {
+            throw new RuntimeException("Invalid approval step.");
+        }
+
+        return $approval;
+    }
+
+    private function cancelPendingForStep(int $instanceId, int $stepId, int $tenantId): void
+    {
+        $this->db->prepare("
+            UPDATE gatepass_approvals
+            SET status = 'cancelled',
+                acted_at = NOW()
+            WHERE workflow_instance_id = ?
+              AND workflow_step_id = ?
+              AND tenant_id = ?
+              AND status = 'pending'
+        ")->execute([$instanceId, $stepId, $tenantId]);
+    }
+
+    private function cancelPendingForInstance(int $instanceId, int $tenantId): void
+    {
+        $this->db->prepare("
+            UPDATE gatepass_approvals
+            SET status = 'cancelled',
+                acted_at = NOW()
+            WHERE workflow_instance_id = ?
+              AND tenant_id = ?
+              AND status = 'pending'
+        ")->execute([$instanceId, $tenantId]);
+    }
+
+    private function countPendingForStep(int $instanceId, int $stepId, int $tenantId): int
+    {
+        return (int) $this->fetchOne("
+            SELECT COUNT(*) AS c
+            FROM gatepass_approvals
+            WHERE workflow_instance_id = ?
+              AND workflow_step_id = ?
+              AND tenant_id = ?
+              AND status = 'pending'
+        ", [$instanceId, $stepId, $tenantId])['c'];
+    }
+
+    private function finalizeApproved(int $tenantId, int $instanceId, int $gatepassId): void
+    {
         $this->db->prepare("
             UPDATE gatepass_workflow_instances
             SET status = 'approved',
                 completed_at = NOW()
-            WHERE id = ?
-        ")->execute([$instanceId]);
+            WHERE id = ? AND tenant_id = ?
+        ")->execute([$instanceId, $tenantId]);
+
+        $this->setGatepassStatus(
+            $tenantId,
+            $gatepassId,
+            'approved',
+            'Approved status not configured.'
+        );
+    }
+
+    private function setGatepassStatus(int $tenantId, int $gatepassId, string $code, string $errorMessage): void
+    {
+        $status = $this->fetchOne("
+            SELECT id
+            FROM gatepass_statuses
+            WHERE tenant_id = ?
+              AND (code = ? OR LOWER(name) = ?)
+            LIMIT 1
+        ", [$tenantId, $code, $code]);
+
+        if (!$status) {
+            throw new RuntimeException($errorMessage);
+        }
 
         $this->db->prepare("
             UPDATE gatepasses
-            SET status_id = (
-                SELECT id
-                FROM gatepass_statuses
-                WHERE tenant_id = ?
-                  AND name = 'Approved'
-                LIMIT 1
-            )
-            WHERE id = ?
-        ")->execute([
-            $instance['tenant_id'],
-            $instance['gatepass_id']
-        ]);
-
-        return;
+            SET status_id = ?
+            WHERE id = ? AND tenant_id = ?
+        ")->execute([(int) $status['id'], $gatepassId, $tenantId]);
     }
 
-    // Move forward
-    $this->db->prepare("
-        UPDATE gatepass_workflow_instances
-        SET current_step_order = ?
-        WHERE id = ?
-    ")->execute([$nextStep, $instanceId]);
+    /**
+     * Run $work inside a transaction that locks the instance for its whole duration,
+     * joining an outer transaction when one is already open.
+     */
+    private function runExclusive(callable $work): mixed
+    {
+        $ownTransaction = !$this->db->inTransaction();
 
-    $this->createApprovalsForStep(
-        (int)$instance['tenant_id'],
-        $instanceId,
-        $nextStep
-    );
-}
-    /* ============================================================
-       CREATE APPROVALS
-    ============================================================ */
+        try {
+            if ($ownTransaction) {
+                $this->db->beginTransaction();
+            }
 
-    private function createApprovalsForStep(int $tenantId, int $instanceId, int $stepOrder): void
-{
-    // 1️⃣ Fetch step info
-    $stmt = $this->db->prepare("
-        SELECT ws.id AS step_id, ws.role_id, ws.step_order
-        FROM workflow_steps ws
-        INNER JOIN gatepass_workflow_instances gwi
-            ON gwi.workflow_id = ws.workflow_id
-        WHERE gwi.id = ?
-          AND ws.step_order = ?
-        LIMIT 1
-    ");
-    $stmt->execute([$instanceId, $stepOrder]);
-    $step = $stmt->fetch(PDO::FETCH_ASSOC);
+            $result = $work();
 
-    if (!$step) {
-        throw new \RuntimeException("Workflow step not found.");
-    }
+            if ($ownTransaction) {
+                $this->db->commit();
+            }
 
-    // 2️⃣ Fetch gatepass to get department
-    $stmt = $this->db->prepare("
-        SELECT gatepass_id
-        FROM gatepass_workflow_instances
-        WHERE id = ?
-    ");
-    $stmt->execute([$instanceId]);
-    $instance = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    $stmt = $this->db->prepare("
-        SELECT department_id
-        FROM gatepasses
-        WHERE id = ?
-    ");
-    $stmt->execute([$instance['gatepass_id']]);
-    $departmentId = (int)$stmt->fetchColumn();
-
-    // 3️⃣ Get users with role (and department for step 1)
-    $query = "
-        SELECT u.id
-        FROM users u
-        INNER JOIN user_roles ur ON ur.user_id = u.id
-        WHERE ur.role_id = ?
-          AND u.tenant_id = ?
-          AND u.is_active = 1
-    ";
-
-    $params = [$step['role_id'], $tenantId];
-
-    if ($stepOrder === 1) {
-        // Only for Step 1, filter by department
-        $query .= " AND u.department_id = ?";
-        $params[] = $departmentId;
-    }
-
-    $stmt = $this->db->prepare($query);
-    $stmt->execute($params);
-
-    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    if (!$users) {
-        throw new \RuntimeException("No users found for this role/department.");
-    }
-
-    // 4️⃣ Create approvals
-    foreach ($users as $user) {
-        $this->db->prepare("
-            INSERT INTO gatepass_approvals
-            (tenant_id, workflow_instance_id, workflow_step_id, approver_user_id, status)
-            VALUES (?, ?, ?, ?, 'pending')
-        ")->execute([
-            $tenantId,
-            $instanceId,
-            $step['step_id'],
-            $user['id']
-        ]);
-    }
-}
-
-    /* ============================================================
-       START WORKFLOW
-    ============================================================ */
-
-    public function startWorkflow(
-        int $tenantId,
-        int $gatepassId,
-        int $workflowId
-    ): void {
-
-        if ($this->hasActiveWorkflow($tenantId, $gatepassId)) {
-            throw new \Exception("Workflow already started.");
+            return $result;
+        } catch (\Throwable $e) {
+            if ($ownTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
         }
-
-        $stmt = $this->db->prepare("
-            INSERT INTO gatepass_workflow_instances
-            (tenant_id, gatepass_id, workflow_id, current_step_order, status, started_at)
-            VALUES (?, ?, ?, 1, 'in_progress', NOW())
-        ");
-        $stmt->execute([
-            $tenantId,
-            $gatepassId,
-            $workflowId
-        ]);
-
-        $instanceId = (int)$this->db->lastInsertId();
-
-        $this->createApprovalsForStep($tenantId, $instanceId, 1);
     }
 
     /* ============================================================
-       HELPERS
+       QUERIES
     ============================================================ */
 
     public function hasActiveWorkflow(int $tenantId, int $gatepassId): bool
     {
-        $stmt = $this->db->prepare("
-            SELECT COUNT(*)
+        return (bool) $this->fetchOne("
+            SELECT 1 AS ok
             FROM gatepass_workflow_instances
             WHERE tenant_id = ?
-            AND gatepass_id = ?
-            AND status = 'in_progress'
-        ");
-        $stmt->execute([$tenantId, $gatepassId]);
-
-        return (bool)$stmt->fetchColumn();
+              AND gatepass_id = ?
+              AND status = 'in_progress'
+        ", [$tenantId, $gatepassId]);
     }
 
-   public function getPendingForUser(int $tenantId, int $userId): array
-{
-    $stmt = $this->db->prepare("
-        SELECT DISTINCT
-            ga.id AS id,
-            gwi.id AS workflow_instance_id,
-            g.id AS gatepass_id,
-            g.gatepass_number,
-            g.purpose,
-            ws.name AS step_name,
-            gwi.status AS workflow_status,
-            ga.status AS approval_status,
-            CONCAT(u.first_name, ' ', u.last_name) AS requested_by_name,
-            gwi.started_at AS created_at
-        FROM gatepass_approvals ga
-        INNER JOIN gatepass_workflow_instances gwi
-            ON gwi.id = ga.workflow_instance_id
-           AND gwi.tenant_id = ga.tenant_id
-        INNER JOIN gatepasses g
-            ON g.id = gwi.gatepass_id
-           AND g.tenant_id = gwi.tenant_id
-        INNER JOIN workflow_steps ws
-            ON ws.id = ga.workflow_step_id
-        INNER JOIN user_roles ur
-            ON ur.role_id = ws.role_id
-           AND ur.user_id = :user_id
-        INNER JOIN users u
-            ON u.id = g.created_by
-        WHERE ga.tenant_id = :tenant_id
-          AND ga.status = 'pending'
-        ORDER BY gwi.started_at DESC
-    ");
-
-    $stmt->execute([
-        ':tenant_id' => $tenantId,
-        ':user_id'   => $userId
-    ]);
-
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-
-public function findApproval(int $tenantId, int $approvalId, int $userId): ?array
-{
-    $stmt = $this->db->prepare("
-        SELECT 
-            ga.id AS id,
-            ga.status AS approval_status,
-            ga.acted_at,
-            gwi.status AS workflow_status,
-            gwi.started_at AS created_at,
-            ws.name AS step_name,
-            g.id AS gatepass_id,
-            g.gatepass_number,
-            g.purpose,
-            CONCAT(u.first_name, ' ', u.last_name) AS requested_by_name
-        FROM gatepass_approvals ga
-        INNER JOIN gatepass_workflow_instances gwi
-            ON gwi.id = ga.workflow_instance_id
-        INNER JOIN gatepasses g
-            ON g.id = gwi.gatepass_id
-        INNER JOIN workflow_steps ws
-            ON ws.id = ga.workflow_step_id
-        INNER JOIN users u
-            ON u.id = g.created_by
-        WHERE ga.id = :approval_id
-          AND ga.tenant_id = :tenant_id
-          AND ga.approver_user_id = :user_id
-        LIMIT 1
-    ");
-
-    $stmt->execute([
-        ':approval_id' => $approvalId,
-        ':tenant_id'   => $tenantId,
-        ':user_id'     => $userId,
-    ]);
-
-    $approval = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$approval) {
-        return null;
+    public function getPendingForUser(int $tenantId, int $userId): array
+    {
+        return $this->fetchAll("
+            SELECT
+                ga.id,
+                gwi.id AS workflow_instance_id,
+                g.id AS gatepass_id,
+                g.gatepass_number,
+                g.purpose,
+                ws.name AS step_name,
+                gwi.status AS workflow_status,
+                ga.status AS approval_status,
+                CONCAT(u.first_name, ' ', u.last_name) AS requested_by_name,
+                gwi.started_at AS created_at
+            FROM gatepass_approvals ga
+            INNER JOIN gatepass_workflow_instances gwi
+                ON gwi.id = ga.workflow_instance_id
+               AND gwi.tenant_id = ga.tenant_id
+               AND gwi.status = 'in_progress'
+            INNER JOIN gatepasses g
+                ON g.id = gwi.gatepass_id
+               AND g.tenant_id = gwi.tenant_id
+            INNER JOIN workflow_steps ws
+                ON ws.id = ga.workflow_step_id
+               AND ws.tenant_id = ga.tenant_id
+               AND ws.step_order = gwi.current_step_order
+            INNER JOIN users u
+                ON u.id = g.created_by
+               AND u.tenant_id = g.tenant_id
+            WHERE ga.tenant_id = ?
+              AND ga.approver_user_id = ?
+              AND ga.status = 'pending'
+            ORDER BY gwi.started_at DESC
+        ", [$tenantId, $userId]);
     }
 
-    // Fetch gatepass items
-    $itemsStmt = $this->db->prepare("
-        SELECT *
-        FROM gatepass_items
-        WHERE gatepass_id = :gatepass_id
-          AND tenant_id = :tenant_id
-    ");
+    public function findApproval(int $tenantId, int $approvalId, int $userId): ?array
+    {
+        $approval = $this->fetchOne("
+            SELECT
+                ga.id AS id,
+                ga.status AS approval_status,
+                ga.comments,
+                ga.acted_at,
+                gwi.status AS workflow_status,
+                gwi.started_at AS created_at,
+                ws.name AS step_name,
+                g.id AS gatepass_id,
+                g.gatepass_number,
+                g.purpose,
+                CONCAT(u.first_name, ' ', u.last_name) AS requested_by_name
+            FROM gatepass_approvals ga
+            INNER JOIN gatepass_workflow_instances gwi
+                ON gwi.id = ga.workflow_instance_id
+               AND gwi.tenant_id = ga.tenant_id
+            INNER JOIN gatepasses g
+                ON g.id = gwi.gatepass_id
+               AND g.tenant_id = ga.tenant_id
+            INNER JOIN workflow_steps ws
+                ON ws.id = ga.workflow_step_id
+               AND ws.tenant_id = ga.tenant_id
+            INNER JOIN users u
+                ON u.id = g.created_by
+               AND u.tenant_id = g.tenant_id
+            WHERE ga.id = ?
+              AND ga.tenant_id = ?
+              AND ga.approver_user_id = ?
+            LIMIT 1
+        ", [$approvalId, $tenantId, $userId]);
 
-    $itemsStmt->execute([
-        ':gatepass_id' => $approval['gatepass_id'],
-        ':tenant_id'   => $tenantId
-    ]);
+        if (!$approval) {
+            return null;
+        }
 
-    $approval['items'] = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+        $approval['items'] = $this->fetchAll("
+            SELECT *
+            FROM gatepass_items
+            WHERE gatepass_id = ?
+              AND tenant_id = ?
+        ", [(int) $approval['gatepass_id'], $tenantId]);
 
-    return $approval;
-}
-public function findUserApproval(int $tenantId, int $approvalId, int $userId): ?array
-{
-    $stmt = $this->db->prepare("
-        SELECT ga.*, 
-               g.gatepass_number,
-               g.purpose
-        FROM gatepass_approvals ga
-        INNER JOIN gatepass_workflow_instances gwi
-            ON gwi.id = ga.workflow_instance_id
-        INNER JOIN gatepasses g
-            ON g.id = gwi.gatepass_id
-        WHERE ga.id = ?
-          AND ga.approver_user_id = ?
-          AND ga.tenant_id = ?
-          AND ga.status = 'pending'
-        LIMIT 1
-    ");
+        return $approval;
+    }
 
-    $stmt->execute([$approvalId, $userId, $tenantId]);
+    public function findUserApproval(int $tenantId, int $approvalId, int $userId): ?array
+    {
+        return $this->fetchOne("
+            SELECT
+                ga.id AS approval_id,
+                ga.workflow_instance_id,
+                ga.status AS approval_status,
+                gwi.status AS workflow_status,
+                gwi.current_step_order,
+                ws.name AS step_name,
+                g.id AS gatepass_id,
+                g.gatepass_number,
+                g.purpose
+            FROM gatepass_approvals ga
+            INNER JOIN gatepass_workflow_instances gwi
+                ON gwi.id = ga.workflow_instance_id
+               AND gwi.tenant_id = ga.tenant_id
+            INNER JOIN workflow_steps ws
+                ON ws.id = ga.workflow_step_id
+               AND ws.tenant_id = ga.tenant_id
+            INNER JOIN gatepasses g
+                ON g.id = gwi.gatepass_id
+               AND g.tenant_id = gwi.tenant_id
+            WHERE ga.id = ?
+              AND ga.approver_user_id = ?
+              AND ga.tenant_id = ?
+              AND ga.status = 'pending'
+            LIMIT 1
+        ", [$approvalId, $userId, $tenantId]);
+    }
 
-    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
-}
+    private function fetchOne(string $sql, array $params): ?array
+    {
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row === false ? null : $row;
+    }
+
+    private function fetchAll(string $sql, array $params): array
+    {
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }

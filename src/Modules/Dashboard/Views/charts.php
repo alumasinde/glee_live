@@ -1,7 +1,11 @@
 <?php
-use App\Modules\Dashboard\Services\DashboardService;
-$dashboardService = new DashboardService(); 
+$showWorkflowChart = can('approval.view');
+$showGatepassChart = can('gatepass.view');
+$showVisitsChart   = can('visits.view');
+$hasCharts         = $showWorkflowChart || $showGatepassChart || $showVisitsChart;
 ?>
+
+<?php if ($hasCharts): ?>
 
 <div class="chart-filters">
     <select id="chartRange">
@@ -12,31 +16,36 @@ $dashboardService = new DashboardService();
 
 <div class="charts-grid">
 
-    <div class="chart-card">
-        <h3>Workflow Status</h3>
-        <div class="chart-container">
-            <canvas id="workflowChart"></canvas>
+    <?php if ($showWorkflowChart): ?>
+        <div class="chart-card">
+            <h3>Workflow Status</h3>
+            <div class="chart-container">
+                <canvas id="workflowChart"></canvas>
+            </div>
         </div>
-    </div>
+    <?php endif; ?>
 
-    <div class="chart-card">
-        <h3>Gatepasses</h3>
-        <div class="chart-container">
-            <canvas id="monthlyChart"></canvas>
+    <?php if ($showGatepassChart): ?>
+        <div class="chart-card">
+            <h3>Gatepasses</h3>
+            <div class="chart-container">
+                <canvas id="monthlyChart"></canvas>
+            </div>
         </div>
-    </div>
+    <?php endif; ?>
 
-    <div class="chart-card">
-        <h3>Visits</h3>
-        <div class="chart-container">
-            <canvas id="weeklyChart"></canvas>
+    <?php if ($showVisitsChart): ?>
+        <div class="chart-card">
+            <h3>Visits</h3>
+            <div class="chart-container">
+                <canvas id="weeklyChart"></canvas>
+            </div>
         </div>
-    </div>
+    <?php endif; ?>
 
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="/assets/js/dashboard-charts.js"></script>
 
-<script>
-</script>
+<?php endif; ?>

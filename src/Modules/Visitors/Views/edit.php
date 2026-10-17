@@ -20,6 +20,8 @@ if (empty($details)) {
 
 <form method="POST" action="/visitors/<?= (int)$details['id'] ?>/update" class="visitor-form">
 
+    <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+
     <div class="card">
         <div class="card-body">
 

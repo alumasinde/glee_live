@@ -24,9 +24,7 @@ class PasswordController
 
     public function forgot()
     {
-        return View::render('Auth::forgot-password', [
-            'csrf_token' => $this->generateCsrfToken()
-        ]);
+        return View::render('Auth::forgot-password');
     }
 
     /* =========================================================
@@ -35,8 +33,6 @@ class PasswordController
 
     public function sendReset(Request $request)
     {
-        $this->assertValidCsrf($request->input('csrf_token'));
-
         $tenantId = $this->resolveTenantId();
         $email = trim((string) $request->input('email'));
 
@@ -75,8 +71,7 @@ class PasswordController
         }
 
         return View::render('Auth::reset-password', [
-            'token'      => $token,
-            'csrf_token' => $this->generateCsrfToken()
+            'token' => $token
         ]);
     }
 
@@ -86,8 +81,6 @@ class PasswordController
 
     public function reset(Request $request)
     {
-        $this->assertValidCsrf($request->input('csrf_token'));
-
         $tenantId = $this->resolveTenantId();
         $token = trim((string) $request->input('token'));
         $password = (string) $request->input('password');
@@ -153,32 +146,6 @@ class PasswordController
     private function isValidTokenFormat(string $token): bool
     {
         return (bool) preg_match('/^[a-f0-9]{64}$/', $token);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CSRF
-    |--------------------------------------------------------------------------
-    */
-
-    private function generateCsrfToken(): string
-    {
-        if (empty($_SESSION['csrf_token'])) {
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-        }
-
-        return $_SESSION['csrf_token'];
-    }
-
-    private function assertValidCsrf(?string $token): void
-    {
-        if (
-            empty($token) ||
-            empty($_SESSION['csrf_token']) ||
-            !hash_equals($_SESSION['csrf_token'], $token)
-        ) {
-            throw new RuntimeException('Invalid CSRF token.');
-        }
     }
 
     /*

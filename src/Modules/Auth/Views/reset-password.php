@@ -1,6 +1,7 @@
 <form method="POST" action="/reset-password">
 
     <input type="hidden" name="token" value="<?= $token ?>">
+    <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
     <h2>Reset Password</h2>
 

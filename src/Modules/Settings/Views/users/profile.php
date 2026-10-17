@@ -10,7 +10,8 @@
         </div>
     <?php endif; ?>
 
-    <form method="POST" action="/settings/profile/update">
+    <form method="POST" action="/settings/users/profile">
+        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
         <div class="card">
             <div class="card-body">

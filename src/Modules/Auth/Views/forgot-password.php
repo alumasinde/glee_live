@@ -1,5 +1,7 @@
 <form method="POST" action="/forgot-password" class="auth-form">
 
+    <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+
     <h2>Forgot Password</h2>
 
     <?php if (!empty($success)): ?>

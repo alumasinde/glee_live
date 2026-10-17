@@ -5,7 +5,8 @@
 <div class="card shadow-sm">
     <div class="card-body">
 
-        <form method="POST" action="/settings/users/store">
+        <form method="POST" action="/settings/users">
+            <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
             <div class="row mb-3">
                 <div class="col-md-6">

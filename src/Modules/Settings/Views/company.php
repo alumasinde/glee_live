@@ -4,7 +4,32 @@
 
 <div class="form-card">
 
-    <form method="POST" action="/settings/company">
+    <form method="POST" action="/settings/company" enctype="multipart/form-data">
+
+        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+
+        <div class="form-group">
+            <label class="form-label">Company Logo</label>
+
+            <?php
+                $logo = $company['logo'] ?? '';
+                $logoFile = $logo !== '' ? base_path('public/uploads/tenants/' . basename($logo)) : null;
+            ?>
+
+            <?php if ($logoFile && is_file($logoFile)): ?>
+                <div style="margin-bottom: var(--space-3);">
+                    <img src="/uploads/tenants/<?= htmlspecialchars(basename($logo)) ?>"
+                         alt="Company logo"
+                         style="max-height: 64px; max-width: 200px; object-fit: contain;">
+                </div>
+            <?php endif; ?>
+
+            <input type="file"
+                   name="logo"
+                   class="form-control"
+                   accept="image/jpeg,image/png,image/webp">
+            <small class="form-text">JPG, PNG or WebP up to 2 MB. Shown in the sidebar and on the login page.</small>
+        </div>
 
         <div class="form-group">
             <label class="form-label">Company Name</label>

@@ -13,9 +13,10 @@
         </p>
 
 <form method="POST" action="/approvals/<?= $approval['approval_id'] ?>/reject">
+            <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
             <div class="mb-3">
                 <label class="form-label">Reason for Rejection *</label>
-                <textarea name="comment" 
+                <textarea name="reason" 
                           class="form-control" 
                           rows="3"
                           required></textarea>

@@ -5,12 +5,9 @@
 <?php endif; ?>
 
 <div class="gp-card">
-    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
     <form method="POST" action="/gatepasses/<?= (int)$gatepass['id'] ?>">
 
-        <?php if (!empty($_SESSION['csrf'])): ?>
-            <input type="hidden" name="csrf" value="<?= htmlspecialchars($_SESSION['csrf']) ?>">
-        <?php endif; ?>
+        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
         <!-- PURPOSE -->
         <div class="gp-field">

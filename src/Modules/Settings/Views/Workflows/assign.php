@@ -27,6 +27,7 @@
         <?php else: ?>
 
         <form method="POST" action="/settings/workflows/<?= (int)$workflow['id'] ?>/assign">
+            <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
             <div class="form-group">
                 <label for="gatepass_type_id">

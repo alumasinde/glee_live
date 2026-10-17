@@ -5,10 +5,14 @@ namespace App\Modules\Gatepass\Services;
 use App\Core\Audit;
 use App\Core\DB;
 use App\Modules\Approval\Services\ApprovalService;
+use App\Modules\Badges\Repositories\BadgeRepository;
 use App\Modules\Gatepass\DTOs\GatepassDTO;
 use App\Modules\Gatepass\Repositories\GatepassItemRepository;
 use App\Modules\Gatepass\Repositories\GatepassRepository;
 use App\Modules\Gatepass\Repositories\GatepassStatusRepository;
+use App\Modules\Gatepass\Repositories\ScanLogRepository;
+use App\Modules\Settings\Repositories\GateRepository;
+use App\Modules\Visits\Repositories\VisitRepository;
 use InvalidArgumentException;
 use PDO;
 use RuntimeException;
@@ -21,6 +25,10 @@ class GatepassService
     private GatepassItemRepository $itemRepo;
     private GatepassStatusRepository $statusRepo;
     private ApprovalService $approvalService;
+    private ScanLogRepository $scanLogs;
+    private GateRepository $gates;
+    private VisitRepository $visits;
+    private BadgeRepository $badges;
 
     public function __construct()
     {
@@ -29,6 +37,10 @@ class GatepassService
         $this->itemRepo        = new GatepassItemRepository();
         $this->statusRepo      = new GatepassStatusRepository();
         $this->approvalService = new ApprovalService();
+        $this->scanLogs        = new ScanLogRepository();
+        $this->gates           = new GateRepository();
+        $this->visits          = new VisitRepository();
+        $this->badges          = new BadgeRepository();
     }
 
     public function create(GatepassDTO $dto): int
@@ -140,7 +152,7 @@ class GatepassService
         }
     }
 
-    public function checkIn(int $tenantId, int $gatepassId, int $userId): bool
+    public function checkIn(int $tenantId, int $gatepassId, ?int $userId, ?int $gateId = null): bool
 {
     $gatepass = $this->repo->findById($tenantId, $gatepassId);
 
@@ -171,7 +183,8 @@ class GatepassService
         $now,
         $checkedInStatusId,
         $checkedOutStatusId,
-        $approvedStatusId
+        $approvedStatusId,
+        $gateId
     );
 
     if (!$success) {
@@ -188,7 +201,7 @@ class GatepassService
     return true;
 }
 
-public function checkOut(int $tenantId, int $gatepassId, int $userId): bool
+public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gateId = null): bool
 {
     $gatepass = $this->repo->findById($tenantId, $gatepassId);
 
@@ -215,7 +228,8 @@ public function checkOut(int $tenantId, int $gatepassId, int $userId): bool
         $gatepassId,
         $userId,
         $timestamp,
-        $checkedOutStatusId
+        $checkedOutStatusId,
+        $gateId
     );
 
     if (!$success) {
@@ -281,9 +295,259 @@ public function checkOut(int $tenantId, int $gatepassId, int $userId): bool
         return $gatepass;
     }
 
-    public function list(int $tenantId, int $userId, string $role): array
+    /*
+    |--------------------------------------------------------------------------
+    | SCAN
+    | Single state machine shared by typed entry, camera QR and gate devices.
+    | Accepts a 64-hex scan_token (gatepass OR visit pass) or a legacy
+    | gatepass_number. Returns action details; throws RuntimeException with a
+    | guard message on rejection (rejections are written to scan_logs).
+    |--------------------------------------------------------------------------
+    */
+    public function processScan(
+        int     $tenantId,
+        string  $code,
+        ?int    $userId = null,
+        ?int    $gateId = null,
+        string  $source = 'manual'
+    ): array {
+        $code = trim($code);
+
+        if ($code === '') {
+            throw new RuntimeException('Invalid QR code.');
+        }
+
+        $gateName = null;
+
+        if ($gateId !== null) {
+            $gate = $this->gates->findActive($tenantId, $gateId);
+
+            if (!$gate) {
+                throw new RuntimeException('Invalid or inactive gate.');
+            }
+
+            $gateName = (string) $gate['name'];
+        }
+
+        $isToken = preg_match('/^[0-9a-fA-F]{64}$/', $code) === 1;
+
+        if ($isToken) {
+            $subject = $this->findScanSubject($tenantId, strtolower($code));
+        } else {
+            $gatepass = $this->repo->findByNumber($tenantId, $code);
+            $subject  = $gatepass !== null
+                ? ['type' => 'gatepass', 'row' => $gatepass]
+                : null;
+        }
+
+        if ($subject === null) {
+            $this->scanLogs->record($tenantId, $gateId, 'gatepass', 0, 'rejected', $source, $userId, 'Not found: ' . substr($code, 0, 64));
+            throw new RuntimeException('Code not recognized.');
+        }
+
+        if ($this->recentDuplicateScan($tenantId, $subject['type'], (int) $subject['row']['id'])) {
+            $row = $subject['row'];
+
+            $label = $subject['type'] === 'gatepass'
+                ? (string) ($row['gatepass_number'] ?? 'Gatepass')
+                : (trim(($row['visitor_first'] ?? '') . ' ' . ($row['visitor_last'] ?? '')) ?: 'Visitor');
+
+            throw new RuntimeException("{$label}: already scanned moments ago.");
+        }
+
+        return $subject['type'] === 'visit'
+            ? $this->scanVisit($tenantId, $subject['row'], $userId, $gateId, $source, $gateName)
+            : $this->scanGatepass($tenantId, $subject['row'], $userId, $gateId, $source, $gateName);
+    }
+
+    private function findScanSubject(int $tenantId, string $token): ?array
     {
-        if ($role === 'admin' || $role === 'General Manager') {
+        $visit = $this->visits->findByTokenGlobal($token);
+
+        if ($visit !== null && (int) $visit['tenant_id'] === $tenantId) {
+            return ['type' => 'visit', 'row' => $visit];
+        }
+
+        $gatepass = $this->repo->findByToken($tenantId, $token);
+
+        return $gatepass !== null ? ['type' => 'gatepass', 'row' => $gatepass] : null;
+    }
+
+    private function scanGatepass(
+        int   $tenantId,
+        array $gatepass,
+        ?int  $userId,
+        ?int  $gateId,
+        string $source,
+        ?string $gateName
+    ): array {
+        $id     = (int) $gatepass['id'];
+        $number = (string) ($gatepass['gatepass_number'] ?? 'Gatepass');
+
+        $transition = function (string $action, string $message) use ($tenantId, $gateId, $source, $userId, $number, $id, $gateName): array {
+            $this->scanLogs->record($tenantId, $gateId, 'gatepass', $id, $action, $source, $userId);
+
+            return $this->scanResult('gatepass', $id, $number, $action, $gateName, $message);
+        };
+
+        if (empty($gatepass['actual_in'])) {
+            $this->checkIn($tenantId, $id, $userId, $gateId);
+            return $transition('checked_in', "{$number}: checked in successfully.");
+        }
+
+        if ((int) ($gatepass['is_returnable'] ?? 0) === 1 && empty($gatepass['actual_out'])) {
+            $this->markReturned($tenantId, $id);
+            return $transition('returned', "{$number}: item returned successfully.");
+        }
+
+        if (empty($gatepass['actual_out'])) {
+            $this->checkOut($tenantId, $id, $userId, $gateId);
+            return $transition('checked_out', "{$number}: checked out successfully.");
+        }
+
+        $this->rejectScan($tenantId, $gateId, 'gatepass', $id, $source, $userId, "{$number}: process already completed.");
+    }
+
+    private function scanVisit(
+        int   $tenantId,
+        array $visit,
+        ?int  $userId,
+        ?int  $gateId,
+        string $source,
+        ?string $gateName
+    ): array {
+        $id    = (int) $visit['id'];
+        $label = trim(($visit['visitor_first'] ?? '') . ' ' . ($visit['visitor_last'] ?? ''));
+        $label = $label !== '' ? $label : 'Visitor';
+
+        if (!empty($visit['checkout_time'])) {
+            $this->rejectScan($tenantId, $gateId, 'visit', $id, $source, $userId, "{$label}: visit already completed.");
+        }
+
+        $transition = fn (string $action): array => $this->scanResult(
+            'visit', $id, $label, $action, $gateName,
+            "{$label}: " . str_replace('_', ' ', $action) . " successfully."
+        );
+
+        if (empty($visit['checkin_time'])) {
+            if ((int) ($visit['is_blacklisted'] ?? 0) === 1) {
+                $this->rejectScan($tenantId, $gateId, 'visit', $id, $source, $userId, 'Blacklisted visitors cannot check in.');
+            }
+
+            $this->visits->checkIn($tenantId, $id, $this->visitStatusId($tenantId, 'CHECKED_IN'), $gateId);
+            $this->scanLogs->record($tenantId, $gateId, 'visit', $id, 'checked_in', $source, $userId);
+            $this->auditScan($tenantId, $userId, 'visit.checkin', 'visit', $id, $gateId, $source);
+
+            return $transition('checked_in');
+        }
+
+        if ($this->badges->hasActiveBadge($id, $tenantId)) {
+            $this->rejectScan($tenantId, $gateId, 'visit', $id, $source, $userId, 'Badge must be returned before checkout.');
+        }
+
+        $this->visits->checkOut($tenantId, $id, $this->visitStatusId($tenantId, 'CHECKED_OUT'), $gateId);
+        $this->badges->returnActiveBadge($tenantId, $id);
+        $this->scanLogs->record($tenantId, $gateId, 'visit', $id, 'checked_out', $source, $userId);
+        $this->auditScan($tenantId, $userId, 'visit.checkout', 'visit', $id, $gateId, $source);
+
+        return $transition('checked_out');
+    }
+
+    private function scanResult(
+        string $subjectType,
+        int    $subjectId,
+        string $label,
+        string $action,
+        ?string $gateName,
+        string $message
+    ): array {
+        return [
+            'subjectType' => $subjectType,
+            'subjectId'   => $subjectId,
+            'label'       => $label,
+            'action'      => $action,
+            'gateName'    => $gateName,
+            'message'     => $message,
+        ];
+    }
+
+    private function recentDuplicateScan(int $tenantId, string $type, int $id): bool
+    {
+        $stmt = $this->db->prepare("
+            SELECT 1
+            FROM scan_logs
+            WHERE tenant_id    = :tenant_id
+              AND subject_type = :type
+              AND subject_id   = :id
+              AND action <> 'rejected'
+              AND created_at > DATE_SUB(NOW(), INTERVAL 30 SECOND)
+            LIMIT 1
+        ");
+
+        $stmt->execute([':tenant_id' => $tenantId, ':type' => $type, ':id' => $id]);
+
+        return $stmt->fetchColumn() !== false;
+    }
+
+    private function rejectScan(
+        int $tenantId,
+        ?int $gateId,
+        string $type,
+        int $id,
+        string $source,
+        ?int $userId,
+        string $message
+    ): never {
+        $this->scanLogs->record($tenantId, $gateId, $type, $id, 'rejected', $source, $userId, $message);
+
+        throw new RuntimeException($message);
+    }
+
+    private function visitStatusId(int $tenantId, string $code): int
+    {
+        $stmt = $this->db->prepare("
+            SELECT id
+            FROM visit_statuses
+            WHERE tenant_id = :tenant_id
+              AND UPPER(code) = :code
+            LIMIT 1
+        ");
+
+        $stmt->execute([':tenant_id' => $tenantId, ':code' => strtoupper($code)]);
+        $id = $stmt->fetchColumn();
+
+        if ($id === false) {
+            throw new RuntimeException("Visit status '{$code}' not configured for this tenant.");
+        }
+
+        return (int) $id;
+    }
+
+    private function auditScan(
+        int $tenantId,
+        ?int $userId,
+        string $action,
+        string $entityType,
+        int $entityId,
+        ?int $gateId,
+        string $source
+    ): void {
+        $metadata = [
+            'gate_id' => $gateId,
+            'source'  => $source,
+            'user_id' => $userId,
+        ];
+
+        if ($userId !== null) {
+            Audit::log($action, $entityType, $entityId, $metadata);
+        } else {
+            Audit::system($tenantId, $action, $entityType, $entityId, $metadata);
+        }
+    }
+
+    public function list(int $tenantId, int $userId): array
+    {
+        if (can('gatepass.view_all')) {
             return $this->repo->findAllByTenant($tenantId);
         }
 

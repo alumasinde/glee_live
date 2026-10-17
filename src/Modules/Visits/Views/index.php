@@ -92,6 +92,7 @@
 <!-- CHECK IN -->
 <?php if (!$visit['checkin_time'] && !$visit['checkout_time']): ?>
 <form method="POST" action="/visits/<?= $visit['id'] ?>/checkin">
+<input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 <button class="btn btn-sm btn-primary">Check In</button>
 </form>
 <?php endif; ?>
@@ -100,6 +101,7 @@
 <!-- ISSUE BADGE -->
 <?php if ($visit['checkin_time'] && !$visit['checkout_time'] && empty($visit['badge_code'])): ?>
 <form method="POST" action="/badges/<?= $visit['id'] ?>/issue">
+<input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 <button class="btn btn-sm btn-secondary">Issue Badge</button>
 </form>
 <?php endif; ?>
@@ -108,6 +110,7 @@
 <!-- RETURN BADGE -->
 <?php if (!empty($visit['badge_code']) && empty($visit['badge_returned_at'])): ?>
 <form method="POST" action="/badges/<?= $visit['id'] ?>/return">
+<input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 <button class="btn btn-sm btn-warning">Return Badge</button>
 </form>
 <?php endif; ?>
@@ -123,6 +126,7 @@ $badgeNotReturned =
 ?>
 
 <form method="POST" action="/visits/<?= $visit['id'] ?>/checkout">
+<input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
 <button
     class="btn btn-sm btn-danger"

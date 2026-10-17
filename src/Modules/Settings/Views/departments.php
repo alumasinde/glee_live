@@ -6,6 +6,7 @@
 <div class="form-card">
 
     <form method="POST" action="/settings/departments/create">
+        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
         <div class="form-group">
             <label class="form-label">Department Name</label>
@@ -109,6 +110,8 @@
 
     <form method="POST" action="/settings/departments/update">
 
+        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+
         <input type="hidden" name="id" id="edit_id">
 
         <div class="form-group">
@@ -150,7 +153,8 @@ function toggleDepartment(id) {
     fetch('/settings/departments/toggle', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': '<?= \App\Middleware\CSRFMiddleware::token() ?>'
         },
         body: JSON.stringify({ id })
     })
@@ -169,7 +173,7 @@ function deleteDepartment(id) {
 
     fetch('/settings/departments/delete', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': '<?= \App\Middleware\CSRFMiddleware::token() ?>'},
         body: JSON.stringify({id})
     }).then(() => location.reload());
 }

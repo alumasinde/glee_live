@@ -25,6 +25,7 @@ $visitor = $visitor ?? null;
         <div class="card-body">
 
             <form method="POST" action="/visits">
+                <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
                 <!-- VISITOR NAME -->
                 <div class="mb-3">

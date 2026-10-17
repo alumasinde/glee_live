@@ -41,6 +41,17 @@
             Apply
         </button>
 
+        <?php if (!empty($export_perm ?? '') && can($export_perm)): ?>
+            <?php
+                $exportPath  = strtok($_SERVER['REQUEST_URI'], '?') . '/export';
+                $exportQuery = $_SERVER['QUERY_STRING'] ?? '';
+                $exportUrl   = $exportQuery !== '' ? $exportPath . '?' . $exportQuery : $exportPath;
+            ?>
+            <a href="<?= htmlspecialchars($exportUrl) ?>" class="btn btn-secondary">
+                Export CSV
+            </a>
+        <?php endif; ?>
+
         <!-- 🔄 Clear Filters -->
         <a href="<?= strtok($_SERVER['REQUEST_URI'], '?') ?>" class="btn btn-secondary">
             Clear

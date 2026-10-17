@@ -12,7 +12,8 @@
             <strong>#<?= $approval['gatepass_id'] ?></strong>?
         </p>
 
-<form method="POST" action="/approvals/<?= $approval['approval_id'] ?>/approve">            
+<form method="POST" action="/approvals/<?= $approval['approval_id'] ?>/approve">
+            <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
             <div class="mb-3">
                 <label class="form-label">Comment (Optional)</label>
                 <textarea name="comment" 

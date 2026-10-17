@@ -43,22 +43,60 @@ class ApprovalController extends Controller
         $user = $this->user();
 
         if (!$this->policy->viewAny()) {
-        Response::abort(403);        
+            Response::abort(403);
         }
-
-        $approvals = $this->service->getPendingForUser(
-            $user['tenant_id'],
-            $user['id']
-        );
 
         return View::render('Approval::index', [
             'title' => 'My Approvals',
-            'approvals' => $approvals
+            'approvals' => $this->service->getPendingForUser(
+                $user['tenant_id'],
+                $user['id']
+            )
         ], 'app');
     }
 
     /* =========================================================
-     * APPROVE
+     * CONFIRM FORMS (GET)
+     * ========================================================= */
+
+    public function approveForm(Request $request, $id)
+    {
+        return $this->renderConfirmation('Approval::approve', $id);
+    }
+
+    public function rejectForm(Request $request, $id)
+    {
+        return $this->renderConfirmation('Approval::reject', $id);
+    }
+
+    private function renderConfirmation(string $view, int|string $id)
+    {
+        $user = $this->user();
+
+        $allowed = $view === 'Approval::approve' ? $this->policy->approve() : $this->policy->reject();
+
+        if (!$allowed) {
+            Response::abort(403);
+        }
+
+        $approval = $this->service->findUserApproval(
+            $user['tenant_id'],
+            (int) $id,
+            $user['id']
+        );
+
+        if (!$approval) {
+            Response::abort(404, 'Approval not found or already processed.');
+        }
+
+        return View::render($view, [
+            'title' => $view === 'Approval::approve' ? 'Approve Gatepass' : 'Reject Gatepass',
+            'approval' => $approval
+        ], 'app');
+    }
+
+    /* =========================================================
+     * APPROVE (POST)
      * ========================================================= */
 
     public function approve(Request $request, $id)
@@ -66,20 +104,21 @@ class ApprovalController extends Controller
         $user = $this->user();
 
         if (!$this->policy->approve()) {
-        Response::abort(403);        
+            Response::abort(403);
         }
 
         $approvalId = (int) $id;
 
         if ($approvalId <= 0) {
-        Response::abort(400);        
+            Response::abort(400);
         }
 
         try {
 
             $this->service->approve(
                 $approvalId,
-                $user['id']
+                $user['id'],
+                trim((string) $request->input('comment', '')) ?: null
             );
 
             header('Location: /approvals');
@@ -99,7 +138,7 @@ class ApprovalController extends Controller
     }
 
     /* =========================================================
-     * REJECT
+     * REJECT (POST)
      * ========================================================= */
 
     public function reject(Request $request, $id)
@@ -107,19 +146,19 @@ class ApprovalController extends Controller
         $user = $this->user();
 
         if (!$this->policy->reject()) {
-        Response::abort(403);        
+            Response::abort(403);
         }
 
         $approvalId = (int) $id;
 
         if ($approvalId <= 0) {
-        Response::abort(400);        
+            Response::abort(400);
         }
 
-        $reason = trim($request->input('reason', ''));
+        $reason = trim((string) ($request->input('reason', '') ?: $request->input('comment', '')));
 
         if ($reason === '') {
-        Response::abort(422, 'Rejection reason is required.');
+            Response::abort(422, 'Rejection reason is required.');
         }
 
         try {
@@ -147,42 +186,40 @@ class ApprovalController extends Controller
     }
 
     /* =========================================================
-     * SHOW (Optional - single approval view)
+     * SHOW
      * ========================================================= */
 
     public function show(Request $request, $id)
-{
-    $user = $this->user();
+    {
+        $user = $this->user();
 
-    if (!$this->policy->viewAny()) {
-        Response::abort(403);
+        if (!$this->policy->viewAny()) {
+            Response::abort(403);
+        }
+
+        $approvalId = (int) $id;
+
+        if ($approvalId <= 0) {
+            Response::abort(400);
+        }
+
+        $approval = $this->service->findApproval(
+            $user['tenant_id'],
+            $approvalId,
+            $user['id']
+        );
+
+        if (!$approval) {
+            Response::abort(404, 'Approval not found.');
+        }
+
+        if (!$this->policy->view($user, $approval)) {
+            Response::abort(403);
+        }
+
+        return View::render('Approval::show', [
+            'title' => 'View Approval',
+            'approval' => $approval
+        ], 'app');
     }
-
-    $approvalId = (int) $id;
-
-    if ($approvalId <= 0) {
-        Response::abort(400);
-    }
-
-    $approval = $this->service->findApproval(
-    $user['tenant_id'],
-    $approvalId,   // pass ga.id
-    $user['id']
-);
-
-    /* if (!$approval) {
-        Response::abort(404);
-    } */
-
-    // 🔐 Object-level authorization
-    if (!$this->policy->view($user, $approval)) {
-        Response::abort(403);
-    }
-
-    return View::render('Approval::show', [
-        'title' => 'View Approval',
-        'approval' => $approval
-    ], 'app');
-}
-
 }

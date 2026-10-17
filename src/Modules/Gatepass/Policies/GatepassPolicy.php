@@ -15,7 +15,7 @@ class GatepassPolicy
 
     public function approve(): bool
     {
-        return $this->permission->can('gatepass.approve');
+        return $this->permission->can('approval.approve');
     }
 
     public function update(array $user, array $gatepass): bool

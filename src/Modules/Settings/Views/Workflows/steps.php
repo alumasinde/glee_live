@@ -23,6 +23,7 @@
 
         <!-- Add Step Form -->
         <form method="POST" action="/settings/workflows/<?= (int)$workflow['id'] ?>/steps">
+            <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
             <div class="form-grid">
 

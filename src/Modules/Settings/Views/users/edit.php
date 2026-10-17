@@ -6,6 +6,7 @@
     <div class="card-body">
 
 <form method="POST" action="/settings/users/<?= $userData['id'] ?>">
+    <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
     
             <div class="row mb-3">
                 <div class="col-md-6">

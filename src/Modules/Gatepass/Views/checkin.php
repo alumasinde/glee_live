@@ -41,6 +41,8 @@
                 <form method="POST"
                       action="/gatepasses/<?= (int)$gatepass['id'] ?>/checkin">
 
+                    <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+
                     <button type="submit" class="btn btn-success">
                         Confirm Check In
                     </button>

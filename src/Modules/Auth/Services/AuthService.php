@@ -4,8 +4,6 @@ namespace App\Modules\Auth\Services;
 
 use App\Modules\Auth\Repositories\UserRepository;
 use App\Modules\Tenant\Repositories\TenantRepository;
-use App\Core\Permission;
-use App\Core\DB;
 use RuntimeException;
 
 class AuthService
@@ -54,10 +52,6 @@ public function __construct(
         // Prevent session fixation
         session_regenerate_id(true);
 
-        // Load permissions using shared DB connection
-        $permission = new Permission(DB::connect());
-        $permission->loadForUser((int) $user['id']);
-
         $_SESSION['user'] = [
             'id'            => (int) $user['id'],
             'tenant_id'     => (int) $user['tenant_id'],
@@ -79,11 +73,6 @@ public function getTenantContext(int $id): array
 
     if (!$tenant) {
         throw new RuntimeException("Tenant not found");
-    }
-
-    // If logo is stored as BLOB
-    if (!empty($tenant['tenant_logo'])) {
-        $tenant['tenant_logo'] = base64_encode($tenant['tenant_logo']);
     }
 
     return $tenant;

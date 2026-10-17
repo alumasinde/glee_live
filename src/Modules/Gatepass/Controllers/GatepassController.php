@@ -65,8 +65,7 @@ class GatepassController extends Controller
 
         $gatepasses = $this->service->list(
             $user['tenant_id'],
-            $user['id'],
-            $user['role']
+            $user['id']
         );
 
         foreach ($gatepasses as &$g) {
@@ -122,8 +121,6 @@ class GatepassController extends Controller
             Response::abort(403);
         }
 
-        $this->assertValidCsrf($request->input('csrf_token'));
-
         try {
             $dto = new GatepassDTO(
                 tenant_id: $user['tenant_id'],
@@ -178,10 +175,17 @@ class GatepassController extends Controller
             ]
         );
 
+        $qrDataUri = null;
+
+        if (can('gatepass.print') || can('gatepass.scan')) {
+            $qrDataUri = \App\Core\QrCode::svgDataUri((string) $gatepass['scan_token']);
+        }
+
         View::render('Gatepass::show', [
-            'title'    => 'View Gatepass',
-            'gatepass' => $gatepass,
-            'items'    => $gatepass['items'] ?? [],
+            'title'       => 'View Gatepass',
+            'gatepass'    => $gatepass,
+            'items'       => $gatepass['items'] ?? [],
+            'qr_data_uri' => $qrDataUri,
         ], 'app');
 
         return null;
@@ -258,8 +262,6 @@ public function update(Request $request, int $id): void
     {
         $user = $this->user();
 
-        $this->assertValidCsrf($request->input('csrf_token'));
-
         $gatepass = $this->findGatepassOrFail($user['tenant_id'], $id);
 
         $this->service->checkIn($user['tenant_id'], $id, $user['id']);
@@ -277,8 +279,6 @@ public function update(Request $request, int $id): void
     public function checkOut(Request $request, int $id): never
     {
         $user = $this->user();
-
-        $this->assertValidCsrf($request->input('csrf_token'));
 
         $gatepass = $this->findGatepassOrFail($user['tenant_id'], $id);
 
@@ -318,18 +318,5 @@ public function update(Request $request, int $id): void
 
         header('Location: /gatepasses');
         exit;
-    }
-
-    private function assertValidCsrf(?string $token): void
-    {
-        if (
-            empty($token) ||
-            empty($_SESSION['csrf_token']) ||
-            !hash_equals($_SESSION['csrf_token'], $token)
-        ) {
-            $_SESSION['flash'] = ['message' => 'Invalid CSRF token. Please try again.', 'type' => 'danger'];
-            header('Location: /gatepasses');
-            exit;
-        }
     }
 }

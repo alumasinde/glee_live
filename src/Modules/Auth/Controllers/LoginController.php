@@ -43,7 +43,6 @@ class LoginController extends Controller
             'Auth::login',
             [
                 'title'        => 'Login',
-                'csrf_token'   => $this->generateCsrfToken(),
                 'company_logo' => $tenant['tenant_logo'],
                 'tenant_name'  => $tenant['tenant_name'],
             ],
@@ -53,12 +52,6 @@ class LoginController extends Controller
 
 public function store(Request $request)
 {
-    try {
-        $this->assertValidCsrf($request->input('csrf_token'));
-    } catch (\Throwable $e) {
-        return $this->fail($request, 'Session expired. Please refresh and try again.', 419);
-    }
-
     $tenantId = $this->resolveTenantId();
 
     $email    = trim((string) $request->input('email'));
@@ -181,7 +174,6 @@ public function store(Request $request)
             [
                 'title'        => 'Login',
                 'error'        => $message,
-                'csrf_token'   => $this->generateCsrfToken(),
                 'company_logo' => $tenant['tenant_logo'],
                 'tenant_name'  => $tenant['tenant_name'],
             ],
@@ -192,29 +184,6 @@ public function store(Request $request)
     private function isValidEmail(string $email): bool
     {
         return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
-    }
-
-    /**
-     * CSRF
-     */
-    private function generateCsrfToken(): string
-    {
-        if (empty($_SESSION['csrf_token'])) {
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-        }
-
-        return $_SESSION['csrf_token'];
-    }
-
-    private function assertValidCsrf(?string $token): void
-    {
-        if (
-            empty($token) ||
-            empty($_SESSION['csrf_token']) ||
-            !hash_equals($_SESSION['csrf_token'], $token)
-        ) {
-            throw new RuntimeException('Invalid CSRF token.');
-        }
     }
 
     /**

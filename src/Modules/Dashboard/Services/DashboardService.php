@@ -21,14 +21,30 @@ class DashboardService
         $tenantId = (int) $user['tenant_id'];
         $userId   = (int) $user['id'];
 
-        return [
-            'total_gatepasses'      => $this->countGatepasses($tenantId),
-            'my_pending_approvals'  => $this->countMyPendingApprovals($tenantId, $userId),
-            'checked_in_today'      => $this->countCheckinsToday($tenantId),
-            'checked_out_today'     => $this->countCheckoutsToday($tenantId),
-            'active_visitors'       => $this->countActiveVisitors($tenantId),
-            'total_visitors'        => $this->totalVisitors($tenantId),
-        ];
+        $stats = [];
+
+        if (can('gatepass.view')) {
+            $stats['total_gatepasses'] = $this->countGatepasses($tenantId);
+        }
+
+        if (can('approval.view')) {
+            $stats['my_pending_approvals'] = $this->countMyPendingApprovals($tenantId, $userId);
+        }
+
+        if (can('gatepass.checkin')) {
+            $stats['checked_in_today'] = $this->countCheckinsToday($tenantId);
+        }
+
+        if (can('gatepass.checkout')) {
+            $stats['checked_out_today'] = $this->countCheckoutsToday($tenantId);
+        }
+
+        if (can('visits.view')) {
+            $stats['active_visitors'] = $this->countActiveVisitors($tenantId);
+            $stats['total_visitors']  = $this->totalVisitors($tenantId);
+        }
+
+        return $stats;
     }
 
     /** Total gatepasses */
@@ -138,64 +154,64 @@ class DashboardService
         return (int) $stmt->fetchColumn();
     }
 
-    /** Dashboard charts */
+    /** Dashboard charts — each dataset built only when permitted */
     public function getChartData(int $tenantId, int $days = 30): array
     {
         $range = DateHelper::rangeDays($days);
+        $data  = [];
 
-        /** Workflow status */
-        $stmt = $this->db->prepare("
-            SELECT status, COUNT(*) as total
-            FROM gatepass_workflow_instances
-            WHERE tenant_id = :tenant
-            GROUP BY status
-        ");
+        if (can('approval.view')) {
+            $stmt = $this->db->prepare("
+                SELECT status, COUNT(*) as total
+                FROM gatepass_workflow_instances
+                WHERE tenant_id = :tenant
+                GROUP BY status
+            ");
 
-        $stmt->execute([':tenant' => $tenantId]);
-        $workflowRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmt->execute([':tenant' => $tenantId]);
+            $data['workflow_status'] = ChartHelper::dataset($stmt->fetchAll(PDO::FETCH_ASSOC), 'status', 'total');
+        }
 
-        /** Gatepasses by day */
-        $stmt = $this->db->prepare("
-            SELECT DATE(created_at) as date,
-                   COUNT(*) as total
-            FROM gatepasses
-            WHERE tenant_id = :tenant
-              AND created_at BETWEEN :start AND :end
-            GROUP BY DATE(created_at)
-            ORDER BY date ASC
-        ");
+        if (can('gatepass.view')) {
+            $stmt = $this->db->prepare("
+                SELECT DATE(created_at) as date,
+                       COUNT(*) as total
+                FROM gatepasses
+                WHERE tenant_id = :tenant
+                  AND created_at BETWEEN :start AND :end
+                GROUP BY DATE(created_at)
+                ORDER BY date ASC
+            ");
 
-        $stmt->execute([
-            ':tenant' => $tenantId,
-            ':start'  => $range['start'],
-            ':end'    => $range['end']
-        ]);
+            $stmt->execute([
+                ':tenant' => $tenantId,
+                ':start'  => $range['start'],
+                ':end'    => $range['end']
+            ]);
 
-        $gatepassRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $data['daily_gatepasses'] = ChartHelper::dataset($stmt->fetchAll(PDO::FETCH_ASSOC), 'date', 'total');
+        }
 
-        /** Visits by day */
-        $stmt = $this->db->prepare("
-            SELECT DATE(checkin_time) as date,
-                   COUNT(*) as total
-            FROM visits
-            WHERE tenant_id = :tenant
-              AND checkin_time BETWEEN :start AND :end
-            GROUP BY DATE(checkin_time)
-            ORDER BY date ASC
-        ");
+        if (can('visits.view')) {
+            $stmt = $this->db->prepare("
+                SELECT DATE(checkin_time) as date,
+                       COUNT(*) as total
+                FROM visits
+                WHERE tenant_id = :tenant
+                  AND checkin_time BETWEEN :start AND :end
+                GROUP BY DATE(checkin_time)
+                ORDER BY date ASC
+            ");
 
-        $stmt->execute([
-            ':tenant' => $tenantId,
-            ':start'  => $range['start'],
-            ':end'    => $range['end']
-        ]);
+            $stmt->execute([
+                ':tenant' => $tenantId,
+                ':start'  => $range['start'],
+                ':end'    => $range['end']
+            ]);
 
-        $visitRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $data['weekly_visits'] = ChartHelper::dataset($stmt->fetchAll(PDO::FETCH_ASSOC), 'date', 'total');
+        }
 
-        return [
-            'workflow_status'  => ChartHelper::dataset($workflowRows, 'status', 'total'),
-            'daily_gatepasses' => ChartHelper::dataset($gatepassRows, 'date', 'total'),
-            'weekly_visits'    => ChartHelper::dataset($visitRows, 'date', 'total')
-        ];
+        return $data;
     }
 }

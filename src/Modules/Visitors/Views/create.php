@@ -8,6 +8,7 @@
 
 <div class="gp-card">
     <form method="POST" action="/visitors">
+        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
         <div class="gp-field">
             <label class="gp-label">First Name</label>

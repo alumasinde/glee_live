@@ -26,12 +26,24 @@
         <p>Check-in and check-out tracking</p>
     </a>
 
-    <a href="/reports/audit-logs" class="report-card">
-        <div class="card-icon">
-            <i class="fa-solid fa-chart-column"></i>
-        </div>
-        <h3>Audit Logs</h3>
-        <p>System activity and user actions</p>
-    </a>
+    <?php if (can('reports.view')): ?>
+        <a href="/reports/occupancy" class="report-card">
+            <div class="card-icon">
+                <i class="fa-solid fa-warehouse"></i>
+            </div>
+            <h3>Occupancy</h3>
+            <p>Who and what is on site right now, per gate</p>
+        </a>
+    <?php endif; ?>
+
+    <?php if (can('audit.view')): ?>
+        <a href="/reports/audit-logs" class="report-card">
+            <div class="card-icon">
+                <i class="fa-solid fa-chart-column"></i>
+            </div>
+            <h3>Audit Logs</h3>
+            <p>System activity and user actions</p>
+        </a>
+    <?php endif; ?>
 
 </div>

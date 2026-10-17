@@ -41,6 +41,8 @@
                 <form method="POST"
                       action="/gatepasses/<?= (int)$gatepass['id'] ?>/checkout">
 
+                    <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+
                     <button type="submit" class="btn btn-danger">
                         Confirm Check Out
                     </button>

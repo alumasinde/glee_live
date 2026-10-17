@@ -6,7 +6,7 @@
 
 <div class="gp-card">
     <form method="POST" action="/gatepasses">
-        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
         <input type="hidden" name="department_id" value="<?= htmlspecialchars($user['department_id'] ?? '') ?>">
 
         <!-- VISIT -->

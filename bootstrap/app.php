@@ -61,6 +61,9 @@ $container->singleton(Router::class, function () {
 
 set_exception_handler(function ($e) {
 
+    error_log('[Uncaught] ' . get_class($e) . ': ' . $e->getMessage()
+        . ' in ' . $e->getFile() . ':' . $e->getLine());
+
     $code = $e->getCode();
 
     if (!is_int($code) || $code < 400 || $code > 599) {
@@ -104,6 +107,14 @@ function config(string $key): mixed
     }
 
     return $config;
+}
+
+/**
+ * Permission check for views and services (cached per request).
+ */
+function can(string $permission): bool
+{
+    return (new \App\Core\Permission(\App\Core\DB::connect()))->can($permission);
 }
 
 return $container;

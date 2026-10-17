@@ -6,14 +6,17 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\View;
 use App\Modules\Gatepass\Services\GatepassService;
+use App\Modules\Settings\Repositories\GateRepository;
 
 class GateScanController extends Controller
 {
     private GatepassService $service;
+    private GateRepository $gates;
 
     public function __construct()
     {
         $this->service = new GatepassService();
+        $this->gates   = new GateRepository();
     }
 
     private function user(): array
@@ -28,64 +31,57 @@ class GateScanController extends Controller
 
     public function index(): mixed
     {
-        return View::render('Gatepass::scan', ['title' => 'Scan Gatepass'], 'app');
+        $user = $this->user();
+
+        return View::render('Gatepass::scan', [
+            'title'       => 'Scan Gatepass',
+            'gates'       => $this->gates->all((int) $user['tenant_id']),
+            'selected_gate' => $_SESSION['scan_gate_id'] ?? null,
+        ], 'app');
     }
 
     public function process(Request $request): mixed
     {
         $user = $this->user();
-        $code = trim((string) $request->input('gatepass_number', ''));
 
-        if ($code === '') {
-            return $this->scanError('Invalid QR code.');
-        }
+        $code = trim((string) $request->input('gatepass_number', ''));
+        $gateId = ($request->input('gate_id') !== null && (int) $request->input('gate_id') > 0)
+            ? (int) $request->input('gate_id')
+            : null;
+
+        $_SESSION['scan_gate_id'] = $gateId;
 
         try {
-            $gatepass = $this->service->findByNumber($user['tenant_id'], $code);
+            $result = $this->service->processScan(
+                (int) $user['tenant_id'],
+                $code,
+                (int) $user['id'],
+                $gateId
+            );
 
-            if (!$gatepass) {
-                return $this->scanError('Gatepass not found.');
-            }
-
-            $actualIn     = $gatepass['actual_in'] ?? null;
-            $actualOut    = $gatepass['actual_out'] ?? null;
-            $isReturnable = (int) ($gatepass['is_returnable'] ?? 0) === 1;
-
-            if (!$actualIn) {
-                $this->service->checkIn($user['tenant_id'], (int) $gatepass['id'], $user['id']);
-                return $this->scanSuccess('Checked in successfully.');
-            }
-
-            if ($isReturnable && $actualIn && !$actualOut) {
-                $this->service->markReturned($user['tenant_id'], (int) $gatepass['id']);
-                return $this->scanSuccess('Item returned successfully.');
-            }
-
-            if (!$actualOut) {
-                $this->service->checkOut($user['tenant_id'], (int) $gatepass['id'], $user['id']);
-                return $this->scanSuccess('Checked out successfully.');
-            }
-
-            return $this->scanError('Gatepass process already completed.');
-
+            return $this->scanSuccess($result);
         } catch (\Throwable $e) {
-            return $this->scanError($e->getMessage());
+            return $this->scanError($e->getMessage(), $user);
         }
     }
 
-    private function scanSuccess(string $message): mixed
+    private function scanSuccess(array $result): mixed
     {
         return View::render('Gatepass::scan_result', [
             'title'   => 'Scan Result',
-            'message' => $message,
+            'message' => $result['message'],
+            'action'  => $result['action'],
+            'gate'    => $result['gateName'],
         ], 'app');
     }
 
-    private function scanError(string $error): mixed
+    private function scanError(string $error, array $user): mixed
     {
         return View::render('Gatepass::scan', [
-            'title' => 'Scan Gatepass',
-            'error' => $error,
+            'title'         => 'Scan Gatepass',
+            'error'         => $error,
+            'gates'         => $this->gates->all((int) $user['tenant_id']),
+            'selected_gate' => $_SESSION['scan_gate_id'] ?? null,
         ], 'app');
     }
 }

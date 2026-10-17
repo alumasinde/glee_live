@@ -22,6 +22,7 @@ $totalApplied = count($appliedMap);
 </div>
 
 <form method="POST" action="/roles/<?= (int)$role['id'] ?>/permissions">
+<input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
 <?php foreach ($permissionsByModule as $module => $perms): 
     $moduleKey = md5($module);

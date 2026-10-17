@@ -21,6 +21,7 @@
                 <a href="/roles/<?= $role['id'] ?>/edit" class="btn btn-sm btn-warning">Edit</a>
                 <a href="/roles/<?= $role['id'] ?>/permissions" class="btn btn-sm btn-info">Permissions</a>
                 <form action="/roles/<?= $role['id'] ?>/delete" method="POST" style="display:inline-block;" onsubmit="return confirm('Delete this role?')">
+                    <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
                     <button class="btn btn-sm btn-danger">Delete</button>
                 </form>
             </td>

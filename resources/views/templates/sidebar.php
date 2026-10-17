@@ -1,69 +1,45 @@
 <aside class="sidebar" id="sidebar">
 
+    <?php
+        $current ??= parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+
+        $tenantLogo = $_SESSION['user']['tenant_logo'] ?? '';
+        $logoPath   = $tenantLogo !== ''
+            ? base_path('public/uploads/tenants/' . basename($tenantLogo))
+            : null;
+    ?>
+
     <div class="brand">
-        <i class="fa-solid fa-id-badge"></i>
+        <?php if ($logoPath && is_file($logoPath)): ?>
+            <img class="brand-logo"
+                 src="/uploads/tenants/<?= htmlspecialchars(basename($tenantLogo)) ?>"
+                 alt="<?= htmlspecialchars($_SESSION['user']['tenant_name'] ?? 'Company logo') ?>">
+        <?php else: ?>
+            <i class="fa-solid fa-id-badge"></i>
+        <?php endif; ?>
         <span>
             <?= htmlspecialchars($_SESSION['user']['tenant_code'] ?? '') ?>
-        </span>    
+        </span>
     </div>
 
     <ul class="menu">
 
-        <li>
-            <a href="/dashboard" class="<?= $current === '/dashboard' ? 'active' : '' ?>">
-                <i class="fa-solid fa-gauge-high"></i>
-                <span>Dashboard</span>
-            </a>
-        </li>
-
-        <li>
-            <a href="/gatepasses" class="<?= $current === '/gatepasses' ? 'active' : '' ?>">
-                <i class="fa-solid fa-file-signature"></i>
-                <span>Gatepasses</span>
-            </a>
-        </li>
-
-        <li>
-            <a href="/visitors" class="<?= $current === '/visitors' ? 'active' : '' ?>">
-                <i class="fa-solid fa-user"></i>
-                <span>Visitors</span>
-            </a>
-        </li>
-
-        <li>
-            <a href="/visits" class="<?= $current === '/visits' ? 'active' : '' ?>">
-                <i class="fa-solid fa-right-to-bracket"></i>
-                <span>Visits</span>
-            </a>
-        </li>
-
-        <li>
-            <a href="/approvals" class="<?= $current === '/approvals' ? 'active' : '' ?>">
-                <i class="fa-solid fa-circle-check"></i>
-                <span>Approvals</span>
-            </a>
-        </li>
-
-        <li>
-            <a href="/reports" class="<?= str_starts_with($current, '/reports') ? 'active' : '' ?>">
-                <i class="fa-solid fa-chart-column"></i>
-                <span>Reports</span>
-            </a>
-        </li>
-
-        <li>
-            <a href="/roles" class="<?= $current === '/roles' ? 'active' : '' ?>">
-                <i class="fa-solid fa-shield-halved"></i>
-                <span>Roles</span>
-            </a>
-        </li>
-
-        <li>
-            <a href="/settings" class="<?= str_starts_with($current, '/settings') ? 'active' : '' ?>">
-                <i class="fa-solid fa-gear"></i>
-                <span>Settings</span>
-            </a>
-        </li>
+        <?php foreach (config('menu') as $item): ?>
+            <?php if (!can($item['permission'])) {
+                continue;
+            } ?>
+            <?php
+                $active = $item['match'] === 'prefix'
+                    ? str_starts_with($current, $item['route'])
+                    : $current === $item['route'];
+            ?>
+            <li>
+                <a href="<?= $item['route'] ?>" class="<?= $active ? 'active' : '' ?>">
+                    <i class="<?= $item['icon'] ?>"></i>
+                    <span><?= htmlspecialchars($item['label']) ?></span>
+                </a>
+            </li>
+        <?php endforeach; ?>
 
     </ul>
 

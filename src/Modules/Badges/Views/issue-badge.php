@@ -73,6 +73,7 @@
 
             <!-- Issue Badge Form -->
             <form method="POST">
+                <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
                 <div class="mb-3">
                     <label class="form-label">Badge Code</label>

@@ -20,12 +20,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!data) return;
 
-        const workflowCanvas = document.getElementById('workflowChart');
-        const monthlyCanvas = document.getElementById('monthlyChart');
-        const weeklyCanvas = document.getElementById('weeklyChart');
-
-        if (!workflowCanvas || !monthlyCanvas || !weeklyCanvas) return;
-
         safeDestroy(workflowChart);
         safeDestroy(monthlyChart);
         safeDestroy(weeklyChart);
@@ -34,54 +28,64 @@ document.addEventListener('DOMContentLoaded', function () {
         const daily = data.daily_gatepasses || {labels:[],data:[]};
         const weekly = data.weekly_visits || {labels:[],data:[]};
 
-        workflowChart = new Chart(workflowCanvas, {
-            type: 'doughnut',
-            data: {
-                labels: workflow.labels,
-                datasets: [{
-                    data: workflow.data
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false
-            }
-        });
+        const workflowCanvas = document.getElementById('workflowChart');
+        const monthlyCanvas = document.getElementById('monthlyChart');
+        const weeklyCanvas = document.getElementById('weeklyChart');
 
-        monthlyChart = new Chart(monthlyCanvas, {
-            type: 'bar',
-            data: {
-                labels: daily.labels.map(formatDate),
-                datasets: [{
-                    label: 'Gatepasses',
-                    data: daily.data
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false
-            }
-        });
+        if (workflowCanvas) {
+            workflowChart = new Chart(workflowCanvas, {
+                type: 'doughnut',
+                data: {
+                    labels: workflow.labels,
+                    datasets: [{
+                        data: workflow.data
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false
+                }
+            });
+        }
 
-        weeklyChart = new Chart(weeklyCanvas, {
-            type: 'line',
-            data: {
-                labels: weekly.labels.map(formatDate),
-                datasets: [{
-                    label: 'Visits',
-                    data: weekly.data,
-                    fill: false,
-                    tension: 0.3
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false
-            }
-        });
+        if (monthlyCanvas) {
+            monthlyChart = new Chart(monthlyCanvas, {
+                type: 'bar',
+                data: {
+                    labels: daily.labels.map(formatDate),
+                    datasets: [{
+                        label: 'Gatepasses',
+                        data: daily.data
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false
+                }
+            });
+        }
+
+        if (weeklyCanvas) {
+            weeklyChart = new Chart(weeklyCanvas, {
+                type: 'line',
+                data: {
+                    labels: weekly.labels.map(formatDate),
+                    datasets: [{
+                        label: 'Visits',
+                        data: weekly.data,
+                        fill: false,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false
+                }
+            });
+        }
     }
 
     async function loadCharts(days = 30) {

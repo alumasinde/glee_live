@@ -60,6 +60,19 @@
         <?= !empty($gatepass['needs_approval']) ? 'Yes' : 'No' ?>
     </div>
 
+    <?php if (!empty($qr_data_uri)): ?>
+        <hr>
+        <div class="info-row" style="text-align:center;">
+            <strong>Scan Pass</strong>
+            <div>
+                <img src="<?= $qr_data_uri ?>"
+                     alt="QR code for gatepass <?= htmlspecialchars($gatepass['gatepass_number']) ?>"
+                     width="220" height="220">
+            </div>
+            <small><?= htmlspecialchars($gatepass['gatepass_number']) ?></small>
+        </div>
+    <?php endif; ?>
+
     <hr>
 
     <!-- ITEMS -->
@@ -94,25 +107,27 @@
 
     <div class="form-actions">
 
+        <?php if (can('gatepass.update')): ?>
         <a href="/gatepasses/<?= (int)$gatepass['id'] ?>/edit"
            class="btn btn-primary">
             Edit
         </a>
+        <?php endif; ?>
 
+        <?php if (can('gatepass.delete')): ?>
         <form method="POST"
               action="/gatepasses/<?= (int)$gatepass['id'] ?>/delete"
               style="display:inline;"
               onsubmit="return confirm('Are you sure you want to delete this gatepass?');">
 
-            <!-- CSRF (recommended) -->
-            <?php if (!empty($_SESSION['csrf'])): ?>
-                <input type="hidden" name="csrf" value="<?= htmlspecialchars($_SESSION['csrf']) ?>">
-            <?php endif; ?>
+            <!-- CSRF -->
+            <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
             <button type="submit" class="btn btn-danger">
                 Delete
             </button>
         </form>
+        <?php endif; ?>
 
         <a href="/gatepasses" class="btn btn-secondary">
             Back

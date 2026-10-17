@@ -10,7 +10,7 @@
 
 </div>
 <div class="nav-center">
-    <?= htmlspecialchars($_SESSION ['user']['tenant_name'] ?? 'GPMS') ?>
+    <?= htmlspecialchars($_SESSION ['user']['tenant_name'] ?? 'PMS') ?>
     </a>
 </div>
 
@@ -21,7 +21,7 @@
 </a>
 
     <form method="POST" action="/logout">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
         <button type="submit" class="logout-btn" style="background:none; border:none; padding:0; cursor:pointer;">
             <i class="fa-solid fa-right-from-bracket"></i>
         </button>

@@ -2,6 +2,8 @@
 
 <form method="POST" action="/settings/gatepass-numbering">
 
+    <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+
     <label>Prefix</label>
     <input type="text" name="prefix"
         value="<?= htmlspecialchars($config['prefix']) ?>">
