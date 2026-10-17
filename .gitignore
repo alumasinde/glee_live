@@ -1,0 +1,29 @@
+# Dependencies
+/vendor/
+composer.phar
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+/log/
+/logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Cache / build artifacts
+/cache/
+/node_modules/
+*.sql.bak

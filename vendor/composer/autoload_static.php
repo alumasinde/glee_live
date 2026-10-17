@@ -37,19 +37,19 @@ class ComposerStaticInitf41b98b2a791d5bf9a12fa172592c5aa
     );
 
     public static $prefixLengthsPsr4 = array (
-        'p' => 
+        'p' =>
         array (
             'phpDocumentor\\Reflection\\' => 25,
         ),
-        'X' => 
+        'X' =>
         array (
             'XdgBaseDir\\' => 11,
         ),
-        'W' => 
+        'W' =>
         array (
             'Webmozart\\Assert\\' => 17,
         ),
-        'S' => 
+        'S' =>
         array (
             'Symfony\\Polyfill\\Php80\\' => 23,
             'Symfony\\Polyfill\\Mbstring\\' => 26,
@@ -65,11 +65,11 @@ class ComposerStaticInitf41b98b2a791d5bf9a12fa172592c5aa
             'Symfony\\Component\\Console\\' => 26,
             'Spatie\\ArrayToXml\\' => 18,
         ),
-        'R' => 
+        'R' =>
         array (
             'Revolt\\' => 7,
         ),
-        'P' => 
+        'P' =>
         array (
             'Psr\\Log\\' => 8,
             'Psr\\Http\\Message\\' => 17,
@@ -80,43 +80,43 @@ class ComposerStaticInitf41b98b2a791d5bf9a12fa172592c5aa
             'PhpOption\\' => 10,
             'PHPStan\\PhpDocParser\\' => 21,
         ),
-        'L' => 
+        'L' =>
         array (
             'LibDNS\\' => 7,
             'League\\Uri\\' => 11,
             'LanguageServerProtocol\\' => 23,
         ),
-        'K' => 
+        'K' =>
         array (
             'Kelunik\\Certificate\\' => 20,
         ),
-        'G' => 
+        'G' =>
         array (
             'GuzzleHttp\\Psr7\\' => 16,
             'GuzzleHttp\\Promise\\' => 19,
             'GuzzleHttp\\' => 11,
             'GrahamCampbell\\ResultType\\' => 26,
         ),
-        'F' => 
+        'F' =>
         array (
             'Fidry\\CpuCoreCounter\\' => 21,
         ),
-        'E' => 
+        'E' =>
         array (
             'Enlightn\\SecurityChecker\\' => 25,
         ),
-        'D' => 
+        'D' =>
         array (
             'Dotenv\\' => 7,
             'Doctrine\\Deprecations\\' => 22,
         ),
-        'C' => 
+        'C' =>
         array (
             'Composer\\XdebugHandler\\' => 23,
             'Composer\\Semver\\' => 16,
             'Composer\\Pcre\\' => 14,
         ),
-        'A' => 
+        'A' =>
         array (
             'App\\' => 4,
             'Amp\\Sync\\' => 9,
@@ -135,228 +135,228 @@ class ComposerStaticInitf41b98b2a791d5bf9a12fa172592c5aa
     );
 
     public static $prefixDirsPsr4 = array (
-        'phpDocumentor\\Reflection\\' => 
+        'phpDocumentor\\Reflection\\' =>
         array (
             0 => __DIR__ . '/..' . '/phpdocumentor/reflection-docblock/src',
             1 => __DIR__ . '/..' . '/phpdocumentor/type-resolver/src',
             2 => __DIR__ . '/..' . '/phpdocumentor/reflection-common/src',
         ),
-        'XdgBaseDir\\' => 
+        'XdgBaseDir\\' =>
         array (
             0 => __DIR__ . '/..' . '/dnoegel/php-xdg-base-dir/src',
         ),
-        'Webmozart\\Assert\\' => 
+        'Webmozart\\Assert\\' =>
         array (
             0 => __DIR__ . '/..' . '/webmozart/assert/src',
         ),
-        'Symfony\\Polyfill\\Php80\\' => 
+        'Symfony\\Polyfill\\Php80\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/polyfill-php80',
         ),
-        'Symfony\\Polyfill\\Mbstring\\' => 
+        'Symfony\\Polyfill\\Mbstring\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/polyfill-mbstring',
         ),
-        'Symfony\\Polyfill\\Intl\\Normalizer\\' => 
+        'Symfony\\Polyfill\\Intl\\Normalizer\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/polyfill-intl-normalizer',
         ),
-        'Symfony\\Polyfill\\Intl\\Grapheme\\' => 
+        'Symfony\\Polyfill\\Intl\\Grapheme\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/polyfill-intl-grapheme',
         ),
-        'Symfony\\Polyfill\\Ctype\\' => 
+        'Symfony\\Polyfill\\Ctype\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/polyfill-ctype',
         ),
-        'Symfony\\Contracts\\Service\\' => 
+        'Symfony\\Contracts\\Service\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/service-contracts',
         ),
-        'Symfony\\Component\\Yaml\\' => 
+        'Symfony\\Component\\Yaml\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/yaml',
         ),
-        'Symfony\\Component\\String\\' => 
+        'Symfony\\Component\\String\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/string',
         ),
-        'Symfony\\Component\\Process\\' => 
+        'Symfony\\Component\\Process\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/process',
         ),
-        'Symfony\\Component\\Finder\\' => 
+        'Symfony\\Component\\Finder\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/finder',
         ),
-        'Symfony\\Component\\Filesystem\\' => 
+        'Symfony\\Component\\Filesystem\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/filesystem',
         ),
-        'Symfony\\Component\\Console\\' => 
+        'Symfony\\Component\\Console\\' =>
         array (
             0 => __DIR__ . '/..' . '/symfony/console',
         ),
-        'Spatie\\ArrayToXml\\' => 
+        'Spatie\\ArrayToXml\\' =>
         array (
             0 => __DIR__ . '/..' . '/spatie/array-to-xml/src',
         ),
-        'Revolt\\' => 
+        'Revolt\\' =>
         array (
             0 => __DIR__ . '/..' . '/revolt/event-loop/src',
         ),
-        'Psr\\Log\\' => 
+        'Psr\\Log\\' =>
         array (
             0 => __DIR__ . '/..' . '/psr/log/src',
         ),
-        'Psr\\Http\\Message\\' => 
+        'Psr\\Http\\Message\\' =>
         array (
             0 => __DIR__ . '/..' . '/psr/http-factory/src',
             1 => __DIR__ . '/..' . '/psr/http-message/src',
         ),
-        'Psr\\Http\\Client\\' => 
+        'Psr\\Http\\Client\\' =>
         array (
             0 => __DIR__ . '/..' . '/psr/http-client/src',
         ),
-        'Psr\\Container\\' => 
+        'Psr\\Container\\' =>
         array (
             0 => __DIR__ . '/..' . '/psr/container/src',
         ),
-        'Psalm\\' => 
+        'Psalm\\' =>
         array (
             0 => __DIR__ . '/..' . '/vimeo/psalm/src/Psalm',
         ),
-        'PhpParser\\' => 
+        'PhpParser\\' =>
         array (
             0 => __DIR__ . '/..' . '/nikic/php-parser/lib/PhpParser',
         ),
-        'PhpOption\\' => 
+        'PhpOption\\' =>
         array (
             0 => __DIR__ . '/..' . '/phpoption/phpoption/src/PhpOption',
         ),
-        'PHPStan\\PhpDocParser\\' => 
+        'PHPStan\\PhpDocParser\\' =>
         array (
             0 => __DIR__ . '/..' . '/phpstan/phpdoc-parser/src',
         ),
-        'LibDNS\\' => 
+        'LibDNS\\' =>
         array (
             0 => __DIR__ . '/..' . '/daverandom/libdns/src',
         ),
-        'League\\Uri\\' => 
+        'League\\Uri\\' =>
         array (
             0 => __DIR__ . '/..' . '/league/uri',
             1 => __DIR__ . '/..' . '/league/uri-interfaces',
         ),
-        'LanguageServerProtocol\\' => 
+        'LanguageServerProtocol\\' =>
         array (
             0 => __DIR__ . '/..' . '/felixfbecker/language-server-protocol/src',
         ),
-        'Kelunik\\Certificate\\' => 
+        'Kelunik\\Certificate\\' =>
         array (
             0 => __DIR__ . '/..' . '/kelunik/certificate/src',
         ),
-        'GuzzleHttp\\Psr7\\' => 
+        'GuzzleHttp\\Psr7\\' =>
         array (
             0 => __DIR__ . '/..' . '/guzzlehttp/psr7/src',
         ),
-        'GuzzleHttp\\Promise\\' => 
+        'GuzzleHttp\\Promise\\' =>
         array (
             0 => __DIR__ . '/..' . '/guzzlehttp/promises/src',
         ),
-        'GuzzleHttp\\' => 
+        'GuzzleHttp\\' =>
         array (
             0 => __DIR__ . '/..' . '/guzzlehttp/guzzle/src',
         ),
-        'GrahamCampbell\\ResultType\\' => 
+        'GrahamCampbell\\ResultType\\' =>
         array (
             0 => __DIR__ . '/..' . '/graham-campbell/result-type/src',
         ),
-        'Fidry\\CpuCoreCounter\\' => 
+        'Fidry\\CpuCoreCounter\\' =>
         array (
             0 => __DIR__ . '/..' . '/fidry/cpu-core-counter/src',
         ),
-        'Enlightn\\SecurityChecker\\' => 
+        'Enlightn\\SecurityChecker\\' =>
         array (
             0 => __DIR__ . '/..' . '/enlightn/security-checker/src',
         ),
-        'Dotenv\\' => 
+        'Dotenv\\' =>
         array (
             0 => __DIR__ . '/..' . '/vlucas/phpdotenv/src',
         ),
-        'Doctrine\\Deprecations\\' => 
+        'Doctrine\\Deprecations\\' =>
         array (
             0 => __DIR__ . '/..' . '/doctrine/deprecations/src',
         ),
-        'Composer\\XdebugHandler\\' => 
+        'Composer\\XdebugHandler\\' =>
         array (
             0 => __DIR__ . '/..' . '/composer/xdebug-handler/src',
         ),
-        'Composer\\Semver\\' => 
+        'Composer\\Semver\\' =>
         array (
             0 => __DIR__ . '/..' . '/composer/semver/src',
         ),
-        'Composer\\Pcre\\' => 
+        'Composer\\Pcre\\' =>
         array (
             0 => __DIR__ . '/..' . '/composer/pcre/src',
         ),
-        'App\\' => 
+        'App\\' =>
         array (
             0 => __DIR__ . '/../..' . '/src',
         ),
-        'Amp\\Sync\\' => 
+        'Amp\\Sync\\' =>
         array (
             0 => __DIR__ . '/..' . '/amphp/sync/src',
         ),
-        'Amp\\Socket\\' => 
+        'Amp\\Socket\\' =>
         array (
             0 => __DIR__ . '/..' . '/amphp/socket/src',
         ),
-        'Amp\\Serialization\\' => 
+        'Amp\\Serialization\\' =>
         array (
             0 => __DIR__ . '/..' . '/amphp/serialization/src',
         ),
-        'Amp\\Process\\' => 
+        'Amp\\Process\\' =>
         array (
             0 => __DIR__ . '/..' . '/amphp/process/src',
         ),
-        'Amp\\Pipeline\\' => 
+        'Amp\\Pipeline\\' =>
         array (
             0 => __DIR__ . '/..' . '/amphp/pipeline/src',
         ),
-        'Amp\\Parser\\' => 
+        'Amp\\Parser\\' =>
         array (
             0 => __DIR__ . '/..' . '/amphp/parser/src',
         ),
-        'Amp\\Parallel\\' => 
+        'Amp\\Parallel\\' =>
         array (
             0 => __DIR__ . '/..' . '/amphp/parallel/src',
         ),
-        'Amp\\Dns\\' => 
+        'Amp\\Dns\\' =>
         array (
             0 => __DIR__ . '/..' . '/amphp/dns/src',
         ),
-        'Amp\\Cache\\' => 
+        'Amp\\Cache\\' =>
         array (
             0 => __DIR__ . '/..' . '/amphp/cache/src',
         ),
-        'Amp\\ByteStream\\' => 
+        'Amp\\ByteStream\\' =>
         array (
             0 => __DIR__ . '/..' . '/amphp/byte-stream/src',
         ),
-        'Amp\\' => 
+        'Amp\\' =>
         array (
             0 => __DIR__ . '/..' . '/amphp/amp/src',
         ),
-        'AdvancedJsonRpc\\' => 
+        'AdvancedJsonRpc\\' =>
         array (
             0 => __DIR__ . '/..' . '/felixfbecker/advanced-json-rpc/lib',
         ),
     );
 
     public static $prefixesPsr0 = array (
-        'J' => 
+        'J' =>
         array (
-            'JsonMapper' => 
+            'JsonMapper' =>
             array (
                 0 => __DIR__ . '/..' . '/netresearch/jsonmapper/src',
             ),
