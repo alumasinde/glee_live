@@ -27,3 +27,7 @@ desktop.ini
 /cache/
 /node_modules/
 *.sql.bak
+
+# Test coverage output
+/coverage/
+.phpunit.cache/

@@ -50,8 +50,9 @@ class Container
         foreach ($reflection->getConstructor()->getParameters() as $param) {
             $type = $param->getType();
 
-            if (!$type) {
-                throw new Exception("Cannot resolve parameter {$param->getName()}");
+            if (!$type instanceof \ReflectionNamedType) {
+                $name = $type ? (string) $type : $param->getName();
+                throw new Exception("Cannot resolve parameter {$name}");
             }
 
             $params[] = $this->make($type->getName());

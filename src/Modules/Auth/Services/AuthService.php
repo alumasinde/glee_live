@@ -167,20 +167,6 @@ public function getTenantContext(int $id): array
         );
     }
 
-    private function resolveTenantId(): int
-{
-    $host = $_SERVER['HTTP_HOST'] ?? '';
-    $subdomain = explode('.', $host)[0];
-
-    $tenant = $this->tenants->findActiveByCode($subdomain);
-
-    if (!$tenant) {
-        throw new RuntimeException('Invalid tenant.');
-    }
-
-    return (int) $tenant['id'];
-}
-
     /*
     |--------------------------------------------------------------------------
     | PASSWORD POLICY

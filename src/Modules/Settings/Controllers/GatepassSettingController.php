@@ -35,7 +35,7 @@ class GatepassSettingController extends Controller
             'sequence'      => 1,
         ];
 
-        $saved  = $settingsService->get('gatepass_numbering') ?? [];
+        $saved  = $settingsService->get('gatepass_numbering');
         $config = array_merge($defaults, $saved);
 
         return $this->view('Settings::gatepass-numbering', [

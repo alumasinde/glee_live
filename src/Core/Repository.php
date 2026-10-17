@@ -261,7 +261,7 @@ abstract class Repository
      * Supported operators: =  !=  <>  >  >=  <  <=  LIKE  NOT LIKE
      *                      IN  NOT IN  BETWEEN  NOT BETWEEN  IS NULL  IS NOT NULL
      */
-    private function applyFilters(string $sql, array &$bindings, array $rawFilters): array|string
+    private function applyFilters(string $sql, array &$bindings, array $rawFilters): string
     {
         // Build requestKey → sqlColumn map
         $colMap = [];

@@ -12,7 +12,6 @@ class AuthMiddleware
     {
         if (!Auth::check()) {
             Response::redirect('/login');
-            exit;
         }
     }
 }

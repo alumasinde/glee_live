@@ -1,0 +1,19 @@
+parameters:
+    level: 5
+    paths:
+        - src
+        - routes
+        - config
+        - bootstrap
+    excludePaths:
+        analyse:
+            - src/Modules/Approval/Views
+            - src/Modules/Auth/Views
+            - src/Modules/Badges/Views
+            - src/Modules/Dashboard/Views
+            - src/Modules/Gatepass/Views
+            - src/Modules/Reports/Views
+            - src/Modules/Roles/Views
+            - src/Modules/Settings/Views
+            - src/Modules/Visitors/Views
+            - src/Modules/Visits/Views

@@ -83,8 +83,6 @@ final class GatepassRepository
                     => (int) (bool) $data[$field],
                 'purpose'
                     => trim((string) $data[$field]),
-                'expected_return_date'
-                    => $data[$field] ?: null,
                 default => $data[$field],
             };
         }

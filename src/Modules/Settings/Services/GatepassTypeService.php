@@ -5,8 +5,6 @@ namespace App\Modules\Settings\Services;
 use App\Core\Audit;
 use App\Core\DB;
 use App\Core\Tenant;
-use App\Modules\Gatepass\DTOs\GatepassDTO;
-use App\Modules\Gatepass\Services\GatepassWorkflow;
 use App\Modules\Settings\Repositories\GatepassTypeRepository;
 use App\Modules\Settings\Validation\GatepassTypeValidator;
 use RuntimeException;
@@ -81,25 +79,5 @@ class GatepassTypeService
                 $e
             );
         }
-    }
-
-    public function resolveActions(GatepassDTO $gatepass, $type): array
-    {
-        $allowed = $type->allowedActions ?? [
-            'checkin' => false,
-            'checkout' => false
-        ];
-
-        $eligibility = GatepassWorkflow::eligibility([
-            'status_code'   => $gatepass->statusCode,
-            'actual_in'     => $gatepass->actualIn,
-            'actual_out'    => $gatepass->actualOut,
-            'is_returnable' => $gatepass->isReturnable,
-        ]);
-
-        return [
-            'can_checkin'  => !empty($allowed['checkin'])  && $eligibility['checkin_eligible'],
-            'can_checkout' => !empty($allowed['checkout']) && $eligibility['checkout_eligible'],
-        ];
     }
 }

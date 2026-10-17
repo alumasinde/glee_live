@@ -69,13 +69,7 @@ final class QueryBuilder
                 $bindings[$param]   = "%{$term}%";
             }
 
-            if (!empty($columnConditions)) {
-                $termConditions[] = '(' . implode(' OR ', $columnConditions) . ')';
-            }
-        }
-
-        if (empty($termConditions)) {
-            return $sql;
+            $termConditions[] = '(' . implode(' OR ', $columnConditions) . ')';
         }
 
         $condition = '(' . implode(' AND ', $termConditions) . ')';

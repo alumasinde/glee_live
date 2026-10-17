@@ -39,10 +39,6 @@ class DepartmentService
         try {
             $department = $this->repo->create($name, $code);
 
-            if (! $department) {
-                throw new RuntimeException('Department creation failed.');
-            }
-
             Audit::log(
                 action: 'department.created',
                 entityType: 'department',

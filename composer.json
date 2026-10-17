@@ -13,6 +13,12 @@
         "vimeo/psalm": "*",
         "enlightn/security-checker": "^2.0",
         "squizlabs/php_codesniffer": "*",
-        "phpstan/phpstan": "^2.1"
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^11"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
     }
 }

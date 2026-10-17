@@ -22,7 +22,7 @@ class EmailSettingController extends Controller
     {
         $settingsService = new TenantSettingService();
 
-        $config = array_merge(Mailer::defaults(), $settingsService->get('mail') ?? []);
+        $config = array_merge(Mailer::defaults(), $settingsService->get('mail'));
 
         // Never round-trip the SMTP password to the browser.
         $config['has_password'] = $config['password'] !== '';
@@ -41,7 +41,7 @@ class EmailSettingController extends Controller
     {
         $settingsService = new TenantSettingService();
 
-        $existing = array_merge(Mailer::defaults(), $settingsService->get('mail') ?? []);
+        $existing = array_merge(Mailer::defaults(), $settingsService->get('mail'));
 
         $encryption = (string) $request->input('encryption', 'tls');
         if (!in_array($encryption, ['tls', 'ssl', 'none'], true)) {

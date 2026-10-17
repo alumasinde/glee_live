@@ -89,7 +89,7 @@ final class Mailer
         } elseif ($encryption === 'tls') {
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         } else {
-            $mail->SMTPSecure = false;
+            $mail->SMTPSecure = '';
             $mail->SMTPAutoTLS = false;
         }
 

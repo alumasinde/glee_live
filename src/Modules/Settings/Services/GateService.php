@@ -111,6 +111,6 @@ class GateService
     {
         return ($e->getCode() === '23000')
             ? 'A gate with that name or code already exists.'
-            : 'Gate operation failed: ' . $e->errorInfo[1] ?? $e->getMessage();
+            : 'Gate operation failed: ' . ($e->errorInfo[1] ?? $e->getMessage());
     }
 }

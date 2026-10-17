@@ -121,9 +121,10 @@ public function store(Request $request)
     |--------------------------------------------------------------------------
     */
     if ($this->isAjax($request)) {
-        return $this->json([
+        $this->json([
             'redirect' => '/dashboard'
         ], 200);
+        return;
     }
 
     header('Location: /dashboard');

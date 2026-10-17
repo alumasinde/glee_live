@@ -96,10 +96,6 @@ class DB
     /**
      * Convenience methods
      */
-    public static function table(string $table): QueryBuilder
-    {
-        return new QueryBuilder($table);
-    }
 
         // ✅ ADD THIS (fix your error)
     public static function lastInsertId(): string

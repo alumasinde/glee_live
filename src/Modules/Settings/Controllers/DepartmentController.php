@@ -39,7 +39,7 @@ class DepartmentController extends Controller
         }
 
         // fallback for form POST
-        return $request->all() ?? $_POST ?? [];
+        return $request->all() ?: [];
     }
 
  public function store(Request $request)
