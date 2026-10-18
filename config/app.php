@@ -10,9 +10,9 @@ return [
 
     'name' => 'GatePass Management System',
 
-    'env' => 'local', // local | staging | production
+    'env' => env('APP_ENV', 'local'), // local | staging | production
 
-    'debug' => true,
+    'debug' => env('APP_DEBUG', env('APP_ENV') !== 'production'),
 
     'url' => 'http://localhost',
 

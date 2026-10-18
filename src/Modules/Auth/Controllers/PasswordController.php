@@ -7,15 +7,18 @@ use App\Core\Request;
 use App\Core\Audit;
 use App\Core\Response;
 use App\Modules\Auth\Services\AuthService;
+use App\Modules\Tenant\Repositories\TenantRepository;
 use RuntimeException;
 
 class PasswordController
 {
     private AuthService $auth;
+    private TenantRepository $tenantRepo;
 
-    public function __construct(?AuthService $auth = null)
+    public function __construct(?AuthService $auth = null, ?TenantRepository $tenantRepo = null)
     {
         $this->auth = $auth ?? new AuthService();
+        $this->tenantRepo = $tenantRepo ?? new TenantRepository();
     }
 
     /* =========================================================
@@ -24,7 +27,24 @@ class PasswordController
 
     public function forgot()
     {
-        return View::render('Auth::forgot-password');
+        try {
+            $tenantId = $this->resolveTenantId();
+            $tenant = $this->auth->getTenantContext($tenantId);
+        } catch (\Throwable $e) {
+            error_log($e->getMessage());
+            http_response_code(400);
+            exit('Invalid tenant');
+        }
+
+        return View::render(
+            'Auth::forgot-password',
+            [
+                'title'        => 'Forgot Password',
+                'company_logo' => $tenant['tenant_logo'],
+                'tenant_name'  => $tenant['tenant_name'],
+            ],
+            'guest'
+        );
     }
 
     /* =========================================================
@@ -70,9 +90,25 @@ class PasswordController
             return Response::abort(400, 'Invalid reset token.');
         }
 
-        return View::render('Auth::reset-password', [
-            'token' => $token
-        ]);
+        try {
+            $tenantId = $this->resolveTenantId();
+            $tenant = $this->auth->getTenantContext($tenantId);
+        } catch (\Throwable $e) {
+            error_log($e->getMessage());
+            http_response_code(400);
+            exit('Invalid tenant');
+        }
+
+        return View::render(
+            'Auth::reset-password',
+            [
+                'title'        => 'Reset Password',
+                'token'        => $token,
+                'company_logo' => $tenant['tenant_logo'],
+                'tenant_name'  => $tenant['tenant_name'],
+            ],
+            'guest'
+        );
     }
 
     /* =========================================================
@@ -99,18 +135,17 @@ class PasswordController
         }
 
         try {
-            $this->auth->resetPassword($tenantId, $token, $password);
+            $user = $this->auth->resetPassword($tenantId, $token, $password);
 
-              $user = $_SESSION['user'];
-
-          Audit::log(
-        'user.password_reset',
-        'user',
-        (int) $user['id'],
-        [
-            'email' => $user['email']
-        ]
-    );
+            Audit::system(
+                $tenantId,
+                'user.password_reset',
+                'user',
+                (int) $user['id'],
+                [
+                    'email' => $user['email']
+                ]
+            );
 
             return $this->flashRedirect(
                 '/login',
@@ -156,10 +191,36 @@ class PasswordController
 
     private function resolveTenantId(): int
     {
-        if (empty($_SESSION['tenant_id'])) {
-            throw new RuntimeException('Tenant context missing.');
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        $parts = explode('.', $host);
+
+        if ($host === 'localhost' || count($parts) < 2) {
+            return $this->getDefaultTenantId();
         }
 
-        return (int) $_SESSION['tenant_id'];
+        $subdomain = $parts[0];
+
+        if ($subdomain === 'www') {
+            throw new RuntimeException('Tenant subdomain missing.');
+        }
+
+        $tenant = $this->tenantRepo->findActiveByCode($subdomain);
+
+        if (!$tenant) {
+            throw new RuntimeException('Invalid tenant.');
+        }
+
+        return (int) $tenant['id'];
+    }
+
+    private function getDefaultTenantId(): int
+    {
+        $tenant = $this->tenantRepo->findActiveByCode('default');
+
+        if (!$tenant) {
+            throw new RuntimeException('Default tenant not configured.');
+        }
+
+        return (int) $tenant['id'];
     }
 }

@@ -4,6 +4,8 @@ use App\Core\Router;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CSRFMiddleware;
 use App\Middleware\PermissionMiddleware;
+use App\Middleware\RateLimitMiddleware;
+use App\Middleware\SecurityHeadersMiddleware;
 use App\Modules\Auth\Controllers\LoginController;
 use App\Modules\Auth\Controllers\LogoutController;
 use App\Modules\Auth\Controllers\PasswordController;
@@ -31,6 +33,9 @@ use App\Modules\Gatepass\Controllers\DeviceScanController;
 
 $router = new Router();
 
+// Apply security headers to all routes
+$router->setGlobalMiddleware([SecurityHeadersMiddleware::class]);
+
 /*
 |--------------------------------------------------------------------------
 | Middleware presets
@@ -50,15 +55,19 @@ $permCsrf = fn (string $p): array => [AuthMiddleware::class, PermissionMiddlewar
 //Guest Routes
 $guestCsrf = [CSRFMiddleware::class];
 
+// Rate limiting for authentication endpoints (reads from config/security.php)
+$loginRateLimit = [CSRFMiddleware::class, RateLimitMiddleware::class . ':login'];
+$resetRateLimit = [CSRFMiddleware::class, RateLimitMiddleware::class . ':password-reset'];
+
 $router->get('/', [LoginController::class, 'index']);
 $router->get('/login', [LoginController::class, 'index']);
-$router->post('/login', [LoginController::class, 'store'], $guestCsrf);
+$router->post('/login', [LoginController::class, 'store'], $loginRateLimit);
 
 $router->get('/forgot-password', [PasswordController::class, 'forgot']);
-$router->post('/forgot-password', [PasswordController::class, 'sendReset'], $guestCsrf);
+$router->post('/forgot-password', [PasswordController::class, 'sendReset'], $resetRateLimit);
 
 $router->get('/reset-password', [PasswordController::class, 'resetForm']);
-$router->post('/reset-password', [PasswordController::class, 'reset'], $guestCsrf);
+$router->post('/reset-password', [PasswordController::class, 'reset'], $resetRateLimit);
 
 // Public visitor pre-registration + token-addressable digital QR pass
 $router->get('/pre-register/{code}', [PreRegistrationController::class, 'form']);

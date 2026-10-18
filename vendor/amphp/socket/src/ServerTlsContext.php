@@ -22,34 +22,77 @@ final class ServerTlsContext
     public static function fromServerResource($socket): ?self
     {
         $tls = \stream_context_get_options($socket)['ssl'] ?? [];
-
         if (!$tls) {
             return null;
         }
 
-        $context = (new self)
-            ->withPeerName($tls['peer_name'])
-            ->withVerificationDepth($tls['verify_depth'])
-            ->withCiphers($tls['ciphers'])
-            ->withSecurityLevel($tls['security_level'])
-            ->withDefaultCertificate(new Certificate($tls['local_cert'], $tls['local_pk'] ?? null));
+        $context = new self();
 
-        if ($tls['verify_peer'] || $tls['verify_peer_name']) {
+        if (isset($tls['peer_name'])) {
+            $context = $context->withPeerName($tls['peer_name']);
+        }
+
+        if (isset($tls['verify_depth'])) {
+            $context = $context->withVerificationDepth($tls['verify_depth']);
+        }
+
+        if (isset($tls['ciphers'])) {
+            $context = $context->withCiphers($tls['ciphers']);
+        }
+
+        if (isset($tls['security_level']) && hasTlsSecurityLevelSupport()) {
+            $context = $context->withSecurityLevel($tls['security_level']);
+        }
+
+        if (isset($tls['local_cert'])) {
+            $context = $context->withDefaultCertificate(
+                new Certificate($tls['local_cert'], $tls['local_pk'] ?? null)
+            );
+        }
+
+        if (isset($tls['SNI_server_certs'])) {
+            $context = $context->withCertificates(\array_map(
+                static fn (array $certificate) => new Certificate(
+                    $certificate['local_cert'],
+                    $certificate['local_pk'] ?? null,
+                    $certificate['passphrase'] ?? null,
+                ),
+                $tls['SNI_server_certs'],
+            ));
+        }
+
+        if (isset($tls['cafile'])) {
+            $context = $context->withCaFile($tls['cafile']);
+        }
+
+        if (isset($tls['capath'])) {
+            $context = $context->withCaPath($tls['capath']);
+        }
+
+        if (!empty($tls['alpn_protocols'])) {
+            $context = $context->withApplicationLayerProtocols(\explode(',', $tls['alpn_protocols']));
+        }
+
+        if (($tls['verify_peer'] ?? false) || ($tls['verify_peer_name'] ?? false)) {
             $context = $context->withPeerVerification();
         }
 
-        if ($tls['capture_peer_cert'] || $tls['capture_peer_chain']) {
+        if (($tls['capture_peer_cert'] ?? false) || ($tls['capture_peer_chain'] ?? false)) {
             $context = $context->withPeerCapturing();
         }
 
-        $minVersion = self::TLSv1_3;
-        foreach ([self::TLSv1_2, self::TLSv1_1, self::TLSv1_0] as $tlsVersion) {
-            if ($tls['crypto_method'] & $tlsVersion) {
-                $minVersion = $tlsVersion;
+        if (isset($tls['crypto_method'])) {
+            $minVersion = self::TLSv1_3;
+            foreach ([self::TLSv1_2, self::TLSv1_1, self::TLSv1_0] as $tlsVersion) {
+                if ($tls['crypto_method'] & $tlsVersion) {
+                    $minVersion = $tlsVersion;
+                }
             }
+
+            $context = $context->withMinimumVersion($minVersion);
         }
 
-        return $context->withMinimumVersion($minVersion);
+        return $context;
     }
 
     private int $minVersion = self::TLSv1_2;
@@ -57,6 +100,8 @@ final class ServerTlsContext
     private ?string $peerName = null;
 
     private bool $verifyPeer = false;
+
+    private bool $verifyPeerName = false;
 
     private int $verifyDepth = 10;
 
@@ -141,6 +186,7 @@ final class ServerTlsContext
     {
         $clone = clone $this;
         $clone->verifyPeer = true;
+        $clone->verifyPeerName = true;
 
         return $clone;
     }
@@ -154,6 +200,7 @@ final class ServerTlsContext
     {
         $clone = clone $this;
         $clone->verifyPeer = false;
+        $clone->verifyPeerName = false;
 
         return $clone;
     }
@@ -164,6 +211,40 @@ final class ServerTlsContext
     public function hasPeerVerification(): bool
     {
         return $this->verifyPeer;
+    }
+
+    /**
+     * Enable peer name verification, this is the default with verifyPeer enabled.
+     *
+     * @return self Cloned, modified instance.
+     */
+    public function withPeerNameVerification(): self
+    {
+        $clone = clone $this;
+        $clone->verifyPeerName = true;
+
+        return $clone;
+    }
+
+    /**
+     * Disable peer name verification.
+     *
+     * @return self Cloned, modified instance.
+     */
+    public function withoutPeerNameVerification(): self
+    {
+        $clone = clone $this;
+        $clone->verifyPeerName = false;
+
+        return $clone;
+    }
+
+    /**
+     * @return bool Whether peer verification is enabled.
+     */
+    public function hasPeerNameVerification(): bool
+    {
+        return $this->verifyPeerName;
     }
 
     /**
@@ -437,7 +518,7 @@ final class ServerTlsContext
             'crypto_method' => $this->toStreamCryptoMethod(),
             'peer_name' => $this->peerName,
             'verify_peer' => $this->verifyPeer,
-            'verify_peer_name' => $this->verifyPeer,
+            'verify_peer_name' => $this->verifyPeerName,
             'verify_depth' => $this->verifyDepth,
             'ciphers' => $this->ciphers ?? \OPENSSL_DEFAULT_STREAM_CIPHERS,
             'honor_cipher_order' => true,

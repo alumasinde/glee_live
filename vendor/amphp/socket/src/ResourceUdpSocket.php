@@ -30,6 +30,7 @@ final class ResourceUdpSocket implements UdpSocket, ResourceStream
     /** @var \Closure(CancelledException):void */
     private readonly \Closure $cancel;
 
+    /** @psalm-suppress UnusedProperty */
     private int $limit;
 
     private int $defaultLimit;
@@ -65,6 +66,7 @@ final class ResourceUdpSocket implements UdpSocket, ResourceStream
         $this->onClose = new DeferredFuture;
 
         \stream_set_blocking($this->socket, false);
+        /** @psalm-suppress UnusedFunctionCall */
         \stream_set_read_buffer($this->socket, 0);
 
         $reader = &$this->reader;
@@ -126,6 +128,7 @@ final class ResourceUdpSocket implements UdpSocket, ResourceStream
      *
      * @return null|array{InternetAddress, string}
      */
+    #[\Override]
     public function receive(?Cancellation $cancellation = null, ?int $limit = null): ?array
     {
         if ($this->reader) {
@@ -157,6 +160,7 @@ final class ResourceUdpSocket implements UdpSocket, ResourceStream
         }
     }
 
+    #[\Override]
     public function send(InternetAddress $address, string $data): void
     {
         static $errorHandler;
@@ -186,6 +190,7 @@ final class ResourceUdpSocket implements UdpSocket, ResourceStream
      *
      * @return resource|null
      */
+    #[\Override]
     public function getResource()
     {
         return $this->socket;
@@ -196,6 +201,7 @@ final class ResourceUdpSocket implements UdpSocket, ResourceStream
      *
      * @see EventLoop::reference()
      */
+    #[\Override]
     public function reference(): void
     {
         if ($this->socket === null) {
@@ -210,6 +216,7 @@ final class ResourceUdpSocket implements UdpSocket, ResourceStream
      *
      * @see EventLoop::unreference()
      */
+    #[\Override]
     public function unreference(): void
     {
         if ($this->socket === null) {
@@ -222,6 +229,7 @@ final class ResourceUdpSocket implements UdpSocket, ResourceStream
     /**
      * Closes the datagram socket and stops receiving data. A pending {@code receive()} will return {@code null}.
      */
+    #[\Override]
     public function close(): void
     {
         if ($this->socket) {
@@ -232,16 +240,19 @@ final class ResourceUdpSocket implements UdpSocket, ResourceStream
         $this->free();
     }
 
+    #[\Override]
     public function isClosed(): bool
     {
         return $this->socket === null;
     }
 
+    #[\Override]
     public function onClose(\Closure $onClose): void
     {
         $this->onClose->getFuture()->finally($onClose);
     }
 
+    #[\Override]
     public function getAddress(): InternetAddress
     {
         return $this->address;

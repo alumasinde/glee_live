@@ -112,6 +112,10 @@ final class ProcessContext extends AbstractContext
                 }
 
                 $contents = \file_get_contents(self::SCRIPT_PATH);
+                if ($contents === false) {
+                    throw new ContextException("Unable to read script '" . self::SCRIPT_PATH . "'");
+                }
+
                 $contents = \str_replace("__DIR__", \var_export($path, true), $contents);
                 $suffix = \bin2hex(\random_bytes(10));
                 self::$pharScriptPath = $scriptPath = \sys_get_temp_dir() . "/amp-process-runner-" . $suffix . ".php";
@@ -276,14 +280,15 @@ final class ProcessContext extends AbstractContext
      * @return TResult
      * @throws ContextException
      */
+    #[\Override]
     public function join(?Cancellation $cancellation = null): mixed
     {
-        $data = $this->receiveExitResult($cancellation);
+        $result = $this->receiveExitResult($cancellation);
 
         $code = $this->process->join();
 
         try {
-            return $data->getResult();
+            return $result->getResult();
         } finally {
             if ($code !== 0) {
                 // If an ExitFailure throws above, the exception will be automatically attached as the previous
@@ -348,6 +353,7 @@ final class ProcessContext extends AbstractContext
         return $this->process->getStderr();
     }
 
+    #[\Override]
     public function close(): void
     {
         $this->process->kill();

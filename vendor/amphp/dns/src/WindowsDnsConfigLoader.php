@@ -18,6 +18,7 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
     ) {
     }
 
+    #[\Override]
     public function loadConfig(): DnsConfig
     {
         $powershell = Process::start([
@@ -35,6 +36,9 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
 
         $nameservers = \array_reduce($output, static function (array $nameservers, string $address): array {
             $ip = \inet_pton($address);
+            if ($ip === false) {
+                return $nameservers;
+            }
 
             if (isset($ip[15])) { // IPv6
                 $nameservers[] = "[$address]:53";

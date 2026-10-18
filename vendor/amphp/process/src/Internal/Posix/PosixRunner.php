@@ -35,6 +35,7 @@ final class PosixRunner implements ProcessRunner
 
     private static ?string $fdPath = null;
 
+    #[\Override]
     public function start(
         string $command,
         Cancellation $cancellation,
@@ -154,9 +155,9 @@ final class PosixRunner implements ProcessRunner
         return self::FD_SPEC + $fds;
     }
 
+    #[\Override]
     public function join(ProcessHandle $handle, ?Cancellation $cancellation = null): int
     {
-        /** @var PosixHandle $handle */
         $handle->reference();
 
         try {
@@ -166,23 +167,24 @@ final class PosixRunner implements ProcessRunner
         }
     }
 
+    #[\Override]
     public function kill(ProcessHandle $handle): void
     {
-        /** @var PosixHandle $handle */
         $handle->reference();
 
         $this->signal($handle, 9);
     }
 
+    #[\Override]
     public function signal(ProcessHandle $handle, int $signal): void
     {
         /** @noinspection PhpComposerExtensionStubsInspection */
         \posix_kill($handle->pid, $signal);
     }
 
+    #[\Override]
     public function destroy(ProcessHandle $handle): void
     {
-        /** @var PosixHandle $handle */
         if ($handle->status !== ProcessStatus::Ended && \getmypid() === $handle->originalParentPid) {
             try {
                 $this->kill($handle);

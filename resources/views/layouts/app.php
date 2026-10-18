@@ -67,7 +67,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Mobile behavior
         if (window.innerWidth <= 768) {
             sidebar.classList.toggle("open");
-        } 
+        }
         // Desktop collapse behavior
         else {
             document.body.classList.toggle("sidebar-collapsed");
@@ -93,6 +93,47 @@ document.addEventListener("DOMContentLoaded", function () {
 
         }, 4000);
     });
+});
+
+// Modal auto-dismiss functionality
+function openModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+        modal.classList.add('show');
+        const autoDismiss = parseInt(modal.dataset.autoDismiss || 0);
+        if (autoDismiss > 0) {
+            setTimeout(function() {
+                closeModal(id);
+            }, autoDismiss * 1000);
+        }
+    }
+}
+
+function closeModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+        modal.classList.add('hide');
+        setTimeout(function() {
+            modal.classList.remove('show', 'hide');
+        }, 300);
+    }
+}
+
+// Close modal on backdrop click
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal')) {
+        closeModal(e.target.id);
+    }
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.querySelector('.modal.show');
+        if (modal) {
+            closeModal(modal.id);
+        }
+    }
 });
 </script>
 

@@ -20,11 +20,32 @@
     white-space: nowrap;
     line-height: 1.4;
     vertical-align: middle;
-    transition: background var(--tx), box-shadow var(--tx), opacity var(--tx), border-color var(--tx);
+    transition: background var(--tx), box-shadow var(--tx), opacity var(--tx), border-color var(--tx), transform 0.1s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
 }
 
 .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
 .btn-lg { padding: 11px 22px; font-size: 1rem; }
+
+/* Icon styling in buttons */
+.btn i {
+    font-size: 0.9em;
+    transition: transform var(--tx);
+}
+
+.btn:hover i {
+    transform: scale(1.1);
+}
 
 /* Solid variants */
 .btn-primary   { background: var(--color-primary);  color: #fff; border-color: var(--color-primary); }
@@ -35,14 +56,14 @@
 .btn-info      { background: var(--color-info);     color: #fff; border-color: var(--color-info); }
 .btn-accent    { background: var(--color-accent);   color: #fff; border-color: var(--color-accent); }
 
-/* Hover states */
-.btn-primary:hover   { background: var(--color-primary-dark);  border-color: var(--color-primary-dark); }
+/* Hover states with subtle shadow */
+.btn-primary:hover   { background: var(--color-primary-dark);  border-color: var(--color-primary-dark); box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3); }
 .btn-secondary:hover { background: var(--color-surface-subtle); color: var(--color-text); border-color: #c9d0da; }
-.btn-success:hover   { background: var(--color-success-dark); }
-.btn-danger:hover    { background: var(--color-danger-dark); }
-.btn-warning:hover   { background: var(--color-warning-dark); }
-.btn-info:hover      { background: var(--color-info-dark); }
-.btn-accent:hover    { background: var(--color-accent-dark); }
+.btn-success:hover   { background: var(--color-success-dark); box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3); }
+.btn-danger:hover    { background: var(--color-danger-dark); box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3); }
+.btn-warning:hover   { background: var(--color-warning-dark); box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3); }
+.btn-info:hover      { background: var(--color-info-dark); box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3); }
+.btn-accent:hover    { background: var(--color-accent-dark); box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3); }
 
 /* Outline variant */
 .btn-outline-primary {
@@ -50,17 +71,20 @@
     color: var(--color-primary);
     border-color: var(--color-primary);
 }
-.btn-outline-primary:hover { background: var(--color-primary-light); }
+.btn-outline-primary:hover {
+    background: var(--color-primary-light);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+}
 
 /* Table action aliases — map to standard btn variants */
 .view-btn     { background: var(--color-info);    color: #fff; border-color: var(--color-info); }
-.view-btn:hover { background: var(--color-info-dark); }
+.view-btn:hover { background: var(--color-info-dark); box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3); }
 .edit-btn     { background: var(--color-warning); color: #fff; border-color: var(--color-warning); }
-.edit-btn:hover { background: var(--color-warning-dark); }
+.edit-btn:hover { background: var(--color-warning-dark); box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3); }
 .checkin-btn  { background: var(--color-success); color: #fff; border-color: var(--color-success); }
-.checkin-btn:hover { background: var(--color-success-dark); }
+.checkin-btn:hover { background: var(--color-success-dark); box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3); }
 .checkout-btn { background: var(--color-accent);  color: #fff; border-color: var(--color-accent); }
-.checkout-btn:hover { background: var(--color-accent-dark); }
+.checkout-btn:hover { background: var(--color-accent-dark); box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3); }
 
 /* Login button (full-width form submit) */
 .btn-login {
@@ -74,9 +98,15 @@
     font-size: 0.95rem;
     font-weight: 600;
     font-family: var(--font-base);
-    transition: background var(--tx);
+    transition: background var(--tx), box-shadow var(--tx), transform 0.1s ease;
 }
-.btn-login:hover { background: var(--color-primary-dark); }
+.btn-login:hover {
+    background: var(--color-primary-dark);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+.btn-login:active {
+    transform: scale(0.98);
+}
 
 
 /* ── Cards ──────────────────────────────────────────────────── */

@@ -77,7 +77,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
 
             $now = now();
             foreach ($sockets as $key => $server) {
-                if ($server->getLastActivity() < $now - 60) {
+                if ($server->getLastActivity() < $now - 60.0) {
                     $server->close();
                     unset($sockets[$key]);
                 }
@@ -92,6 +92,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
         EventLoop::cancel($this->gcCallbackId);
     }
 
+    #[\Override]
     public function resolve(string $name, ?int $typeRestriction = null, ?Cancellation $cancellation = null): array
     {
         $recordTypes = match ($typeRestriction) {
@@ -159,7 +160,6 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                 };
 
                 try {
-                    /** @var non-empty-list<non-empty-list<DnsRecord>> $records */
                     [$exceptions, $records] = Future\awaitAll(\array_map(
                         static fn (int $recordType) => async($sendQuery, $searchName, $recordType, $cancellation),
                         $recordTypes,
@@ -189,6 +189,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                         );
                     }
 
+                    /** @var non-empty-list<non-empty-list<DnsRecord>> $records */
                     return \array_merge(...$records);
                 } catch (DnsException $e) {
                     if ($e instanceof MissingDnsRecordException) {
@@ -256,145 +257,149 @@ final class Rfc1035StubDnsResolver implements DnsResolver
         return $this->pendingConfig->await();
     }
 
+    #[\Override]
     public function query(string $name, int $type, ?Cancellation $cancellation = null): array
     {
-        $pendingQueryKey = $type . " " . $name;
+        $key = $name . "-" . $type;
 
-        if (isset($this->pendingQueries[$pendingQueryKey])) {
-            return $this->pendingQueries[$pendingQueryKey]->await($cancellation);
-        }
-
-        $future = async(function () use ($name, $type, $cancellation): array {
-            try {
-                $this->loadConfigIfNotLoaded();
-                if ($this->configStatus === self::CONFIG_FAILED) {
-                    return $this->blockingFallbackResolver->query($name, $type, $cancellation);
-                }
-
-                \assert($this->config !== null);
-
-                $name = $this->normalizeName($name, $type);
-                $question = $this->createQuestion($name, $type);
-
-                if (null !== $cachedValue = $this->cache->get($this->getCacheKey($name, $type))) {
-                    if (!$cachedValue) {
-                        throw new MissingDnsRecordException("No records returned for {$name} (cached result)");
-                    }
-
-                    $result = [];
-
-                    foreach ($cachedValue as [$data, $type]) {
-                        $result[] = new DnsRecord($data, $type);
-                    }
-
-                    return $result;
-                }
-
-                $nameservers = $this->selectNameservers();
-                $nameserversCount = \count($nameservers);
-                $attempts = $this->config->getAttempts();
-                $protocol = "udp";
-                $attempt = 0;
-
-                /** @var Socket $socket */
-                $uri = $protocol . "://" . $nameservers[0];
-                $socket = $this->getSocket($uri);
-
-                $attemptDescription = [];
-
-                while ($attempt < $attempts) {
-                    try {
-                        if (!$socket->isAlive()) {
-                            unset($this->sockets[$uri]);
-                            $socket->close();
-
-                            $uri = $protocol . "://" . $nameservers[$attempt % $nameserversCount];
-                            $socket = $this->getSocket($uri);
-                        }
-
-                        $attemptDescription[] = $uri;
-
-                        $response = $socket->ask($question, $this->config->getTimeout(), $cancellation);
-                        $this->assertAcceptableResponse($response, $name);
-
-                        // UDP sockets are never reused, they're not in the $this->sockets map
-                        if ($protocol === "udp") {
-                            $socket->close();
-                        }
-
-                        if ($response->isTruncated()) {
-                            if ($protocol !== "tcp") {
-                                // Retry with TCP, don't count attempt
-                                $protocol = "tcp";
-                                $uri = $protocol . "://" . $nameservers[$attempt % $nameserversCount];
-                                $socket = $this->getSocket($uri);
-                                continue;
-                            }
-
-                            throw new DnsException("Server returned a truncated response for '{$name}' (" . DnsRecord::getName($type) . ")");
-                        }
-
-                        $answers = $response->getAnswerRecords();
-                        $result = [];
-                        $ttls = [];
-
-                        /** @var \LibDNS\Records\Resource $record */
-                        foreach ($answers as $record) {
-                            $recordType = $record->getType();
-                            $result[$recordType][] = (string) $record->getData();
-
-                            // Cache for max one day
-                            $ttls[$recordType] = \min($ttls[$recordType] ?? 86400, $record->getTTL());
-                        }
-
-                        foreach ($result as $recordType => $records) {
-                            // We don't care here whether storing in the cache fails
-                            $this->cache->set(
-                                $this->getCacheKey($name, $recordType),
-                                \array_map(static fn (string $record) => [
-                                    $record,
-                                    $recordType
-                                ], $records),
-                                $ttls[$recordType]
-                            );
-                        }
-
-                        if (!isset($result[$type])) {
-                            // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
-                            $this->cache->set($this->getCacheKey($name, $type), [], 300);
-                            throw new MissingDnsRecordException("No records returned for '{$name}' (" . DnsRecord::getName($type) . ")");
-                        }
-
-                        return \array_map(static function ($data) use ($type, $ttls) {
-                            return new DnsRecord($data, $type, $ttls[$type]);
-                        }, $result[$type]);
-                    } catch (DnsTimeoutException) {
-                        unset($this->sockets[$uri]);
-                        $socket->close();
-
-                        $uri = $protocol . "://" . $nameservers[++$attempt % $nameserversCount];
-                        $socket = $this->getSocket($uri);
-
-                        continue;
-                    }
-                }
-
-                throw new DnsTimeoutException(\sprintf(
-                    "No response for '%s' (%s) from any nameserver within %d seconds after %d attempts, tried %s",
-                    $name,
-                    DnsRecord::getName($type),
-                    $this->config->getTimeout(),
-                    $attempts,
-                    \implode(", ", $attemptDescription)
-                ));
-            } finally {
-                unset($this->pendingQueries[$type . " " . $name]);
-            }
-        });
-
-        $this->pendingQueries[$type . " " . $name] = $future;
+        $future = $this->pendingQueries[$key] ??= async($this->sendQuery(...), $name, $type)
+            ->finally(function () use ($key): void {
+                unset($this->pendingQueries[$key]);
+            });
 
         return $future->await($cancellation);
+    }
+
+    /**
+     * @return non-empty-list<DnsRecord>
+     */
+    private function sendQuery(string $name, int $type): array
+    {
+        $this->loadConfigIfNotLoaded();
+        if ($this->configStatus === self::CONFIG_FAILED) {
+            return $this->blockingFallbackResolver->query($name, $type);
+        }
+
+        \assert($this->config !== null);
+
+        $name = $this->normalizeName($name, $type);
+        $question = $this->createQuestion($name, $type);
+
+        if (null !== $cachedValue = $this->cache->get($this->getCacheKey($name, $type))) {
+            if (!$cachedValue) {
+                throw new MissingDnsRecordException("No records returned for {$name} (cached result)");
+            }
+
+            $result = [];
+
+            foreach ($cachedValue as [$data, $type]) {
+                $result[] = new DnsRecord($data, $type);
+            }
+
+            return $result;
+        }
+
+        $nameservers = $this->selectNameservers();
+        $nameserversCount = \count($nameservers);
+        $attempts = $this->config->getAttempts();
+        $protocol = "udp";
+        $attempt = 0;
+
+        /** @var Socket $socket */
+        $uri = $protocol . "://" . $nameservers[0];
+        $socket = $this->getSocket($uri);
+
+        $attemptDescription = [];
+
+        while ($attempt < $attempts) {
+            try {
+                if (!$socket->isAlive()) {
+                    unset($this->sockets[$uri]);
+                    $socket->close();
+
+                    $uri = $protocol . "://" . $nameservers[$attempt % $nameserversCount];
+                    $socket = $this->getSocket($uri);
+                }
+
+                $attemptDescription[] = $uri;
+
+                $response = $socket->ask($question, $this->config->getTimeout());
+                $this->assertAcceptableResponse($response, $name);
+
+                // UDP sockets are never reused, they're not in the $this->sockets map
+                if ($protocol === "udp") {
+                    $socket->close();
+                }
+
+                if ($response->isTruncated()) {
+                    if ($protocol !== "tcp") {
+                        // Retry with TCP, don't count attempt
+                        $protocol = "tcp";
+                        $uri = $protocol . "://" . $nameservers[$attempt % $nameserversCount];
+                        $socket = $this->getSocket($uri);
+                        continue;
+                    }
+
+                    throw new DnsException(
+                        "Server returned a truncated response for '{$name}' (" . DnsRecord::getName($type) . ")",
+                    );
+                }
+
+                $answers = $response->getAnswerRecords();
+                $result = [];
+                $ttls = [];
+
+                /** @var \LibDNS\Records\Resource $record */
+                foreach ($answers as $record) {
+                    $recordType = $record->getType();
+                    $result[$recordType][] = (string) $record->getData();
+
+                    // Cache for max one day
+                    $ttls[$recordType] = \min($ttls[$recordType] ?? 86400, $record->getTTL());
+                }
+
+                foreach ($result as $recordType => $records) {
+                    // We don't care here whether storing in the cache fails
+                    $this->cache->set(
+                        $this->getCacheKey($name, $recordType),
+                        \array_map(static fn (string $record) => [
+                            $record,
+                            $recordType,
+                        ], $records),
+                        $ttls[$recordType]
+                    );
+                }
+
+                if (!isset($result[$type])) {
+                    // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
+                    $this->cache->set($this->getCacheKey($name, $type), [], 300);
+                    throw new MissingDnsRecordException(
+                        "No records returned for '{$name}' (" . DnsRecord::getName($type) . ")",
+                    );
+                }
+
+                return \array_map(static function ($data) use ($type, $ttls) {
+                    return new DnsRecord($data, $type, $ttls[$type]);
+                }, $result[$type]);
+            } catch (DnsTimeoutException) {
+                unset($this->sockets[$uri]);
+                $socket->close();
+
+                $uri = $protocol . "://" . $nameservers[++$attempt % $nameserversCount];
+                $socket = $this->getSocket($uri);
+
+                continue;
+            }
+        }
+
+        throw new DnsTimeoutException(\sprintf(
+            "No response for '%s' (%s) from any nameserver within %d seconds after %d attempts, tried %s",
+            $name,
+            DnsRecord::getName($type),
+            $this->config->getTimeout(),
+            $attempts,
+            \implode(", ", $attemptDescription)
+        ));
     }
 
     /**
@@ -428,6 +433,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                 if (isset($packedIp[4])) { // IPv6
                     $name = \wordwrap(\strrev(\bin2hex($packedIp)), 1, ".", true) . ".ip6.arpa";
                 } else { // IPv4
+                    /** @psalm-suppress PossiblyFalseOperand */
                     $name = \inet_ntop(\strrev($packedIp)) . ".in-addr.arpa";
                 }
             }

@@ -45,6 +45,7 @@ final class PosixHandle extends ProcessHandle
                 if (!\is_resource($stream) || \feof($stream)) {
                     $deferred->error(new ProcessException("Process ended unexpectedly"));
                 } else {
+                    /** @psalm-suppress PossiblyFalseArgument */
                     $deferred->complete((int) \rtrim(\stream_get_contents($stream)));
                 }
 
@@ -102,6 +103,7 @@ final class PosixHandle extends ProcessHandle
         self::asyncWaitPid($this->shellPid);
     }
 
+    #[\Override]
     public function wait(): void
     {
         if (\extension_loaded('pcntl')) {

@@ -1,19 +1,32 @@
 # glee_live
 
-Gatepass Management System (GPMS) - plain PHP + MySQL (multitenant).
+Gatepass Management System (GPMS) - Multi-tenant visitor gatepass system built with plain PHP + MySQL.
 
-## Quick start
+## Quick Start
 
-1. Start MySQL (XAMPP control panel), then run `composer install` in this folder.
-2. Copy `.env.example` to `.env` and set your DB credentials.
-3. Build the database and default data: `php bin/migrate.php up`.
-4. Serve the app: `php -S 127.0.0.1:8000 -t public public/index.php`.
-5. Open http://localhost:8000 - or deploy under Apache as http://gpms.local.
-6. Other commands: `php bin/migrate.php status`, `down [N|all]`, `--db=name`.
+1. Start MySQL (XAMPP), then run `composer install`
+2. Copy `.env.example` to `.env` and configure DB credentials
+3. Build database: `php bin/migrate.php up`
+4. Start server: `composer serve` (or `php -S localhost:8000 -t public`)
+5. Open http://localhost:8000
 
+## Database Commands
 
- *   php bin/migrate.php status
- *   php bin/migrate.php up [N]      apply all pending (or next N) migrations
- *   php bin/migrate.php down [N|all] roll back last N (default 1) or everything
- *   php bin/migrate.php --db=name   override DB_DATABASE from .env
- 
+- `php bin/migrate.php status` - View migration status
+- `php bin/migrate.php up [N]` - Apply pending migrations
+- `php bin/migrate.php down [N|all]` - Rollback migrations
+- `php bin/migrate.php --db=name` - Override database from .env
+
+## Testing
+
+Run tests:
+
+```bash
+# Run all tests
+./vendor/bin/phpunit
+
+# Run specific test suite
+./vendor/bin/phpunit tests/Integration/AuthFlowTest.php
+./vendor/bin/phpunit tests/Unit/ValidatorTest.php
+```
+

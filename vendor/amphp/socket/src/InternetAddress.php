@@ -28,8 +28,12 @@ final class InternetAddress implements SocketAddress
         }
 
         $ip = \substr($address, 0, $colon);
-        $port = (int) \substr($address, $colon + 1);
+        $port = \substr($address, $colon + 1);
+        if (!\preg_match('[^\d+$]', $port)) {
+            return null;
+        }
 
+        $port = (int) $port;
         if ($port < 0 || $port > 65535) {
             return null;
         }
@@ -72,13 +76,18 @@ final class InternetAddress implements SocketAddress
         if ($binaryAddress === false) {
             throw new SocketException('Invalid address: ' . $address);
         }
-
         $this->binaryAddress = $binaryAddress;
 
-        $this->textualAddress = \inet_ntop($binaryAddress);
+        $textualAddress = \inet_ntop($binaryAddress);
+        if (!$textualAddress) {
+            throw new SocketException('Invalid address: ' . $address);
+        }
+        $this->textualAddress = $textualAddress;
+
         $this->port = $port;
     }
 
+    #[\Override]
     public function getType(): SocketAddressType
     {
         return SocketAddressType::Internet;
@@ -114,6 +123,7 @@ final class InternetAddress implements SocketAddress
     /**
      * @return non-empty-string <address>:<port> formatted string.
      */
+    #[\Override]
     public function toString(): string
     {
         if ($this->getVersion() === InternetAddressVersion::IPv6) {

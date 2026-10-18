@@ -49,16 +49,27 @@ final class Socks5SocketConnector implements SocketConnector
             throw new SocketException("Host is null!");
         }
 
+        $port = $uri->getPort();
+        if ($port === null) {
+            throw new SocketException("Port is null!");
+        }
+
         $payload = \pack('C3', 0x5, 0x1, 0x0);
 
-        $ip = \inet_pton($host);
+        // League returns IPv6 hosts in the bracketed IP-literal form (e.g. "[::1]"); strip the brackets so the
+        // address is recognized and encoded as an IPv6 literal rather than a domain name.
+        $ip = \inet_pton(\str_starts_with($host, '[') ? \substr($host, 1, -1) : $host);
         if ($ip !== false) {
             $payload .= \chr(\strlen($ip) === 4 ? 0x1 : 0x4) . $ip;
         } else {
+            if (\strlen($host) > 255) {
+                throw new SocketException("Host exceeds maximum length of 255 bytes: $host");
+            }
+
             $payload .= \chr(0x3) . \chr(\strlen($host)) . $host;
         }
 
-        $payload .= \pack('n', $uri->getPort());
+        $payload .= \pack('n', $port);
 
         $socket->write($payload);
     }
@@ -77,8 +88,18 @@ final class Socks5SocketConnector implements SocketConnector
             throw new \Error("Both or neither username and password must be provided!");
         }
 
-        /** @psalm-suppress DeprecatedMethod */
-        $uri = Uri::createFromString($target);
+        $scheme = \strstr($target, '://', true);
+        $target = match ($scheme) {
+            'tcp' => $target,
+            false => 'tcp://' . $target,
+            default => throw new \ValueError('Only tcp allowed for target scheme; got ' . $scheme),
+        };
+
+        try {
+            $uri = Uri::new($target);
+        } catch (\Exception $exception) {
+            throw new SocketException('Invalid SOCKS5 target: ' . $target, previous: $exception);
+        }
 
         $read = function (int $length) use ($socket, $cancellation): string {
             \assert($length > 0);
@@ -143,6 +164,7 @@ final class Socks5SocketConnector implements SocketConnector
 
         $reply = \ord($read(1));
         if ($reply !== 0) {
+            /** @psalm-suppress InvalidArrayOffset */
             $reply = self::REPLIES[$reply] ?? $reply;
             throw new SocketException("Wrong SOCKS5 reply: $reply");
         }
@@ -152,10 +174,12 @@ final class Socks5SocketConnector implements SocketConnector
             throw new SocketException("Wrong SOCKS5 RSV: $rsv");
         }
 
-        $read(match (\ord($read(1))) {
+        $addressType = \ord($read(1));
+        $read(match ($addressType) {
             0x1 => 6,
             0x4 => 18,
-            0x3 => \ord($read(1)) + 2
+            0x3 => \ord($read(1)) + 2,
+            default => throw new SocketException("Unsupported SOCKS5 address type: $addressType"),
         });
     }
 
@@ -170,6 +194,7 @@ final class Socks5SocketConnector implements SocketConnector
         }
     }
 
+    #[\Override]
     public function connect(SocketAddress|string $uri, ?ConnectContext $context = null, ?Cancellation $cancellation = null): Socket
     {
         $connector = $this->socketConnector ?? socketConnector();

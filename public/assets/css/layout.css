@@ -60,6 +60,11 @@
     font-size: 1.25rem;
     color: var(--color-primary);
     flex-shrink: 0;
+    transition: transform var(--tx);
+}
+
+.brand:hover i {
+    transform: scale(1.1);
 }
 
 .brand-logo {
@@ -88,7 +93,7 @@
     font-weight: 500;
     white-space: nowrap;
     position: relative;
-    transition: background var(--tx), color var(--tx);
+    transition: background var(--tx), color var(--tx), transform 0.1s ease;
 }
 
 .menu a i {
@@ -97,14 +102,18 @@
     flex-shrink: 0;
     font-size: 0.9rem;
     opacity: 0.75;
-    transition: opacity var(--tx);
+    transition: opacity var(--tx), transform var(--tx);
 }
 
 .menu a:hover {
     background: var(--color-sidebar-hover);
     color: #fff;
+    transform: translateX(2px);
 }
-.menu a:hover i { opacity: 1; }
+.menu a:hover i {
+    opacity: 1;
+    transform: scale(1.1);
+}
 
 .menu a.active {
     background: var(--color-sidebar-active);
@@ -167,11 +176,15 @@ body.sidebar-collapsed .brand              { justify-content: center; padding: 0
     padding: var(--space-2);
     border-radius: var(--radius-sm);
     flex-shrink: 0;
-    transition: background var(--tx), color var(--tx);
+    transition: background var(--tx), color var(--tx), transform 0.1s ease;
 }
 .toggle-btn:hover {
     background: var(--color-surface-subtle);
     color: var(--color-text);
+    transform: scale(1.1);
+}
+.toggle-btn:active {
+    transform: scale(0.95);
 }
 
 .page-title {
@@ -226,9 +239,15 @@ body.sidebar-collapsed .brand              { justify-content: center; padding: 0
     border-radius: var(--radius-sm);
     display: flex;
     align-items: center;
-    transition: background var(--tx);
+    transition: background var(--tx), transform 0.1s ease;
 }
-.logout-btn:hover { background: var(--color-danger-bg); }
+.logout-btn:hover {
+    background: var(--color-danger-bg);
+    transform: scale(1.1);
+}
+.logout-btn:active {
+    transform: scale(0.95);
+}
 
 
 /* ── Footer ─────────────────────────────────────────────────── */

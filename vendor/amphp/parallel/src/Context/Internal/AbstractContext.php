@@ -34,6 +34,7 @@ abstract class AbstractContext implements Context
     ) {
     }
 
+    #[\Override]
     public function receive(?Cancellation $cancellation = null): mixed
     {
         try {
@@ -42,7 +43,7 @@ abstract class AbstractContext implements Context
             $this->ipcChannel->close();
 
             throw new ContextException(
-                "The context stopped responding, potentially due to a fatal error or calling exit",
+                "The context stopped responding during receive, potentially due to a fatal error or calling exit",
                 previous: $exception,
             );
         }
@@ -66,6 +67,7 @@ abstract class AbstractContext implements Context
         return $data->getMessage();
     }
 
+    #[\Override]
     public function send(mixed $data): void
     {
         try {
@@ -74,22 +76,25 @@ abstract class AbstractContext implements Context
             $this->ipcChannel->close();
 
             throw new ContextException(
-                "The context stopped responding, potentially due to a fatal error or calling exit",
+                "The context stopped responding during send, potentially due to a fatal error or calling exit",
                 previous: $exception,
             );
         }
     }
 
+    #[\Override]
     public function close(): void
     {
         $this->ipcChannel->close();
     }
 
+    #[\Override]
     public function isClosed(): bool
     {
         return $this->ipcChannel->isClosed();
     }
 
+    #[\Override]
     public function onClose(\Closure $onClose): void
     {
         $this->ipcChannel->onClose($onClose);

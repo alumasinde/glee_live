@@ -4,20 +4,25 @@ namespace App\Modules\Auth\Services;
 
 use App\Modules\Auth\Repositories\UserRepository;
 use App\Modules\Tenant\Repositories\TenantRepository;
+use App\Core\Mailer;
 use RuntimeException;
 
 class AuthService
 {
     private UserRepository $users;
-    
+
     private TenantRepository $tenants;
+
+    private Mailer $mailer;
 
 public function __construct(
     ?UserRepository $users = null,
-    ?TenantRepository $tenants = null
+    ?TenantRepository $tenants = null,
+    ?Mailer $mailer = null
 ) {
     $this->users = $users ?? new UserRepository();
     $this->tenants = $tenants ?? new TenantRepository();
+    $this->mailer = $mailer ?? new Mailer();
 }
 
 
@@ -130,8 +135,29 @@ public function getTenantContext(int $id): array
             $expiresAt
         );
 
-        // TODO: send email with $rawToken
-        // MailService::sendResetLink($user['email'], $rawToken);
+        // Send password reset email
+        $this->sendPasswordResetEmail($tenantId, $email, $rawToken);
+    }
+
+    private function sendPasswordResetEmail(int $tenantId, string $email, string $token): void
+    {
+        $resetUrl = config('app.url') . '/reset-password?token=' . $token;
+        $appName = config('app.name', 'Gatepass Management System');
+
+        // Render email template from view file
+        $htmlBody = \App\Core\MailTemplate::render('password-reset', [
+            'resetUrl' => $resetUrl,
+            'appName' => $appName,
+        ]);
+
+        $subject = 'Password Reset Request';
+
+        try {
+            Mailer::send($tenantId, $email, $subject, $htmlBody);
+        } catch (\Throwable $e) {
+            // Log error but don't expose to user (prevent enumeration)
+            error_log('Password reset email failed: ' . $e->getMessage());
+        }
     }
 
     /*
@@ -143,7 +169,7 @@ public function getTenantContext(int $id): array
         int $tenantId,
         string $rawToken,
         string $newPassword
-    ): void {
+    ): array {
 
         $this->assertStrongPassword($newPassword);
 
@@ -165,6 +191,8 @@ public function getTenantContext(int $id): array
             $rawToken,
             $newHash
         );
+
+        return $user;
     }
 
     /*

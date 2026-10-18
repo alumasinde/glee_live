@@ -162,7 +162,13 @@ final class HostRecord implements JsonSerializable
     {
         if (!$this->unicodeIsLoaded) {
             $this->unicodeIsLoaded = true;
-            $this->hostAsUnicode = $this->isDomainType() && null !== $this->value ? IdnConverter::toUnicode($this->value)->domain() : $this->value;
+            $this->hostAsUnicode = $this->value;
+            if ($this->isDomainType() && null !== $this->value) {
+                $result = IdnConverter::toUnicode($this->value);
+                if (!$result->hasErrors()) {
+                    $this->hostAsUnicode = $result->domain();
+                }
+            }
         }
 
         return $this->hostAsUnicode;
@@ -264,7 +270,9 @@ final class HostRecord implements JsonSerializable
 
     public static function isIp(Stringable|string|null $host): bool
     {
-        return !self::isRegisteredName($host);
+        return self::isIpv4($host)
+            || self::isIpv6($host)
+            || self::isIpvFuture($host);
     }
 
     public static function isRegisteredName(Stringable|string|null $host): bool
@@ -282,6 +290,15 @@ final class HostRecord implements JsonSerializable
             return HostRecord::from($host)->isDomainType();
         } catch (Throwable) {
             return false;
+        }
+    }
+
+    public static function parse(BackedEnum|Stringable|string|null $host): ?self
+    {
+        try {
+            return self::from($host);
+        } catch (Throwable) {
+            return null;
         }
     }
 

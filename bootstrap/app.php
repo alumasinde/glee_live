@@ -41,6 +41,16 @@ if (session_status() === PHP_SESSION_NONE) {
         'secure' => isset($_SERVER['HTTPS']),
         'samesite' => 'Strict'
     ]);
+
+    // Use Redis for sessions if enabled
+    if (env('REDIS_SESSION_ENABLED', false)) {
+        $sessionHandler = new \App\Core\RedisSessionHandler(
+            env('SESSION_LIFETIME', 120) * 60, // Convert minutes to seconds
+            env('REDIS_SESSION_PREFIX', 'session:')
+        );
+        session_set_save_handler($sessionHandler, true);
+    }
+
     session_start();
 }
 

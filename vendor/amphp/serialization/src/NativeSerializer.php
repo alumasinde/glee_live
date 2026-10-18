@@ -1,20 +1,22 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Amp\Serialization;
 
 final class NativeSerializer implements Serializer
 {
-    /** @var string[]|null */
-    private $allowedClasses;
+    /** @var list<class-string>|null */
+    private ?array $allowedClasses;
 
     /**
-     * @param string[]|null $allowedClasses List of allowed class names to be unserialized. Null for any class.
+     * @param list<class-string>|null $allowedClasses List of allowed class names to be unserialized.
+     *  Null for any class.
      */
     public function __construct(?array $allowedClasses = null)
     {
         $this->allowedClasses = $allowedClasses;
     }
 
+    #[\Override]
     public function serialize($data): string
     {
         try {
@@ -28,6 +30,7 @@ final class NativeSerializer implements Serializer
         }
     }
 
+    #[\Override]
     public function unserialize(string $data)
     {
         try {

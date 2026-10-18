@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Amp\Serialization;
 
@@ -9,7 +9,12 @@ namespace Amp\Serialization;
  */
 function encodeUnprintableChars(string $data): string
 {
-    return \preg_replace_callback("/[^\x20-\x7e]/", function (array $matches): string {
+    $result = \preg_replace_callback("/[^\x20-\x7e]/", function (array $matches): string {
         return "\\x" . \dechex(\ord($matches[0]));
     }, $data);
+
+    // For Psalm.
+    \assert(\is_string($result));
+
+    return $result;
 }

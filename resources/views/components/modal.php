@@ -1,8 +1,8 @@
-<div class="modal" id="<?= $id ?>">
+<div class="modal" id="<?= $id ?>" data-auto-dismiss="<?= $autoDismiss ?? 0 ?>">
     <div class="modal-content">
         <div class="modal-header">
             <h3><?= $title ?></h3>
-            <button onclick="closeModal('<?= $id ?>')">
+            <button onclick="closeModal('<?= $id ?>')" aria-label="Close modal">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>

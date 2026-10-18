@@ -104,7 +104,9 @@ final class ThreadContext extends AbstractContext
                 // such as select() will not be interrupted.
             }));
 
-            Internal\runContext($uri, $key, new TimeoutCancellation($connectTimeout), $argv);
+            EventLoop::queue(Internal\runContext(...), $uri, $key, new TimeoutCancellation($connectTimeout), $argv);
+
+            EventLoop::run();
 
             return 0;
             // @codeCoverageIgnoreEnd
@@ -136,6 +138,9 @@ final class ThreadContext extends AbstractContext
 
     private bool $exited = false;
 
+    /**
+     * @throws ContextException
+     */
     private function __construct(
         private readonly int $id,
         private readonly Runtime $runtime,
@@ -151,9 +156,15 @@ final class ThreadContext extends AbstractContext
             $exited = true;
         });
 
-        $this->oid = \getmypid();
+        $pid = \getmypid();
+        if ($pid === false) {
+            throw new ContextException("Failed to determine PID");
+        }
+
+        $this->oid = $pid;
     }
 
+    #[\Override]
     public function receive(?Cancellation $cancellation = null): mixed
     {
         if ($this->exited) {
@@ -163,6 +174,7 @@ final class ThreadContext extends AbstractContext
         return parent::receive($cancellation);
     }
 
+    #[\Override]
     public function send(mixed $data): void
     {
         if ($this->exited) {
@@ -182,6 +194,7 @@ final class ThreadContext extends AbstractContext
         }
     }
 
+    #[\Override]
     public function close(): void
     {
         if (!$this->exited) {
@@ -197,12 +210,11 @@ final class ThreadContext extends AbstractContext
         parent::close();
     }
 
+    #[\Override]
     public function join(?Cancellation $cancellation = null): mixed
     {
-        $data = $this->receiveExitResult($cancellation);
+        $result = $this->receiveExitResult($cancellation);
 
-        $this->close();
-
-        return $data->getResult();
+        return $result->getResult();
     }
 }

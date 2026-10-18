@@ -8,6 +8,12 @@ use App\Core\Response;
 class Router
 {
     private array $routes = [];
+    private array $globalMiddleware = [];
+
+    public function setGlobalMiddleware(array $middleware): void
+    {
+        $this->globalMiddleware = $middleware;
+    }
 
     public function add(string $method, string $path, $handler, array $middleware = [])
     {
@@ -44,11 +50,23 @@ class Router
         if (preg_match($pattern, $uri, $matches)) {
             array_shift($matches);
 
-            // Run middleware ("Class:arg" passes $arg as second parameter)
+            // Run global middleware first
+            foreach ($this->globalMiddleware as $middleware) {
+                if (is_string($middleware) && str_contains($middleware, ':')) {
+                    $parts = explode(':', $middleware);
+                    $class = array_shift($parts);
+                    App::make($class)->handle($request, ...$parts);
+                } else {
+                    App::make($middleware)->handle($request);
+                }
+            }
+
+            // Run route-specific middleware ("Class:arg1:arg2:arg3" passes arguments)
             foreach ($route['middleware'] as $middleware) {
                 if (is_string($middleware) && str_contains($middleware, ':')) {
-                    [$class, $argument] = explode(':', $middleware, 2);
-                    App::make($class)->handle($request, $argument);
+                    $parts = explode(':', $middleware);
+                    $class = array_shift($parts);
+                    App::make($class)->handle($request, ...$parts);
                 } else {
                     App::make($middleware)->handle($request);
                 }

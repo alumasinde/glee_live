@@ -30,11 +30,13 @@ final class HostLoader
         $lines = \array_filter(\array_map("trim", \explode("\n", $contents)));
 
         foreach ($lines as $line) {
-            if ($line[0] === "#") { // Skip comments
-                continue;
+            // Strip inline comments; # starts a comment anywhere on the line.
+            if (($commentStart = \strpos($line, "#")) !== false) {
+                $line = \substr($line, 0, $commentStart);
             }
 
-            $parts = \preg_split('/\s+/', $line);
+            $parts = \preg_split('/\s+/', \trim($line));
+            \assert(\is_array($parts)); // For Psalm.
 
             if (!($ip = \inet_pton($parts[0]))) {
                 continue;
@@ -67,10 +69,14 @@ final class HostLoader
 
         try {
             // Blocking file access, but this file should be local and usually loaded only once.
-            return \file_get_contents($path);
+            $contents = \file_get_contents($path);
         } finally {
             \restore_error_handler();
         }
+
+        \assert(\is_string($contents)); // For Psalm, the error handler will throw for a false return case.
+
+        return $contents;
     }
 
     private function getDefaultPath(): string
