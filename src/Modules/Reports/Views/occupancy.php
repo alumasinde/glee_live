@@ -14,6 +14,11 @@
     </h1>
 
     <div class="page-actions">
+        <?php if (can($export_perm ?? '')): ?>
+            <a href="/reports/occupancy/export" class="btn btn-secondary btn-sm">
+                <i class="fa-solid fa-file-csv"></i> Export CSV
+            </a>
+        <?php endif; ?>
         <a href="/reports" class="btn btn-secondary btn-sm">
             <i class="fa-solid fa-arrow-left"></i> Back to Reports
         </a>

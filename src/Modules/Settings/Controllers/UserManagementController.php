@@ -33,7 +33,8 @@ class UserManagementController extends Controller
 
         $stmt = $this->db->prepare("
             SELECT u.*,
-                   GROUP_CONCAT(DISTINCT r.name) AS roles
+                   GROUP_CONCAT(DISTINCT r.name) AS roles,
+                   d.name AS department_name
             FROM users u
             LEFT JOIN user_roles ur
                 ON u.id        = ur.user_id
@@ -41,6 +42,9 @@ class UserManagementController extends Controller
             LEFT JOIN roles r
                 ON ur.role_id   = r.id
                AND r.tenant_id  = u.tenant_id
+            LEFT JOIN departments d
+                ON d.id         = u.department_id
+               AND d.tenant_id  = u.tenant_id
             WHERE u.tenant_id = :tenant_id
             GROUP BY u.id
             ORDER BY u.id DESC
@@ -70,9 +74,56 @@ class UserManagementController extends Controller
         $stmt->execute([':tenant_id' => $tenantId]);
 
         return $this->view('Settings::users.create', [
-            'title' => 'Create User',
-            'roles' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'title'       => 'Create User',
+            'roles'       => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'departments' => $this->departments($tenantId),
         ]);
+    }
+
+    /**
+     * Active departments of the tenant, for user linking.
+     */
+    private function departments(int $tenantId): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT id, name
+            FROM departments
+            WHERE tenant_id = :tenant_id
+              AND is_active = 1
+            ORDER BY name
+        ");
+
+        $stmt->execute([':tenant_id' => $tenantId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Validate an optional department selection against the tenant.
+     */
+    private function resolveDepartmentId(Request $request, int $tenantId): ?int
+    {
+        $raw = trim((string) $request->input('department_id', ''));
+
+        if ($raw === '' || (int) $raw === 0) {
+            return null;
+        }
+
+        $stmt = $this->db->prepare("
+            SELECT 1
+            FROM departments
+            WHERE id = :id
+              AND tenant_id = :tenant_id
+            LIMIT 1
+        ");
+
+        $stmt->execute([':id' => (int) $raw, ':tenant_id' => $tenantId]);
+
+        if (! $stmt->fetch()) {
+            throw new \RuntimeException('Selected department does not exist.');
+        }
+
+        return (int) $raw;
     }
 
     /**
@@ -88,6 +139,7 @@ class UserManagementController extends Controller
         $lastName  = trim((string) $request->input('last_name'));
         $password  = (string) $request->input('password');
         $roles     = $request->input('roles', []);
+        $departmentId = $this->resolveDepartmentId($request, $tenantId);
 
         if (! $email || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             throw new \RuntimeException('Invalid email.');
@@ -121,22 +173,23 @@ class UserManagementController extends Controller
         }
 
         // FIX: Use DB::transaction() instead of manual beginTransaction/commit/rollback
-        DB::transaction(function () use ($tenantId, $email, $username, $firstName, $lastName, $password, $roles) {
+        DB::transaction(function () use ($tenantId, $email, $username, $firstName, $lastName, $password, $roles, $departmentId) {
 
             $stmt = $this->db->prepare("
                 INSERT INTO users
-                    (tenant_id, email, password_hash, first_name, last_name, username)
+                    (tenant_id, email, password_hash, first_name, last_name, username, department_id)
                 VALUES
-                    (:tenant_id, :email, :password, :first_name, :last_name, :username)
+                    (:tenant_id, :email, :password, :first_name, :last_name, :username, :department_id)
             ");
 
             $stmt->execute([
-                ':tenant_id'  => $tenantId,
-                ':email'      => $email,
-                ':password'   => password_hash($password, PASSWORD_DEFAULT),
-                ':first_name' => $firstName,
-                ':last_name'  => $lastName,
-                ':username'   => $username,
+                ':tenant_id'     => $tenantId,
+                ':email'         => $email,
+                ':password'      => password_hash($password, PASSWORD_DEFAULT),
+                ':first_name'    => $firstName,
+                ':last_name'     => $lastName,
+                ':username'      => $username,
+                ':department_id' => $departmentId,
             ]);
 
             $userId = (int) $this->db->lastInsertId();
@@ -198,10 +251,11 @@ class UserManagementController extends Controller
         $userRolesStmt->execute([':user_id' => $id, ':tenant_id' => $tenantId]);
 
         return $this->view('Settings::users.edit', [
-            'title'     => 'Edit User',
-            'userData'  => $editUser,
-            'roles'     => $rolesStmt->fetchAll(PDO::FETCH_ASSOC),
-            'userRoles' => array_column($userRolesStmt->fetchAll(PDO::FETCH_ASSOC), 'role_id'),
+            'title'       => 'Edit User',
+            'userData'    => $editUser,
+            'roles'       => $rolesStmt->fetchAll(PDO::FETCH_ASSOC),
+            'userRoles'   => array_column($userRolesStmt->fetchAll(PDO::FETCH_ASSOC), 'role_id'),
+            'departments' => $this->departments($tenantId),
         ]);
     }
 
@@ -217,6 +271,7 @@ class UserManagementController extends Controller
         $firstName = trim((string) $request->input('first_name'));
         $lastName  = trim((string) $request->input('last_name'));
         $roleIds   = $request->input('roles', []);
+        $departmentId = $this->resolveDepartmentId($request, $tenantId);
 
         if (! $email || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             throw new \RuntimeException('Invalid email.');
@@ -247,25 +302,27 @@ class UserManagementController extends Controller
         }
 
         // FIX: Use DB::transaction()
-        DB::transaction(function () use ($tenantId, $id, $email, $username, $firstName, $lastName, $roleIds) {
+        DB::transaction(function () use ($tenantId, $id, $email, $username, $firstName, $lastName, $roleIds, $departmentId) {
 
             $stmt = $this->db->prepare("
                 UPDATE users
-                SET first_name = :first_name,
-                    last_name  = :last_name,
-                    email      = :email,
-                    username   = :username
+                SET first_name    = :first_name,
+                    last_name     = :last_name,
+                    email         = :email,
+                    username      = :username,
+                    department_id = :department_id
                 WHERE id        = :id
                   AND tenant_id = :tenant_id
             ");
 
             $stmt->execute([
-                ':first_name' => $firstName,
-                ':last_name'  => $lastName,
-                ':email'      => $email,
-                ':username'   => $username,
-                ':id'         => $id,
-                ':tenant_id'  => $tenantId,
+                ':first_name'    => $firstName,
+                ':last_name'     => $lastName,
+                ':email'         => $email,
+                ':username'      => $username,
+                ':department_id' => $departmentId,
+                ':id'            => $id,
+                ':tenant_id'     => $tenantId,
             ]);
 
             // Reset roles

@@ -44,6 +44,24 @@ class DashboardService
             $stats['total_visitors']  = $this->totalVisitors($tenantId);
         }
 
+        if (can('reports.view_occupancy')) {
+            $stats['people_on_site'] = $this->visitsOnSite($tenantId);
+            $stats['items_on_site']  = $this->gatepassesOnSite($tenantId);
+        }
+
+        if (can('reports.view_scans')) {
+            $stats['scans_today']  = $this->countScansToday($tenantId);
+            $stats['recent_scans'] = $this->recentScans($tenantId, 8);
+        }
+
+        if (can('visitors.blacklist')) {
+            $stats['blacklisted_visitors'] = $this->countBlacklistedVisitors($tenantId);
+        }
+
+        if (can('reports.view_departments')) {
+            $stats['top_departments'] = $this->topDepartmentsThisMonth($tenantId);
+        }
+
         return $stats;
     }
 
@@ -152,6 +170,140 @@ class DashboardService
         $stmt->execute([':tenant' => $tenantId]);
 
         return (int) $stmt->fetchColumn();
+    }
+
+    /** Visitors currently on site (checked in, not out) */
+    private function visitsOnSite(int $tenantId): int
+    {
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM visits
+            WHERE tenant_id     = :tenant
+              AND checkin_time  IS NOT NULL
+              AND checkout_time IS NULL
+        ");
+
+        $stmt->execute([':tenant' => $tenantId]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /** Gatepasses currently on site (checked in, not out) */
+    private function gatepassesOnSite(int $tenantId): int
+    {
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM gatepasses
+            WHERE tenant_id   = :tenant
+              AND actual_in   IS NOT NULL
+              AND actual_out  IS NULL
+        ");
+
+        $stmt->execute([':tenant' => $tenantId]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /** Successful gate scans today */
+    private function countScansToday(int $tenantId): int
+    {
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM scan_logs
+            WHERE tenant_id = :tenant
+              AND action <> 'rejected'
+              AND DATE(created_at) = CURDATE()
+        ");
+
+        $stmt->execute([':tenant' => $tenantId]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /** Latest gate scans for the dashboard activity feed */
+    private function recentScans(int $tenantId, int $limit): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT
+                sl.created_at,
+                sl.subject_type,
+                sl.subject_id,
+                sl.action,
+                sl.source,
+                g.name AS gate_name,
+                COALESCE(gp.gatepass_number, '') AS gatepass_number,
+                COALESCE(CONCAT(vis.first_name, ' ', vis.last_name), '') AS visitor_name
+            FROM scan_logs sl
+            LEFT JOIN gates g       ON g.id = sl.gate_id   AND g.tenant_id = sl.tenant_id
+            LEFT JOIN gatepasses gp ON gp.id = sl.subject_id
+                AND sl.subject_type = 'gatepass' AND gp.tenant_id = sl.tenant_id
+            LEFT JOIN visits v      ON v.id = sl.subject_id
+                AND sl.subject_type = 'visit' AND v.tenant_id = sl.tenant_id
+            LEFT JOIN visitors vis  ON vis.id = v.visitor_id AND vis.tenant_id = sl.tenant_id
+            WHERE sl.tenant_id = :tenant
+            ORDER BY sl.created_at DESC
+            LIMIT " . max(1, min($limit, 50)) . "
+        ");
+
+        $stmt->execute([':tenant' => $tenantId]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** Blacklisted visitor count */
+    private function countBlacklistedVisitors(int $tenantId): int
+    {
+        $stmt = $this->db->prepare("
+            SELECT COUNT(*)
+            FROM visitors
+            WHERE tenant_id = :tenant
+              AND is_blacklisted = 1
+        ");
+
+        $stmt->execute([':tenant' => $tenantId]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /** Busiest departments this month by gatepass + visit volume */
+    private function topDepartmentsThisMonth(int $tenantId): array
+    {
+        $monthStart = date('Y-m-01 00:00:00');
+
+        $stmt = $this->db->prepare("
+            SELECT
+                d.id,
+                d.name,
+                (SELECT COUNT(*) FROM gatepasses gp
+                  WHERE gp.department_id = d.id
+                    AND gp.tenant_id = d.tenant_id
+                    AND gp.created_at >= :month1) AS gatepasses,
+                (SELECT COUNT(*) FROM visits v
+                  WHERE v.department_id = d.id
+                    AND v.tenant_id = d.tenant_id
+                    AND v.created_at >= :month2) AS visits
+            FROM departments d
+            WHERE d.tenant_id = :tenant
+              AND d.is_active = 1
+            ORDER BY (
+                (SELECT COUNT(*) FROM gatepasses gp2
+                  WHERE gp2.department_id = d.id AND gp2.tenant_id = d.tenant_id AND gp2.created_at >= :month3)
+                +
+                (SELECT COUNT(*) FROM visits v2
+                  WHERE v2.department_id = d.id AND v2.tenant_id = d.tenant_id AND v2.created_at >= :month4)
+            ) DESC, d.name ASC
+            LIMIT 6
+        ");
+
+        $stmt->execute([
+            ':tenant' => $tenantId,
+            ':month1' => $monthStart,
+            ':month2' => $monthStart,
+            ':month3' => $monthStart,
+            ':month4' => $monthStart,
+        ]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /** Dashboard charts — each dataset built only when permitted */

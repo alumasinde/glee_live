@@ -116,7 +116,7 @@ $router->get('/visitors/{id}', [VisitorController::class, 'view'], $perm('visito
 $router->get('/visitors/{id}/edit', [VisitorController::class, 'edit'], $perm('visitors.update'));
 $router->post('/visitors/{id}/update', [VisitorController::class, 'update'], $permCsrf('visitors.update'));
 $router->post('/visitors/{id}/blacklist', [VisitorController::class, 'blacklist'], $permCsrf('visitors.blacklist'));
-$router->post('/visitors/{id}/unblacklist', [VisitorController::class, 'unblacklist'], $permCsrf('visitors.blacklist'));
+$router->post('/visitors/{id}/unblacklist', [VisitorController::class, 'unblacklist'], $permCsrf('visitors.unblacklist'));
 
 /*
 |--------------------------------------------------------------------------
@@ -162,15 +162,15 @@ $router->post('/settings/company', [CompanySettingController::class, 'update'], 
 $router->get('/settings/gatepass-numbering', [GatepassSettingController::class, 'index'], $perm('settings.view'));
 $router->post('/settings/gatepass-numbering', [GatepassSettingController::class, 'update'], $permCsrf('settings.update'));
 
-$router->get('/settings/email', [EmailSettingController::class, 'index'], $perm('settings.view'));
-$router->post('/settings/email', [EmailSettingController::class, 'update'], $permCsrf('settings.update'));
-$router->post('/settings/email/test', [EmailSettingController::class, 'test'], $permCsrf('settings.update'));
+$router->get('/settings/email', [EmailSettingController::class, 'index'], $perm('email.view'));
+$router->post('/settings/email', [EmailSettingController::class, 'update'], $permCsrf('email.update'));
+$router->post('/settings/email/test', [EmailSettingController::class, 'test'], $permCsrf('email.test_send'));
 
-$router->get('/settings/gates', [GateSettingController::class, 'index'], $perm('settings.view'));
-$router->post('/settings/gates', [GateSettingController::class, 'store'], $permCsrf('settings.update'));
-$router->post('/settings/gates/update', [GateSettingController::class, 'update'], $permCsrf('settings.update'));
-$router->post('/settings/gates/rotate', [GateSettingController::class, 'rotate'], $permCsrf('settings.update'));
-$router->post('/settings/gates/delete', [GateSettingController::class, 'delete'], $permCsrf('settings.update'));
+$router->get('/settings/gates', [GateSettingController::class, 'index'], $perm('gates.view'));
+$router->post('/settings/gates', [GateSettingController::class, 'store'], $permCsrf('gates.create'));
+$router->post('/settings/gates/update', [GateSettingController::class, 'update'], $permCsrf('gates.update'));
+$router->post('/settings/gates/rotate', [GateSettingController::class, 'rotate'], $permCsrf('gates.rotate'));
+$router->post('/settings/gates/delete', [GateSettingController::class, 'delete'], $permCsrf('gates.delete'));
 
 $router->get('/settings/gatepass-types', [GatepassTypeController::class, 'index'], $perm('settings.view'));
 $router->post('/settings/gatepass-types/update', [GatepassTypeController::class, 'update'], $permCsrf('settings.update'));
@@ -213,16 +213,21 @@ $router->post('/settings/workflows/{id}/assign', [WorkflowController::class, 'st
 */
 
 $router->get('/reports', [ReportController::class, 'index'], $perm('reports.view'));
-$router->get('/reports/gatepasses', [ReportController::class, 'gatepasses'], $perm('reports.view'));
-$router->get('/reports/visitors', [ReportController::class, 'visitors'], $perm('reports.view'));
-$router->get('/reports/visits', [ReportController::class, 'visits'], $perm('reports.view'));
-$router->get('/reports/occupancy', [ReportController::class, 'occupancy'], $perm('reports.view'));
+$router->get('/reports/gatepasses', [ReportController::class, 'gatepasses'], $perm('reports.view_gatepasses'));
+$router->get('/reports/visitors', [ReportController::class, 'visitors'], $perm('reports.view_visitors'));
+$router->get('/reports/visits', [ReportController::class, 'visits'], $perm('reports.view_visits'));
+$router->get('/reports/occupancy', [ReportController::class, 'occupancy'], $perm('reports.view_occupancy'));
+$router->get('/reports/scan-activity', [ReportController::class, 'scanActivity'], $perm('reports.view_scans'));
+$router->get('/reports/departments', [ReportController::class, 'departments'], $perm('reports.view_departments'));
 $router->get('/reports/audit-logs', [ReportController::class, 'auditLogs'], $perm('audit.view'));
 
-$router->get('/reports/gatepasses/export', [ReportController::class, 'exportGatepasses'], $perm('reports.export'));
-$router->get('/reports/visitors/export', [ReportController::class, 'exportVisitors'], $perm('reports.export'));
-$router->get('/reports/visits/export', [ReportController::class, 'exportVisits'], $perm('reports.export'));
-$router->get('/reports/audit-logs/export', [ReportController::class, 'exportAuditLogs'], $perm('audit.view'));
+$router->get('/reports/gatepasses/export', [ReportController::class, 'exportGatepasses'], $perm('reports.export_gatepasses'));
+$router->get('/reports/visitors/export', [ReportController::class, 'exportVisitors'], $perm('reports.export_visitors'));
+$router->get('/reports/visits/export', [ReportController::class, 'exportVisits'], $perm('reports.export_visits'));
+$router->get('/reports/occupancy/export', [ReportController::class, 'exportOccupancy'], $perm('reports.export_occupancy'));
+$router->get('/reports/scan-activity/export', [ReportController::class, 'exportScanActivity'], $perm('reports.export_scans'));
+$router->get('/reports/departments/export', [ReportController::class, 'exportDepartments'], $perm('reports.export_departments'));
+$router->get('/reports/audit-logs/export', [ReportController::class, 'exportAuditLogs'], $perm('audit.export'));
 
 // Gatepass Check-In / Check-Out
 $router->post('/gatepasses/{id}/checkin', [GatepassController::class, 'checkIn'], $permCsrf('gatepass.checkin'));

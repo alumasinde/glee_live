@@ -43,6 +43,7 @@ use App\Core\View;
                         <th>Name</th>
                         <th>Email</th>
                         <th>Username</th>
+                        <th>Department</th>
                         <th>Roles</th>
                         <th class="text-end" width="80">Actions</th>
                     </tr>
@@ -55,6 +56,13 @@ use App\Core\View;
                             </td>
                             <td class="text-muted"><?= htmlspecialchars($user['email']) ?></td>
                             <td><span class="cell-mono"><?= htmlspecialchars($user['username']) ?></span></td>
+                            <td>
+                                <?php if (!empty($user['department_name'])): ?>
+                                    <span class="cell-sub"><?= htmlspecialchars($user['department_name']) ?></span>
+                                <?php else: ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <span class="badge badge-info">
                                     <?= htmlspecialchars($user['roles'] ?? '—') ?>

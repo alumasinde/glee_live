@@ -71,31 +71,40 @@ LIMIT 1
     }
 
     /**
-     * Generate and store hashed reset token.
-     * Returns raw token for email delivery.
+     * Generate and store a reset token (one live token per user).
+     * Returns raw token for email delivery; consumed on reset.
      */
     public function createPasswordResetToken(int $userId, \DateTimeImmutable $expiresAt): string
     {
         $rawToken = bin2hex(random_bytes(32));
-        $hashedToken = hash('sha256', $rawToken);
 
         $stmt = $this->db->prepare("
-            UPDATE users
-            SET reset_token = :token,
-                reset_expires = :expires
-            WHERE id = :id
-              AND is_active = 1
+            SELECT tenant_id FROM users
+            WHERE id = :id AND is_active = 1
+        ");
+        $stmt->execute([':id' => $userId]);
+        $tenantId = $stmt->fetchColumn();
+
+        if ($tenantId === false) {
+            throw new RuntimeException('Failed to store reset token.');
+        }
+
+        $this->db->prepare("
+            DELETE FROM password_resets
+            WHERE user_id = :id AND tenant_id = :tenant_id
+        ")->execute([':id' => $userId, ':tenant_id' => $tenantId]);
+
+        $stmt = $this->db->prepare("
+            INSERT INTO password_resets (tenant_id, user_id, token, expires_at)
+            VALUES (:tenant_id, :user_id, :token, :expires)
         ");
 
         $stmt->execute([
-            ':token'   => $hashedToken,
-            ':expires' => $expiresAt->format('Y-m-d H:i:s'),
-            ':id'      => $userId
+            ':tenant_id' => $tenantId,
+            ':user_id'   => $userId,
+            ':token'     => $rawToken,
+            ':expires'   => $expiresAt->format('Y-m-d H:i:s'),
         ]);
-
-        if ($stmt->rowCount() !== 1) {
-            throw new RuntimeException('Failed to store reset token.');
-        }
 
         return $rawToken; // send this via email
     }
@@ -107,19 +116,19 @@ LIMIT 1
         int $tenantId,
         string $rawToken
     ): ?array {
-        $hashedToken = hash('sha256', $rawToken);
-
         $stmt = $this->db->prepare("
             SELECT 
                 u.id,
                 u.tenant_id,
                 u.email,
-                u.reset_expires
-            FROM users u
+                pr.expires_at
+            FROM password_resets pr
+            INNER JOIN users u 
+                ON u.id = pr.user_id AND u.tenant_id = pr.tenant_id
             INNER JOIN tenants t ON t.id = u.tenant_id
-            WHERE u.tenant_id = :tenant_id
-              AND u.reset_token = :token
-              AND u.reset_expires > NOW()
+            WHERE pr.tenant_id = :tenant_id
+              AND pr.token = :token
+              AND pr.expires_at > NOW()
               AND u.is_active = 1
               AND t.is_active = 1
             LIMIT 1
@@ -127,15 +136,15 @@ LIMIT 1
 
         $stmt->execute([
             ':tenant_id' => $tenantId,
-            ':token'     => $hashedToken
+            ':token'     => $rawToken
         ]);
 
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
     /**
-     * Atomically update password and invalidate token.
-     * Prevents race condition token reuse.
+     * Atomically update password and consume the token.
+     * The DELETE is the guard: only one caller can win a given token.
      */
     public function resetPasswordWithToken(
         int $tenantId,
@@ -143,31 +152,49 @@ LIMIT 1
         string $rawToken,
         string $newPasswordHash
     ): void {
-        $hashedToken = hash('sha256', $rawToken);
+        $this->db->beginTransaction();
 
-        $stmt = $this->db->prepare("
-            UPDATE users u
-            INNER JOIN tenants t ON t.id = u.tenant_id
-            SET u.password_hash = :password,
-                u.reset_token = NULL,
-                u.reset_expires = NULL
-            WHERE u.id = :user_id
-              AND u.tenant_id = :tenant_id
-              AND u.reset_token = :token
-              AND u.reset_expires > NOW()
-              AND u.is_active = 1
-              AND t.is_active = 1
-        ");
+        try {
+            $stmt = $this->db->prepare("
+                DELETE FROM password_resets
+                WHERE tenant_id = :tenant_id
+                  AND user_id = :user_id
+                  AND token = :token
+                  AND expires_at > NOW()
+            ");
 
-        $stmt->execute([
-            ':password'  => $newPasswordHash,
-            ':user_id'   => $userId,
-            ':tenant_id' => $tenantId,
-            ':token'     => $hashedToken
-        ]);
+            $stmt->execute([
+                ':tenant_id' => $tenantId,
+                ':user_id'   => $userId,
+                ':token'     => $rawToken
+            ]);
 
-        if ($stmt->rowCount() !== 1) {
-            throw new RuntimeException('Invalid or expired reset token.');
+            if ($stmt->rowCount() !== 1) {
+                throw new RuntimeException('Invalid or expired reset token.');
+            }
+
+            $stmt = $this->db->prepare("
+                UPDATE users
+                SET password_hash = :password
+                WHERE id = :user_id
+                  AND tenant_id = :tenant_id
+                  AND is_active = 1
+            ");
+
+            $stmt->execute([
+                ':password'  => $newPasswordHash,
+                ':user_id'   => $userId,
+                ':tenant_id' => $tenantId
+            ]);
+
+            if ($stmt->rowCount() !== 1) {
+                throw new RuntimeException('Invalid or expired reset token.');
+            }
+
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            $this->db->rollBack();
+            throw $e;
         }
     }
 
@@ -177,10 +204,8 @@ LIMIT 1
     public function invalidateResetToken(int $tenantId, int $userId): void
     {
         $stmt = $this->db->prepare("
-            UPDATE users
-            SET reset_token = NULL,
-                reset_expires = NULL
-            WHERE id = :id
+            DELETE FROM password_resets
+            WHERE user_id = :id
               AND tenant_id = :tenant_id
         ");
 
@@ -198,11 +223,11 @@ LIMIT 1
         int $userId,
         string $passwordHash
     ): void {
+        $this->invalidateResetToken($tenantId, $userId);
+
         $stmt = $this->db->prepare("
             UPDATE users
-            SET password_hash = :password,
-                reset_token = NULL,
-                reset_expires = NULL
+            SET password_hash = :password
             WHERE id = :id
               AND tenant_id = :tenant_id
               AND is_active = 1

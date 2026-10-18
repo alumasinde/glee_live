@@ -51,6 +51,7 @@
     </div>
 <?php endif; ?>
 
+<?php if (can('gates.create')): ?>
 <!-- ===================== CREATE FORM ===================== -->
 <div class="table-card mb-4">
     <div class="table-card-head">
@@ -92,6 +93,7 @@
         </form>
     </div>
 </div>
+<?php endif; ?>
 
 <!-- ===================== LIST ===================== -->
 <div class="table-card">
@@ -145,33 +147,39 @@
                             <td class="cell-date"><?= format_date($gate['created_at'] ?? null) ?></td>
 
                             <td class="table-actions justify-content-end">
-                                <button class="btn btn-sm btn-ghost btn-icon" title="Edit"
-                                        data-gate-edit
-                                        data-id="<?= $gid ?>"
-                                        data-name="<?= htmlspecialchars($gate['name'], ENT_QUOTES) ?>"
-                                        data-code="<?= htmlspecialchars($gate['code'], ENT_QUOTES) ?>"
-                                        data-active="<?= (int) $gate['is_active'] ?>">
-                                    <i class="fa-solid fa-pen"></i>
-                                </button>
-
-                                <form method="POST" action="/settings/gates/rotate" class="table-action-button">
-                                    <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
-                                    <input type="hidden" name="id" value="<?= $gid ?>">
-                                    <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Rotate device key"
-                                            <?= $gate['has_key'] ? '' : 'disabled' ?>
-                                            onclick="return confirm('Rotate key? The old device key stops working immediately.');">
-                                        <i class="fa-solid fa-rotate"></i>
+                                <?php if (can('gates.update')): ?>
+                                    <button class="btn btn-sm btn-ghost btn-icon" title="Edit"
+                                            data-gate-edit
+                                            data-id="<?= $gid ?>"
+                                            data-name="<?= htmlspecialchars($gate['name'], ENT_QUOTES) ?>"
+                                            data-code="<?= htmlspecialchars($gate['code'], ENT_QUOTES) ?>"
+                                            data-active="<?= (int) $gate['is_active'] ?>">
+                                        <i class="fa-solid fa-pen"></i>
                                     </button>
-                                </form>
+                                <?php endif; ?>
 
-                                <form method="POST" action="/settings/gates/delete" class="table-action-button">
-                                    <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
-                                    <input type="hidden" name="id" value="<?= $gid ?>">
-                                    <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Delete"
-                                            onclick="return confirm('Delete this gate? Gates with scan history must be deactivated instead.');">
-                                        <i class="fa-solid fa-trash" style="color:var(--color-danger)"></i>
-                                    </button>
-                                </form>
+                                <?php if (can('gates.rotate')): ?>
+                                    <form method="POST" action="/settings/gates/rotate" class="table-action-button">
+                                        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+                                        <input type="hidden" name="id" value="<?= $gid ?>">
+                                        <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Rotate device key"
+                                                <?= $gate['has_key'] ? '' : 'disabled' ?>
+                                                onclick="return confirm('Rotate key? The old device key stops working immediately.');">
+                                            <i class="fa-solid fa-rotate"></i>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+
+                                <?php if (can('gates.delete')): ?>
+                                    <form method="POST" action="/settings/gates/delete" class="table-action-button">
+                                        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+                                        <input type="hidden" name="id" value="<?= $gid ?>">
+                                        <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Delete"
+                                                onclick="return confirm('Delete this gate? Gates with scan history must be deactivated instead.');">
+                                            <i class="fa-solid fa-trash" style="color:var(--color-danger)"></i>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>

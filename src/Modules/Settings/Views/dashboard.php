@@ -46,7 +46,7 @@
         </a>
     <?php endif; ?>
 
-    <?php if (can('settings.view')): ?>
+    <?php if (can('email.view')): ?>
         <a href="/settings/email" class="report-card">
             <i class="fa-solid fa-envelope"></i>
             <h3>Email (SMTP)</h3>
@@ -54,7 +54,7 @@
         </a>
     <?php endif; ?>
 
-    <?php if (can('settings.view')): ?>
+    <?php if (can('gates.view')): ?>
         <a href="/settings/gates" class="report-card">
             <i class="fa-solid fa-door-open"></i>
             <h3>Gates</h3>

@@ -111,13 +111,15 @@ use App\Core\View;
                                     </a>
                                 <?php endif; ?>
 
-                                <?php if (can('visitors.blacklist')): ?>
-                                    <?php if ((int) $v['is_blacklisted'] === 1): ?>
+                                <?php if ((int) $v['is_blacklisted'] === 1): ?>
+                                    <?php if (can('visitors.unblacklist')): ?>
                                         <form method="POST" action="/visitors/<?= $id ?>/unblacklist" class="table-action-button">
                                             <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
                                             <button class="btn btn-sm btn-soft-success">Unblacklist</button>
                                         </form>
-                                    <?php else: ?>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <?php if (can('visitors.blacklist')): ?>
                                         <form method="POST" action="/visitors/<?= $id ?>/blacklist" class="table-action-button"
                                               onsubmit="return confirm('Blacklist this visitor?')">
                                             <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">

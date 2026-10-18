@@ -13,9 +13,15 @@
 
     <?php if (!empty($filters ?? [])): ?>
         <?php foreach ($filters as $name => $options): ?>
+            <?php
+                $short = strpos($name, '.') !== false
+                    ? substr($name, strrpos($name, '.') + 1)
+                    : $name;
+                $short = str_replace('_id', '', $short);
+            ?>
             <div class="form-group" style="margin-bottom:0">
                 <label class="form-label" style="font-size:0.72rem">
-                    <?= htmlspecialchars(ucfirst(str_replace('_', ' ', $name))) ?>
+                    <?= htmlspecialchars(ucfirst(str_replace('_', ' ', $short))) ?>
                 </label>
 
                 <select name="filters[<?= htmlspecialchars($name) ?>]" style="min-width:160px">

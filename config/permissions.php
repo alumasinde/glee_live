@@ -43,6 +43,7 @@ return [
         'update',
         'delete',
         'blacklist',
+        'unblacklist',
         'issue_badge',
     ],
 
@@ -55,12 +56,38 @@ return [
     ],
 
     'reports' => [
-        'view',
-        'export',
+        'view',               // reports home only
+        'view_gatepasses',
+        'view_visitors',
+        'view_visits',
+        'view_occupancy',
+        'view_scans',
+        'view_departments',
+        'export_gatepasses',
+        'export_visitors',
+        'export_visits',
+        'export_occupancy',
+        'export_scans',
+        'export_departments',
     ],
 
     'audit' => [
         'view',
+        'export',
+    ],
+
+    'gates' => [
+        'view',
+        'create',
+        'update',
+        'delete',
+        'rotate',
+    ],
+
+    'email' => [
+        'view',
+        'update',
+        'test_send',
     ],
 
     'roles' => [

@@ -47,6 +47,19 @@
             </div>
 
             <div class="mb-3">
+                <label class="form-label" for="department">Department</label>
+                <select name="department_id" id="department" class="form-control">
+                    <option value="">— No department —</option>
+                    <?php $currentDept = (int) ($userData['department_id'] ?? 0); ?>
+                    <?php foreach ($departments as $dept): ?>
+                        <option value="<?= (int) $dept['id'] ?>" <?= $currentDept === (int) $dept['id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($dept['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="mb-3">
                 <label class="form-label">Assign Roles</label>
                 <?php foreach ($roles as $role): ?>
                     <div class="form-check">

@@ -75,7 +75,9 @@
 
     <br><br>
 
-    <button type="submit">Save Settings</button>
+    <?php if (can('email.update')): ?>
+        <button type="submit">Save Settings</button>
+    <?php endif; ?>
 
     <a href="/settings" class="btn btn-secondary">
         Back
@@ -83,19 +85,21 @@
 
 </form>
 
-<hr>
+<?php if (can('email.test_send')): ?>
+    <hr>
 
-<h3>Send Test Email</h3>
+    <h3>Send Test Email</h3>
 
-<form method="POST" action="/settings/email/test">
+    <form method="POST" action="/settings/email/test">
 
-    <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
-    <label>Recipient</label>
-    <input type="email" name="test_to" required placeholder="you@example.com">
+        <label>Recipient</label>
+        <input type="email" name="test_to" required placeholder="you@example.com">
 
-    <br><br>
+        <br><br>
 
-    <button type="submit">Send Test</button>
+        <button type="submit">Send Test</button>
 
-</form>
+    </form>
+<?php endif; ?>

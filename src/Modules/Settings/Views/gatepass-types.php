@@ -96,28 +96,33 @@
 </div>
 
 <!-- MODAL -->
-<div id="modal" class="modal-overlay" hidden>
-    <div class="modal">
+<div id="modal" class="modal">
+    <div class="modal-content">
 
-        <h3 id="modalTitle">Configure</h3>
-
-        <div class="form-group">
-            <label>
-                <input type="checkbox" id="checkin">
-                Allow Check-in
-            </label>
+        <div class="modal-header">
+            <h3 id="modalTitle">Configure</h3>
+            <button type="button" onclick="closeModal()" aria-label="Close">&times;</button>
         </div>
 
-        <div class="form-group">
-            <label>
-                <input type="checkbox" id="checkout">
-                Allow Check-out
-            </label>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="checkin">
+                    Allow Check-in
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="checkout">
+                    Allow Check-out
+                </label>
+            </div>
         </div>
 
-        <div class="form-actions">
-            <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="save(this)">Save</button>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="save(this)">Save</button>
         </div>
 
     </div>
@@ -135,13 +140,21 @@ function openEditModal(id, checkin, checkout, name) {
     document.getElementById('checkin').checked = !!checkin;
     document.getElementById('checkout').checked = !!checkout;
 
-    document.getElementById('modal').hidden = false;
+    document.getElementById('modal').classList.add('show');
 }
 
 function closeModal() {
-    document.getElementById('modal').hidden = true;
+    document.getElementById('modal').classList.remove('show');
     currentId = null;
 }
+
+document.getElementById('modal').addEventListener('click', function (e) {
+    if (e.target === this) closeModal();
+});
+
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeModal();
+});
 
 /* ---------------- API ---------------- */
 async function apiPost(url, data) {

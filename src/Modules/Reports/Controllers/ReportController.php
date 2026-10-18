@@ -42,7 +42,7 @@ class ReportController extends Controller
         return View::render('Reports::gatepasses', [
             'title'        => 'Gatepass Report',
             'data'         => $data,
-            'export_perm'  => 'reports.export'
+            'export_perm'  => 'reports.export_gatepasses'
         ], 'app');
     }
 
@@ -66,7 +66,7 @@ class ReportController extends Controller
         return View::render('Reports::visitors', [
             'title'        => 'Visitor Report',
             'data'         => $data,
-            'export_perm'  => 'reports.export'
+            'export_perm'  => 'reports.export_visitors'
         ], 'app');
     }
 
@@ -90,16 +90,61 @@ class ReportController extends Controller
         return View::render('Reports::visits', [
             'title'        => 'Visit Report',
             'data'         => $data,
-            'export_perm'  => 'reports.export'
+            'export_perm'  => 'reports.export_visits'
         ], 'app');
     }
 
     public function occupancy()
     {
         return View::render('Reports::occupancy', [
-            'title' => 'Occupancy',
-            'data'  => $this->service->occupancy($this->tenantId())
+            'title'       => 'Occupancy',
+            'data'        => $this->service->occupancy($this->tenantId()),
+            'export_perm' => 'reports.export_occupancy',
         ], 'app');
+    }
+
+    public function exportOccupancy()
+    {
+        $this->streamCsv('occupancy', $this->service->occupancyExportRows($this->tenantId()));
+    }
+
+    public function scanActivity(Request $request)
+    {
+        $data = $this->service->scans(
+            $this->tenantId(),
+            $request->all()
+        );
+
+        return View::render('Reports::scans', [
+            'title'          => 'Scan Activity',
+            'data'           => $data,
+            'filters'        => $this->service->scanFilterOptions($this->tenantId()),
+            'export_perm'    => 'reports.export_scans',
+        ], 'app');
+    }
+
+    public function exportScanActivity(Request $request)
+    {
+        $result = $this->service->scans(
+            $this->tenantId(),
+            $this->exportParams($request)
+        );
+
+        $this->streamCsv('scan-activity', $result['data']);
+    }
+
+    public function departments()
+    {
+        return View::render('Reports::departments', [
+            'title'       => 'Department Activity',
+            'rows'        => $this->service->departments($this->tenantId()),
+            'export_perm' => 'reports.export_departments',
+        ], 'app');
+    }
+
+    public function exportDepartments()
+    {
+        $this->streamCsv('department-activity', $this->service->departments($this->tenantId()));
     }
 
     public function exportVisits(Request $request)
@@ -122,7 +167,7 @@ class ReportController extends Controller
         return View::render('Reports::audit', [
             'title'        => 'Audit Logs',
             'data'         => $data,
-            'export_perm'  => 'audit.view'
+            'export_perm'  => 'audit.export'
         ], 'app');
     }
 
