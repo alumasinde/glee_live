@@ -59,13 +59,15 @@ class GatepassController extends Controller
      * INDEX
      * ========================================================= */
 
-    public function index(): mixed
+    public function index(Request $request): mixed
     {
-        $user = $this->user();
+        $user   = $this->user();
+        $search = trim((string) $request->input('q', ''));
 
         $gatepasses = $this->service->list(
             $user['tenant_id'],
-            $user['id']
+            $user['id'],
+            $search !== '' ? $search : null
         );
 
         foreach ($gatepasses as &$g) {
@@ -80,6 +82,7 @@ class GatepassController extends Controller
         View::render('Gatepass::index', [
             'title'      => 'Gatepasses',
             'gatepasses' => $gatepasses,
+            'search'     => $search,
         ], 'app');
 
         return null;

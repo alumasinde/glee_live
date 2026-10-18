@@ -37,6 +37,9 @@ function renderHiddenInputs(array $params, string $prefix = ''): void
 }
 
 $clearUrl = $actionUrl . ($carry ? '?' . http_build_query($carry) : '');
+
+// Exposed to the including view (e.g. components/results-bar)
+$searchQuery = $currentQuery;
 ?>
 
 <form method="GET" action="<?= $actionUrl ?>" class="global-search" role="search">

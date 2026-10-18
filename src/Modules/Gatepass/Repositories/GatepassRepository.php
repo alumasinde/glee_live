@@ -336,7 +336,7 @@ final class GatepassRepository
     | FIND ALL (Searchable) — identical pattern to VisitorRepository
     |--------------------------------------------------------------------------
     */
-    public function findAllByTenant(int $tenantId): array
+    public function findAllByTenant(int $tenantId, ?string $search = null): array
     {
         $sql = "
             SELECT
@@ -398,7 +398,8 @@ final class GatepassRepository
                 'u.first_name',
                 'u.last_name',
             ],
-            $bindings
+            $bindings,
+            $search
         );
 
         $sql .= " ORDER BY g.created_at DESC";
@@ -414,9 +415,9 @@ final class GatepassRepository
     | FIND ALL BY DEPARTMENT
     |--------------------------------------------------------------------------
     */
-    public function findAllByDepartment(int $tenantId, int $departmentId): array
+    public function findAllByDepartment(int $tenantId, int $departmentId, ?string $search = null): array
     {
-        $stmt = $this->db->prepare("
+        $sql = "
             SELECT
                 g.id, g.gatepass_number, g.actual_in, g.actual_out,
                 g.is_returnable, g.needs_approval, g.purpose, g.created_at,
@@ -445,13 +446,33 @@ final class GatepassRepository
                 ON u.id = g.created_by AND u.tenant_id = g.tenant_id
             WHERE g.tenant_id     = :tenant_id
               AND g.department_id = :department_id
-            ORDER BY g.created_at DESC
-        ");
+        ";
 
-        $stmt->execute([
+        $bindings = [
             ':tenant_id'     => $tenantId,
             ':department_id' => $departmentId,
-        ]);
+        ];
+
+        $sql = SearchBuilder::apply(
+            $sql,
+            [
+                'g.gatepass_number',
+                'g.purpose',
+                'd.name',
+                'v.first_name',
+                'v.last_name',
+                'vc.name',
+                'u.first_name',
+                'u.last_name',
+            ],
+            $bindings,
+            $search
+        );
+
+        $sql .= " ORDER BY g.created_at DESC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($bindings);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }

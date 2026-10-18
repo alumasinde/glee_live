@@ -53,6 +53,30 @@
     border-color: var(--color-border);
 }
 
+/* Status-name variants (gatepass/visit status codes slug to badge class) */
+.badge-checked_in {
+    background: var(--color-primary-light);
+    color: var(--color-info-text);
+    border-color: rgba(37, 99, 235, 0.2);
+}
+
+.badge-checked_out,
+.badge-returned {
+    background: #f0fdf4;
+    color: var(--color-success-text);
+    border-color: rgba(16, 185, 129, 0.25);
+}
+
+.badge-cancelled,
+.badge-no_show,
+.badge-expired {
+    background: var(--color-surface-subtle);
+    color: var(--color-text-muted);
+    border-color: var(--color-border);
+    text-decoration: line-through;
+    text-decoration-color: rgba(107, 114, 128, 0.4);
+}
+
 .bg-dark {
     background: var(--color-sidebar-bg);
     color: #fff;

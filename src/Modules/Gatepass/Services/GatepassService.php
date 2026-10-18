@@ -545,15 +545,15 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
         }
     }
 
-    public function list(int $tenantId, int $userId): array
+    public function list(int $tenantId, int $userId, ?string $search = null): array
     {
         if (can('gatepass.view_all')) {
-            return $this->repo->findAllByTenant($tenantId);
+            return $this->repo->findAllByTenant($tenantId, $search);
         }
 
         $departmentId = $this->getUserDepartment($tenantId, $userId);
 
-        return $this->repo->findAllByDepartment($tenantId, $departmentId);
+        return $this->repo->findAllByDepartment($tenantId, $departmentId, $search);
     }
         
 

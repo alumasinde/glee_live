@@ -4,31 +4,34 @@
    ════════════════════════════════════════════════════════════ */
 
 /* 1. Design tokens (variables only — no output CSS) */
-@import "token.css?v=20261017";
+@import "token.css?v=20261017b";
 
 /* 2. Global reset & element styles */
-@import "base.css?v=20261017";
+@import "base.css?v=20261017b";
 
 /* 3. App shell: sidebar, navbar, footer, page-header */
-@import "layout.css?v=20261017";
+@import "layout.css?v=20261017b";
 
 /* 4. Reusable components: buttons, cards, tables, forms, toggle */
-@import "components.css?v=20261017";
+@import "components.css?v=20261017b";
 
 /* 5. Badges & bg-* semantic helpers */
-@import "badges.css?v=20261017";
+@import "badges.css?v=20261017b";
 
 /* 6. Alert banners */
-@import "alerts.css?v=20261017";
+@import "alerts.css?v=20261017b";
 
 /* 7. Page-specific: dashboard, gatepass create/show, approvals */
-@import "pages.css?v=20261017";
+@import "pages.css?v=20261017b";
 
 /* 8. Report cards & tables */
-@import "reports.css?v=20261017";
+@import "reports.css?v=20261017b";
 
 /* 9. Error pages */
-@import "errors.css?v=20261017";
+@import "errors.css?v=20261017b";
 
-/* 10. Utilities, responsive, pagination — always last */
-@import "utilities.css?v=20261017";
+/* 10. List-page structure: toolbar, results bar, empty state */
+@import "list.css?v=20261017b";
+
+/* 11. Utilities, responsive, pagination — always last */
+@import "utilities.css?v=20261017b";

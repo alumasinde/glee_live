@@ -1,4 +1,8 @@
-<h1 class="page-heading">Settings</h1>
+<div class="page-header">
+    <h1 class="page-heading">
+        <i class="fa-solid fa-gear"></i> Settings
+    </h1>
+</div>
 
 <div class="report-dashboard">
 
@@ -28,15 +32,15 @@
 
     <?php if (can('settings.view')): ?>
         <a href="/settings/gatepass-types" class="report-card">
-            <i class="fa-solid fa-lock"></i>
-            <h3>Gatepass Type Config</h3>
-            <p>Configure Gatepass Types.</p>
+            <i class="fa-solid fa-id-badge"></i>
+            <h3>Gatepass Types</h3>
+            <p>Configure which actions each type permits.</p>
         </a>
     <?php endif; ?>
 
     <?php if (can('settings.view')): ?>
         <a href="/settings/company" class="report-card">
-            <i class="fa-solid fa-building"></i>
+            <i class="fa-solid fa-building-columns"></i>
             <h3>Company Info</h3>
             <p>Update organization details and branding.</p>
         </a>
@@ -60,9 +64,9 @@
 
     <?php if (can('workflows.view')): ?>
         <a href="/settings/workflows" class="report-card">
-            <i class="fa-solid fa-process"></i>
-            <h3>Workflow Configuration</h3>
-            <p>Update Company Workflow.</p>
+            <i class="fa-solid fa-diagram-project"></i>
+            <h3>Workflows</h3>
+            <p>Define approval steps and assign them to gatepass types.</p>
         </a>
     <?php endif; ?>
 

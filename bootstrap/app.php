@@ -117,4 +117,22 @@ function can(string $permission): bool
     return (new \App\Core\Permission(\App\Core\DB::connect()))->can($permission);
 }
 
+/**
+ * Display dates in lists: "17 Oct 2026, 20:56" (or "—" when empty).
+ */
+function format_date(?string $value, bool $withTime = true): string
+{
+    if ($value === null || trim($value) === '' || str_starts_with($value, '0000')) {
+        return '—';
+    }
+
+    $ts = strtotime($value);
+
+    if ($ts === false) {
+        return $value;
+    }
+
+    return date($withTime ? 'j M Y, H:i' : 'j M Y', $ts);
+}
+
 return $container;

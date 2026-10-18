@@ -1,4 +1,8 @@
-<h2><?= htmlspecialchars($title) ?></h2>
+<div class="page-header">
+    <h1 class="page-heading">
+        <i class="fa-solid fa-chart-column"></i> <?= htmlspecialchars($title) ?>
+    </h1>
+</div>
 
 <div class="report-dashboard">
 
@@ -39,7 +43,7 @@
     <?php if (can('audit.view')): ?>
         <a href="/reports/audit-logs" class="report-card">
             <div class="card-icon">
-                <i class="fa-solid fa-chart-column"></i>
+                <i class="fa-solid fa-clock-rotate-left"></i>
             </div>
             <h3>Audit Logs</h3>
             <p>System activity and user actions</p>

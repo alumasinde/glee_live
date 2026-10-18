@@ -1,12 +1,8 @@
 <?php
-$currentSort = $_GET['sort_by'] ?? '';
-$currentDir  = $_GET['sort_dir'] ?? 'asc';
-
 function sortLink($column, $label)
 {
-    $dir = ($_GET['sort_by'] ?? '') === $column && ($_GET['sort_dir'] ?? '') === 'asc'
-        ? 'desc'
-        : 'asc';
+    $isActive = ($_GET['sort_by'] ?? '') === $column;
+    $dir      = $isActive && ($_GET['sort_dir'] ?? '') === 'asc' ? 'desc' : 'asc';
 
     $query = $_GET;
     $query['sort_by']  = $column;
@@ -14,8 +10,13 @@ function sortLink($column, $label)
 
     $url = '?' . http_build_query($query);
 
-    echo "<th><a href='{$url}'>{$label}</a></th>";
+    $icon = '';
+    if ($isActive) {
+        $icon = ($_GET['sort_dir'] ?? 'asc') === 'asc'
+            ? ' <i class="fa-solid fa-arrow-up-wide-short" style="font-size:0.65rem"></i>'
+            : ' <i class="fa-solid fa-arrow-down-wide-short" style="font-size:0.65rem"></i>';
+    }
+
+    echo '<th><a class="sort-link' . ($isActive ? ' sort-active' : '') . '" href=\'' . htmlspecialchars($url, ENT_QUOTES) . '\'>'
+        . htmlspecialchars($label) . $icon . '</a></th>';
 }
-
-
-?>

@@ -1,18 +1,33 @@
-<h1 class="page-heading">
-    <i class="fa-solid fa-id-badge"></i>
-    Gatepass Types
-</h1>
+<?php use App\Core\View; ?>
 
-<div class="form-card">
+<div class="page-header">
+    <h1 class="page-heading">
+        <i class="fa-solid fa-id-badge"></i> Gatepass Types
+    </h1>
+    <div class="page-actions">
+        <a href="/settings" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-arrow-left"></i> Back to Settings
+        </a>
+    </div>
+</div>
 
-    <p class="text-muted" style="margin-bottom: 1rem;">
-        Configure which actions each gatepass type permits.
-    </p>
+<div class="table-card">
+    <?php View::render('components/results-bar', [
+        'total' => count($types),
+        'noun'  => 'gatepass type',
+    ]); ?>
 
     <?php if (empty($types)): ?>
-        <p>No gatepass types found.</p>
+        <div class="empty-state">
+            <i class="fa-solid fa-id-badge"></i>
+            <div class="empty-state-title">No gatepass types found</div>
+            <div class="empty-state-text">
+                Types define which actions — check-in, check-out, returnable — a gatepass permits.
+            </div>
+        </div>
     <?php else: ?>
 
+        <div class="table-responsive">
         <table class="table">
             <thead>
                 <tr>
@@ -75,6 +90,7 @@
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
 
     <?php endif; ?>
 </div>

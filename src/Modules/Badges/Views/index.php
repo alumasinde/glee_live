@@ -1,127 +1,112 @@
-<div class="page-header d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">Visits</h2>
+<?php
+
+use App\Core\View;
+
+?>
+<div class="page-header">
+    <h1 class="page-heading">
+        <i class="fa-solid fa-id-badge"></i> Badge Operations
+    </h1>
 </div>
 
-<?php if (!empty($_SESSION['flash'])): ?>
-    <div class="alert alert-<?= htmlspecialchars($_SESSION['flash']['type']) ?>">
-        <?= htmlspecialchars($_SESSION['flash']['message']) ?>
-    </div>
-    <?php unset($_SESSION['flash']); ?>
-<?php endif; ?>
+<div class="table-card">
+    <?php View::render('components/results-bar', [
+        'total' => count($visits),
+        'noun'  => 'visit',
+    ]); ?>
 
-<table class="table table-bordered table-hover">
-    <thead class="table-light">
-        <tr>
-            <th>Visitor</th>
-            <th>Company</th>
-            <th>Purpose</th>
-            <th>Check-In</th>
-            <th>Check-Out</th>
-            <th>Badge</th>
-            <th width="260">Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-
-    <?php if (!empty($visits)): ?>
-        <?php foreach ($visits as $visit): ?>
-            <tr>
-
-                <td><?= htmlspecialchars($visit['visitor_name']) ?></td>
-
-                <td><?= htmlspecialchars($visit['company_name'] ?? '-') ?></td>
-
-                <td><?= htmlspecialchars($visit['purpose'] ?? '-') ?></td>
-
-                <td>
-                    <?= $visit['checkin_time']
-                        ? htmlspecialchars($visit['checkin_time'])
-                        : '<span class="text-muted">Not Checked In</span>' ?>
-                </td>
-
-                <td>
-                    <?= $visit['checkout_time']
-                        ? htmlspecialchars($visit['checkout_time'])
-                        : '<span class="text-muted">Not Checked Out</span>' ?>
-                </td>
-
-                <td>
-                    <?php if (!empty($visit['badge_code'])): ?>
-
-                        <?php if (!empty($visit['badge_returned_at'])): ?>
-                            <span class="badge bg-secondary">
-                                <?= htmlspecialchars($visit['badge_code']) ?> (Returned)
-                            </span>
-                        <?php else: ?>
-                            <span class="badge bg-info text-dark">
-                                <?= htmlspecialchars($visit['badge_code']) ?>
-                            </span>
-                        <?php endif; ?>
-
-                    <?php else: ?>
-                        <span class="text-muted">No Badge</span>
-                    <?php endif; ?>
-                </td>
-
-                <td>
-                    <div class="d-flex flex-wrap gap-2">
-
-                        <!-- CHECK IN -->
-                        <?php if (!$visit['checkin_time'] && !$visit['checkout_time']): ?>
-                            <form method="POST" action="/visits/<?= $visit['id'] ?>/checkin">
-                                <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
-                                <button class="btn btn-sm btn-primary">
-                                    Check In
-                                </button>
-                            </form>
-                        <?php endif; ?>
-
-                        <!-- ISSUE BADGE -->
-                        <?php if ($visit['checkin_time'] 
-                                  && !$visit['checkout_time'] 
-                                  && empty($visit['badge_code'])): ?>
-                            <form method="POST" action="/badges/<?= $visit['id'] ?>/issue">
-                                <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
-                                <button class="btn btn-sm btn-secondary">
-                                    Issue Badge
-                                </button>
-                            </form>
-                        <?php endif; ?>
-
-                        <!-- RETURN BADGE -->
-                        <?php if (!empty($visit['badge_code']) 
-                                  && empty($visit['badge_returned_at'])): ?>
-                            <form method="POST" action="/badges/<?= $visit['id'] ?>/return">
-                                <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
-                                <button class="btn btn-sm btn-warning">
-                                    Return Badge
-                                </button>
-                            </form>
-                        <?php endif; ?>
-
-                        <!-- CHECK OUT -->
-                        <?php if ($visit['checkin_time'] 
-                                  && !$visit['checkout_time']): ?>
-                            <form method="POST" action="/visits/<?= $visit['id'] ?>/checkout">
-                                <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
-                                <button class="btn btn-sm btn-danger">
-                                    Check Out
-                                </button>
-                            </form>
-                        <?php endif; ?>
-
-                    </div>
-                </td>
-
-            </tr>
-        <?php endforeach; ?>
+    <?php if (empty($visits)): ?>
+        <div class="empty-state">
+            <i class="fa-solid fa-id-badge"></i>
+            <div class="empty-state-title">No visits to manage</div>
+            <div class="empty-state-text">
+                Badge issuing and returns happen against checked-in visits.
+            </div>
+        </div>
     <?php else: ?>
-        <tr>
-            <td colspan="7" class="text-center text-muted">
-                No visits found.
-            </td>
-        </tr>
-    <?php endif; ?>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Visitor</th>
+                        <th>Company</th>
+                        <th>Purpose</th>
+                        <th>Check-In</th>
+                        <th>Check-Out</th>
+                        <th>Badge</th>
+                        <th class="text-end" width="300">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($visits as $visit): ?>
+                        <?php $id = (int) $visit['id']; ?>
+                        <tr>
+                            <td><span class="cell-main"><?= htmlspecialchars($visit['visitor_name']) ?></span></td>
 
-    </tbody>
-</table>
+                            <td><?= htmlspecialchars($visit['company_name'] ?? '—') ?></td>
+
+                            <td class="text-muted"><?= htmlspecialchars($visit['purpose'] ?? '—') ?></td>
+
+                            <td class="cell-date">
+                                <?= $visit['checkin_time'] ? htmlspecialchars($visit['checkin_time']) : '—' ?>
+                            </td>
+
+                            <td class="cell-date">
+                                <?= $visit['checkout_time'] ? htmlspecialchars($visit['checkout_time']) : '—' ?>
+                            </td>
+
+                            <td>
+                                <?php if (!empty($visit['badge_code'])): ?>
+                                    <?php if (!empty($visit['badge_returned_at'])): ?>
+                                        <span class="badge badge-success">
+                                            <?= htmlspecialchars($visit['badge_code']) ?> · Returned
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge badge-warning">
+                                            <?= htmlspecialchars($visit['badge_code']) ?>
+                                        </span>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span class="text-muted">No badge</span>
+                                <?php endif; ?>
+                            </td>
+
+                            <td class="table-actions justify-content-end">
+                                <?php if (empty($visit['checkin_time']) && empty($visit['checkout_time'])): ?>
+                                    <form method="POST" action="/visits/<?= $id ?>/checkin" class="table-action-button">
+                                        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+                                        <button class="btn btn-sm btn-soft-success">Check In</button>
+                                    </form>
+                                <?php endif; ?>
+
+                                <?php if (!empty($visit['checkin_time']) && empty($visit['checkout_time']) && empty($visit['badge_code'])): ?>
+                                    <form method="POST" action="/badges/<?= $id ?>/issue" class="table-action-button">
+                                        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+                                        <button class="btn btn-sm btn-secondary">Issue Badge</button>
+                                    </form>
+                                <?php endif; ?>
+
+                                <?php if (!empty($visit['badge_code']) && empty($visit['badge_returned_at'])): ?>
+                                    <form method="POST" action="/badges/<?= $id ?>/return" class="table-action-button">
+                                        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+                                        <button class="btn btn-sm btn-secondary">Return Badge</button>
+                                    </form>
+                                <?php endif; ?>
+
+                                <?php if (!empty($visit['checkin_time']) && empty($visit['checkout_time'])): ?>
+                                    <form method="POST" action="/visits/<?= $id ?>/checkout" class="table-action-button">
+                                        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+                                        <button class="btn btn-sm btn-soft-danger"
+                                            <?= !empty($visit['badge_code']) && empty($visit['badge_returned_at']) ? 'disabled title="Return badge first"' : '' ?>>
+                                            Check Out
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
