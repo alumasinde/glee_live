@@ -16,14 +16,14 @@ class SecurityHeadersMiddleware
         if ($cspEnabled) {
             // Allow self, CDN for Font Awesome, and data URIs for images
             $csp = "default-src 'self'; " .
-                   "script-src 'self' https://cdnjs.cloudflare.com; " .
-                   "style-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline'; " .
-                   "img-src 'self' data: https:; " .
-                   "font-src 'self' https://cdnjs.cloudflare.com data:; " .
-                   "connect-src 'self'; " .
-                   "frame-ancestors 'none'; " .
-                   "form-action 'self'; " .
-                   "base-uri 'self';";
+                "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; " .
+                "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; " .
+                "img-src 'self' data: https:; " .
+                "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; " .
+                "connect-src 'self'; " .
+                "frame-ancestors 'none'; " .
+                "form-action 'self'; " .
+                "base-uri 'self';";
 
             // Add report URI if configured
             $reportUri = config('security.csp.report_uri');

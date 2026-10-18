@@ -47,17 +47,30 @@ class Container
 
         $params = [];
 
-        foreach ($reflection->getConstructor()->getParameters() as $param) {
-            $type = $param->getType();
+foreach ($reflection->getConstructor()->getParameters() as $param) {
+    $type = $param->getType();
 
-            if (!$type instanceof \ReflectionNamedType) {
-                $name = $type ? (string) $type : $param->getName();
-                throw new Exception("Cannot resolve parameter {$name}");
-            }
+    // Built-in types (string, int, ...) can't come from the container:
+    // use the default value if there is one.
+    if ($type instanceof \ReflectionNamedType && !$type->isBuiltin()) {
+        $params[] = $this->make($type->getName());
+        continue;
+    }
 
-            $params[] = $this->make($type->getName());
-        }
+    if ($param->isDefaultValueAvailable()) {
+        $params[] = $param->getDefaultValue();
+        continue;
+    }
 
-        return $reflection->newInstanceArgs($params);
+    if ($type && $type->allowsNull()) {
+        $params[] = null;
+        continue;
+    }
+
+    $name = $type ? (string) $type : $param->getName();
+    throw new Exception("Cannot resolve parameter {$name}");
+}
+
+return $reflection->newInstanceArgs($params);
     }
 }

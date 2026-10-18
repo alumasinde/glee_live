@@ -58,9 +58,9 @@ class RedisSessionHandler implements SessionHandlerInterface
         return $this->redis->del($key) > 0;
     }
 
-    public function gc($maxlifetime): bool
+    public function gc(int $maxlifetime): int|false
     {
         // Redis handles expiration automatically via TTL
-        return true;
+        return 0;
     }
 }

@@ -7,6 +7,7 @@ use App\Core\Request;
 use App\Core\Router;
 use App\Core\Response;
 use Dotenv\Dotenv;
+
 function base_path($path = '')
 {
     return dirname(__DIR__) . ($path ? '/' . $path : '');
@@ -19,9 +20,30 @@ $envFile = '.env';
 $dotenv = Dotenv::createImmutable(base_path(), $envFile);
 $dotenv->load();
 
+/**
+ * Read an environment value.
+ * Dotenv returns everything as strings, so "false" would be truthy in PHP.
+ * Cast the common literals to real booleans/null.
+ */
 function env(string $key, $default = null)
 {
-    return $_ENV[$key] ?? $_SERVER[$key] ?? $default;
+    $value = $_ENV[$key] ?? $_SERVER[$key] ?? null;
+
+    if ($value === null) {
+        return $default;
+    }
+
+    if (!is_string($value)) {
+        return $value;
+    }
+
+    return match (strtolower($value)) {
+        'true', '(true)'   => true,
+        'false', '(false)' => false,
+        'null', '(null)'   => null,
+        'empty', '(empty)' => '',
+        default            => $value,
+    };
 }
 
 if (env('APP_DEBUG', false)) {
@@ -42,11 +64,12 @@ if (session_status() === PHP_SESSION_NONE) {
         'samesite' => 'Strict'
     ]);
 
-    // Use Redis for sessions if enabled
-    if (env('REDIS_SESSION_ENABLED', false)) {
+    // Use Redis for sessions only if enabled AND Redis is actually reachable.
+    // Otherwise fall back to PHP's default file sessions.
+    if (env('REDIS_SESSION_ENABLED', false) && \App\Core\Redis::connect() !== null) {
         $sessionHandler = new \App\Core\RedisSessionHandler(
-            env('SESSION_LIFETIME', 120) * 60, // Convert minutes to seconds
-            env('REDIS_SESSION_PREFIX', 'session:')
+            (int) env('SESSION_LIFETIME', 120) * 60, // Convert minutes to seconds
+            (string) env('REDIS_SESSION_PREFIX', 'session:')
         );
         session_set_save_handler($sessionHandler, true);
     }
