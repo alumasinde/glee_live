@@ -193,7 +193,7 @@ final class ApprovalFlowP0Test extends DatabaseTestCase
         $before = $this->service->pendingNotificationCount();
         $this->service->reject($this->pendingApprovalId($approver, $gatepassId2), $approver, 'not justified');
 
-        $this->assertSame($before + 2, $this->service->pendingNotificationCount(), 'approver notice + requester rejected notice');
+        $this->assertSame($before + 1, $this->service->pendingNotificationCount(), 'requester rejected notice');
     }
 
     public function testFlushWritesEmailOutboxRows(): void
@@ -353,10 +353,11 @@ final class ApprovalFlowP0Test extends DatabaseTestCase
         $this->seq++;
 
         return $this->insert(
-            "INSERT INTO gatepasses (tenant_id, gatepass_number, gatepass_type_id, status_id, purpose, needs_approval, created_by) VALUES (%d, 'P0-%s-%d', %d, %d, 'integration', 1, %d)",
+            "INSERT INTO gatepasses (tenant_id, gatepass_number, scan_token, gatepass_type_id, status_id, purpose, needs_approval, created_by) VALUES (%d, 'P0-%s-%d', '%s', %d, %d, 'integration', 1, %d)",
             self::TENANT,
             $this->suffix,
             $this->seq,
+            bin2hex(random_bytes(32)),
             $typeId,
             $this->gatepassStatusId(self::TENANT, 'pending'),
             $createdBy

@@ -61,6 +61,8 @@ try {
     exit("Cannot connect to database server: {$e->getMessage()}\n");
 }
 
+$pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, true);
+
 $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbName` CHARACTER SET utf8mb4");
 $pdo->exec("USE `$dbName`");
 
@@ -169,7 +171,18 @@ function runMigration(PDO $pdo, string $file, string $direction): void
 
     foreach (splitStatements($section) as $statement) {
         try {
-            $pdo->exec($statement);
+            // query(), not exec(): exec() cannot drain a statement that returns
+            // rows, and "EXECUTE s" from the conditional-ALTER guard blocks does
+            // exactly that, leaving an active cursor that makes the following
+            // DEALLOCATE fail with MySQL error 2014. query() also sends the
+            // statement as a plain COM_QUERY, so nested PREPARE/EXECUTE inside a
+            // migration is legal (a server-side prepared statement cannot
+            // contain them). closeCursor() frees the result either way.
+            $result = $pdo->query($statement);
+
+            if ($result !== false) {
+                $result->closeCursor();
+            }
         } catch (PDOException $e) {
             exit(sprintf(
                 "\nError in %s (%s): %s\nSQL: %s\n",

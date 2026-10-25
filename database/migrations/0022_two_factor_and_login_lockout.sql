@@ -14,7 +14,7 @@ SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEM
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'mfa_secret') = 0,
-  'ALTER TABLE `users` ADD COLUMN `mfa_secret` varchar(255) DEFAULT NULL AFTER `password`', 'SELECT 1');
+  'ALTER TABLE `users` ADD COLUMN `mfa_secret` varchar(255) DEFAULT NULL AFTER `phone`', 'SELECT 1');
 PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'mfa_enabled') = 0,

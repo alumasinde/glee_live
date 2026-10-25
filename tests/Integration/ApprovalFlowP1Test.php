@@ -209,9 +209,10 @@ final class ApprovalFlowP1Test extends DatabaseTestCase
         $requester = $this->makeUser('req');
         $stuck     = $this->makeUser('stuck');
         $fresh     = $this->makeUser('fresh');
-        foreach ([$stuck, $fresh] as $uid) {
-            $this->grantRole($uid, $roleId);
-        }
+        // Only the stuck approver holds the role: if $fresh were in it too, the
+        // engine would already have given them a pending row and reassign would
+        // (correctly) refuse the duplicate.
+        $this->grantRole($stuck, $roleId);
 
         [$workflowId, $typeId] = $this->makeWorkflowForType([$roleId]);
         $gatepassId = $this->makeGatepass($requester, $typeId);
@@ -436,10 +437,11 @@ final class ApprovalFlowP1Test extends DatabaseTestCase
         $this->seq++;
 
         return $this->insert(
-            "INSERT INTO gatepasses (tenant_id, gatepass_number, gatepass_type_id, status_id, purpose, needs_approval, created_by) VALUES (%d, 'P1-%s-%d', %d, %d, 'integration', 1, %d)",
+            "INSERT INTO gatepasses (tenant_id, gatepass_number, scan_token, gatepass_type_id, status_id, purpose, needs_approval, created_by) VALUES (%d, 'P1-%s-%d', '%s', %d, %d, 'integration', 1, %d)",
             self::TENANT,
             $this->suffix,
             $this->seq,
+            bin2hex(random_bytes(32)),
             $typeId,
             $this->gatepassStatusId(self::TENANT, $statusCode),
             $createdBy
