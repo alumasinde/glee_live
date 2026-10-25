@@ -10,6 +10,10 @@ use App\Core\View;
     </h1>
 </div>
 
+<?php if (!empty($error)): ?>
+    <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+<?php endif; ?>
+
 <div class="table-card">
     <?php View::render('components/results-bar', [
         'total' => count($approvals),
@@ -30,10 +34,10 @@ use App\Core\View;
                 <thead>
                     <tr>
                         <th>Gatepass</th>
+                        <th>Type</th>
                         <th>Step</th>
-                        <th>Status</th>
                         <th>Requested By</th>
-                        <th>Created</th>
+                        <th>Waiting Since</th>
                         <th class="text-end" width="90">Action</th>
                     </tr>
                 </thead>
@@ -41,16 +45,12 @@ use App\Core\View;
                     <?php foreach ($approvals as $approval): ?>
                         <tr>
                             <td>
-                                <a class="cell-main" href="/gatepasses/<?= (int) $approval['gatepass_id'] ?>">
-                                    #<?= htmlspecialchars($approval['gatepass_id']) ?>
+                                <a class="cell-main" href="/approvals/<?= (int) $approval['id'] ?>">
+                                    <?= htmlspecialchars($approval['gatepass_number'] ?? ('#' . $approval['gatepass_id'])) ?>
                                 </a>
                             </td>
+                            <td><?= htmlspecialchars($approval['type_name'] ?? '—') ?></td>
                             <td><?= htmlspecialchars($approval['step_name']) ?></td>
-                            <td>
-                                <span class="badge badge-pending">
-                                    <?= htmlspecialchars($approval['approval_status']) ?>
-                                </span>
-                            </td>
                             <td><?= htmlspecialchars($approval['requested_by_name']) ?></td>
                             <td class="cell-date"><?= format_date($approval['created_at'] ?? null) ?></td>
                             <td class="table-actions justify-content-end">

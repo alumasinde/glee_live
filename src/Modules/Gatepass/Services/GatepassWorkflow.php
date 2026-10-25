@@ -8,7 +8,8 @@ class GatepassWorkflow
 {
     /**
      * Returns which state-transition actions are eligible for the given gatepass row.
-     * Does not enforce type-level allowed_actions — that is handled upstream.
+     * Does not enforce type-level allowed_actions — that is handled by
+     * GatepassService::assertTypeActionAllowed() at the gate operation entry points.
      *
      * @param  array $g  Must contain: status_code. Optionally: actual_in, actual_out, is_returnable.
      * @return array{checkin_eligible: bool, checkout_eligible: bool}

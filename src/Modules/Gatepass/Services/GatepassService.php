@@ -175,6 +175,8 @@ class GatepassService
         throw new RuntimeException('Check-in not allowed in current state.');
     }
 
+    $this->assertTypeActionAllowed($gatepass, 'checkin');
+
     $now = date('Y-m-d H:i:s');
 
     $checkedInStatusId = $this->statusRepo->requireIdByCode($tenantId, 'CHECKED_IN');
@@ -224,6 +226,8 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
         throw new RuntimeException('Checkout not allowed in current state.');
     }
 
+    $this->assertTypeActionAllowed($gatepass, 'checkout');
+
     $timestamp = date('Y-m-d H:i:s');
 
     $checkedOutStatusId = $this->statusRepo->requireIdByCode($tenantId, 'CHECKED_OUT');
@@ -251,10 +255,34 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
     return true;
 }
 
+    /**
+     * Enforce the gatepass type's allowed_actions JSON for gate operations.
+     * Missing/NULL config or an absent key means "allowed"; only explicit
+     * false blocks the action.
+     */
+    private function assertTypeActionAllowed(array $gatepass, string $action): void
+    {
+        $raw = $gatepass['allowed_actions'] ?? null;
+        if (!$raw) {
+            return;
+        }
+
+        $allowed = json_decode((string) $raw, true);
+        if (!is_array($allowed) || !array_key_exists($action, $allowed) || $allowed[$action] !== false) {
+            return;
+        }
+
+        $label = $action === 'checkin' ? 'Check-in' : 'Checkout';
+        throw new RuntimeException(sprintf(
+            '%s is not permitted for the "%s" gatepass type.',
+            $label,
+            $gatepass['gatepass_type_name'] ?? 'unknown'
+        ));
+    }
+
     public function markReturned(int $tenantId, int $gatepassId): bool
     {
         $gatepass = $this->repo->findById($tenantId, $gatepassId);
-
         if (!$gatepass) {
             throw new RuntimeException('Gatepass not found.');
         }

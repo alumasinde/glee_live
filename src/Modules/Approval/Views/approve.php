@@ -8,17 +8,28 @@
     <div class="card-body">
 
         <p>
-            Are you sure you want to approve Gatepass 
-            <strong>#<?= $approval['gatepass_id'] ?></strong>?
+            You are approving gatepass
+            <strong><?= htmlspecialchars($approval['gatepass_number'] ?? ('#' . $approval['gatepass_id'])) ?></strong>
+            (<?= htmlspecialchars($approval['type_name'] ?? 'no type') ?>)
+            requested by <strong><?= htmlspecialchars($approval['requested_by_name'] ?? '—') ?></strong>
+            at step <strong><?= htmlspecialchars($approval['step_name']) ?></strong>.
         </p>
 
-<form method="POST" action="/approvals/<?= $approval['approval_id'] ?>/approve">
+        <?php if (!empty($approval['purpose'])): ?>
+            <p class="text-muted">
+                <i class="fa-solid fa-bullseye"></i>
+                <?= nl2br(htmlspecialchars($approval['purpose'])) ?>
+            </p>
+        <?php endif; ?>
+
+        <form method="POST" action="/approvals/<?= (int) $approval['approval_id'] ?>/approve">
             <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
             <div class="mb-3">
                 <label class="form-label">Comment (Optional)</label>
-                <textarea name="comment" 
-                          class="form-control" 
-                          rows="3"></textarea>
+                <textarea name="comment"
+                          class="form-control"
+                          rows="3"
+                          placeholder="Shown to the requester and in the approval trail"></textarea>
             </div>
 
             <button type="submit" class="btn btn-success">

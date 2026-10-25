@@ -242,6 +242,7 @@ final class GatepassRepository
                 s.code  AS status_code,
                 gt.name AS gatepass_type_name,
                 gt.type_code,
+                gt.allowed_actions,
                 u.first_name AS created_by_first_name,
                 u.last_name  AS created_by_last_name
             FROM gatepasses g

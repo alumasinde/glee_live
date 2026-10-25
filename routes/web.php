@@ -103,6 +103,9 @@ $router->post('/approvals/{id}/approve', [ApprovalController::class, 'approve'],
 $router->get('/approvals/{id}/reject', [ApprovalController::class, 'rejectForm'], $perm('approval.reject'));
 $router->post('/approvals/{id}/reject', [ApprovalController::class, 'reject'], $permCsrf('approval.reject'));
 
+$router->get('/approvals/{id}/reassign', [ApprovalController::class, 'reassignForm'], $perm('approval.reassign'));
+$router->post('/approvals/{id}/reassign', [ApprovalController::class, 'reassign'], $permCsrf('approval.reassign'));
+
 /*
 |--------------------------------------------------------------------------
 | Visitors Module
@@ -203,6 +206,8 @@ $router->get('/settings/workflows/{id}/edit', [WorkflowController::class, 'edit'
 $router->post('/settings/workflows/{id}', [WorkflowController::class, 'update'], $permCsrf('workflows.update'));
 $router->get('/settings/workflows/{id}/steps', [WorkflowController::class, 'steps'], $perm('workflows.update'));
 $router->post('/settings/workflows/{id}/steps', [WorkflowController::class, 'storeStep'], $permCsrf('workflows.update'));
+$router->post('/settings/workflows/{id}/steps/{stepId}', [WorkflowController::class, 'updateStep'], $permCsrf('workflows.update'));
+$router->post('/settings/workflows/{id}/steps/{stepId}/delete', [WorkflowController::class, 'deleteStep'], $permCsrf('workflows.update'));
 $router->get('/settings/workflows/{id}/assign', [WorkflowController::class, 'assign'], $perm('workflows.update'));
 $router->post('/settings/workflows/{id}/assign', [WorkflowController::class, 'storeAssignment'], $permCsrf('workflows.update'));
 

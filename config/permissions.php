@@ -35,6 +35,7 @@ return [
         'view',
         'approve',
         'reject',
+        'reassign',
     ],
 
     'visitors' => [

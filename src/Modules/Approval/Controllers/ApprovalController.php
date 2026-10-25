@@ -186,6 +186,66 @@ class ApprovalController extends Controller
     }
 
     /* =========================================================
+     * REASSIGN (approval.reassign)
+     * ========================================================= */
+
+    public function reassignForm(Request $request, $id)
+    {
+        $user = $this->user();
+
+        if (!$this->policy->reassign()) {
+            Response::abort(403);
+        }
+
+        $approval = $this->service->findApprovalForReassign($user['tenant_id'], (int) $id);
+
+        if (!$approval) {
+            Response::abort(404, 'Approval not found.');
+        }
+
+        return View::render('Approval::reassign', [
+            'title'      => 'Reassign Approval',
+            'approval'   => $approval,
+            'stepPeers'  => $this->service->stepApprovals(
+                $user['tenant_id'],
+                (int) $approval['workflow_step_id'],
+                (int) $approval['workflow_instance_id']
+            ),
+            'candidates' => $this->service->reassignCandidates(
+                $user['tenant_id'],
+                (int) $approval['requester_id'],
+                (int) $approval['approver_user_id']
+            ),
+        ], 'app');
+    }
+
+    public function reassign(Request $request, $id)
+    {
+        $user = $this->user();
+
+        if (!$this->policy->reassign()) {
+            Response::abort(403);
+        }
+
+        $approvalId = (int) $id;
+        $newUserId  = (int) $request->input('approver_user_id');
+
+        if ($approvalId <= 0 || $newUserId <= 0) {
+            Response::abort(422, 'A reassignment target is required.');
+        }
+
+        try {
+            $this->service->reassign($approvalId, $newUserId, (int) $user['tenant_id']);
+
+            header('Location: /approvals/' . $approvalId);
+            exit;
+
+        } catch (\Throwable $e) {
+            Response::abort(422, $e->getMessage());
+        }
+    }
+
+    /* =========================================================
      * SHOW
      * ========================================================= */
 
@@ -208,6 +268,11 @@ class ApprovalController extends Controller
             $approvalId,
             $user['id']
         );
+
+        // Admins with reassign rights can open approvals assigned to others.
+        if (!$approval && $this->policy->reassign()) {
+            $approval = $this->service->findApprovalForReassign($user['tenant_id'], $approvalId);
+        }
 
         if (!$approval) {
             Response::abort(404, 'Approval not found.');

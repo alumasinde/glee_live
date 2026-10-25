@@ -35,6 +35,11 @@ return $this->permission->can('approval.view');
         return $this->permission->can('approval.reject');
     }
 
+    public function reassign(): bool
+    {
+        return $this->permission->can('approval.reassign');
+    }
+
     /* =========================================================
      * VIEW SINGLE APPROVAL
      * ========================================================= */

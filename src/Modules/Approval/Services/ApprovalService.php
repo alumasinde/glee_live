@@ -2,6 +2,7 @@
 
 namespace App\Modules\Approval\Services;
 
+use App\Core\Audit;
 use App\Core\DB;
 use PDO;
 use RuntimeException;
@@ -70,6 +71,29 @@ class ApprovalService
 
             $instanceId = (int) $this->db->lastInsertId();
 
+            // Freeze the step configuration so later admin edits cannot hijack this instance.
+            $steps = $this->fetchAll("
+                SELECT id, name, role_id, fallback_role_id, step_order, is_mandatory,
+                       approval_mode, department_source, department_id
+                FROM workflow_steps
+                WHERE workflow_id = ? AND tenant_id = ?
+                ORDER BY step_order
+            ", [$workflowId, $tenantId]);
+
+            if ($steps) {
+                $this->db->prepare("
+                    UPDATE gatepass_workflow_instances
+                    SET step_snapshot = ?
+                    WHERE id = ? AND tenant_id = ?
+                ")->execute([json_encode($steps, JSON_UNESCAPED_UNICODE), $instanceId, $tenantId]);
+            }
+
+            Audit::system($tenantId, 'workflow.started', 'gatepass_workflow_instance', $instanceId, [
+                'gatepass_id'  => $gatepassId,
+                'workflow_id'  => $workflowId,
+                'first_step'   => (int) $firstStep['step_order'],
+            ]);
+
             $this->materializeStep($tenantId, $instanceId, (int) $firstStep['step_order']);
         });
     }
@@ -103,11 +127,15 @@ class ApprovalService
                 WHERE id = ? AND tenant_id = ?
             ")->execute([$comment, $approvalId, $tenantId]);
 
-            $step = $this->fetchOne("
-                SELECT ws.step_order, ws.approval_mode
-                FROM workflow_steps ws
-                WHERE ws.id = ? AND ws.tenant_id = ?
-            ", [$approval['workflow_step_id'], $tenantId]);
+            Audit::log('approval.approved', 'gatepass_approval', $approvalId, [
+                'user_id'               => $userId,
+                'workflow_instance_id'  => $instanceId,
+                'gatepass_id'           => (int) $instance['gatepass_id'],
+                'step_order'            => (int) $approval['step_order'],
+                'comments'              => $comment,
+            ]);
+
+            $step = $this->resolveStepConfigById($instance, $tenantId, (int) $approval['workflow_step_id']);
 
             if ($step['approval_mode'] === 'any') {
                 $this->cancelPendingForStep($instanceId, (int) $approval['workflow_step_id'], $tenantId);
@@ -140,7 +168,7 @@ class ApprovalService
             $instanceId = (int) $pre['workflow_instance_id'];
 
             $instance = $this->lockInstance($instanceId, $tenantId);
-            $this->lockCurrentStepApproval($approvalId, $userId, $instance);
+            $approval = $this->lockCurrentStepApproval($approvalId, $userId, $instance);
 
             $this->db->prepare("
                 UPDATE gatepass_approvals
@@ -149,6 +177,14 @@ class ApprovalService
                     comments = ?
                 WHERE id = ? AND tenant_id = ?
             ")->execute([$comments, $approvalId, $tenantId]);
+
+            Audit::log('approval.rejected', 'gatepass_approval', $approvalId, [
+                'user_id'               => $userId,
+                'workflow_instance_id'  => $instanceId,
+                'gatepass_id'           => (int) $instance['gatepass_id'],
+                'step_order'            => (int) $approval['step_order'],
+                'comments'              => $comments,
+            ]);
 
             $this->cancelPendingForInstance($instanceId, $tenantId);
 
@@ -176,6 +212,102 @@ class ApprovalService
     }
 
     /* ============================================================
+       REASSIGN (admin recovery of stuck pending approvals)
+    ============================================================ */
+
+    /**
+     * Move a pending approval to another user (e.g. approver on leave or the
+     * step role resolved to nobody). Notifies the new assignee.
+     */
+    public function reassign(int $approvalId, int $newUserId, int $tenantId): int
+    {
+        return $this->runExclusive(function () use ($approvalId, $newUserId, $tenantId): int {
+
+            $pre = $this->fetchOne("
+                SELECT workflow_instance_id, workflow_step_id, approver_user_id
+                FROM gatepass_approvals
+                WHERE id = ? AND tenant_id = ?
+            ", [$approvalId, $tenantId])
+                ?? throw new RuntimeException("Approval not found.");
+
+            $instanceId = (int) $pre['workflow_instance_id'];
+            $oldUserId  = (int) $pre['approver_user_id'];
+
+            $instance = $this->lockInstance($instanceId, $tenantId);
+            $approval = $this->lockCurrentStepApproval($approvalId, $oldUserId, $instance);
+
+            $existing = $this->fetchOne("
+                SELECT id FROM gatepass_approvals
+                WHERE workflow_instance_id = ?
+                  AND workflow_step_id = ?
+                  AND approver_user_id = ?
+                  AND status = 'pending'
+            ", [$instanceId, (int) $approval['workflow_step_id'], $newUserId]);
+
+            if ($existing) {
+                throw new RuntimeException('That user is already a pending approver on this step.');
+            }
+
+            $context = $this->instanceNotificationContext($tenantId, $instanceId);
+
+            $target = $this->fetchOne("
+                SELECT id, email, first_name, last_name
+                FROM users
+                WHERE id = ? AND tenant_id = ? AND is_active = 1 AND id <> ?
+            ", [$newUserId, $tenantId, (int) ($context['created_by'] ?? 0)]);
+
+            if (!$target) {
+                throw new RuntimeException('Reassign target must be an active user in this tenant and not the requester.');
+            }
+
+            $this->db->prepare("
+                UPDATE gatepass_approvals
+                SET approver_user_id = ?
+                WHERE id = ? AND tenant_id = ? AND status = 'pending'
+            ")->execute([$newUserId, $approvalId, $tenantId]);
+
+            if ($context) {
+                $this->notifier->queueStepPending(
+                    $tenantId,
+                    $approvalId,
+                    $target,
+                    $context,
+                    (string) $approval['step_name']
+                );
+            }
+
+            Audit::log('approval.reassigned', 'gatepass_approval', $approvalId, [
+                'gatepass_id'          => (int) $instance['gatepass_id'],
+                'workflow_instance_id' => $instanceId,
+                'from_user_id'         => $oldUserId,
+                'to_user_id'           => $newUserId,
+                'target_label'         => sprintf('%d → %d', $oldUserId, $newUserId),
+            ]);
+
+            return $instanceId;
+        });
+    }
+
+    /** Active tenant users eligible to be assigned a pending approval. */
+    public function reassignCandidates(int $tenantId, int $requesterUserId, int $currentApproverId): array
+    {
+        return $this->fetchAll("
+            SELECT u.id,
+                   CONCAT(u.first_name, ' ', u.last_name) AS name,
+                   u.email,
+                   GROUP_CONCAT(DISTINCT r.name ORDER BY r.name SEPARATOR ', ') AS roles
+            FROM users u
+            LEFT JOIN user_roles ur ON ur.user_id = u.id AND ur.tenant_id = u.tenant_id
+            LEFT JOIN roles r ON r.id = ur.role_id AND r.tenant_id = ur.tenant_id
+            WHERE u.tenant_id = ?
+              AND u.is_active = 1
+              AND u.id NOT IN (?, ?)
+            GROUP BY u.id, name, u.email
+            ORDER BY name
+        ", [$tenantId, $requesterUserId, $currentApproverId]);
+    }
+
+    /* ============================================================
        ENGINE CORE
     ============================================================ */
 
@@ -186,24 +318,11 @@ class ApprovalService
      */
     private function materializeStep(int $tenantId, int $instanceId, int $stepOrder): void
     {
-        $instance = $this->fetchOne("
-            SELECT gwi.workflow_id, gwi.gatepass_id, g.department_id AS gatepass_department_id,
-                   g.gatepass_number, g.purpose, g.created_by,
-                   CONCAT(u.first_name, ' ', u.last_name) AS requested_by_name
-            FROM gatepass_workflow_instances gwi
-            INNER JOIN gatepasses g ON g.id = gwi.gatepass_id AND g.tenant_id = gwi.tenant_id
-            LEFT JOIN users u ON u.id = g.created_by AND u.tenant_id = g.tenant_id
-            WHERE gwi.id = ? AND gwi.tenant_id = ?
-        ", [$instanceId, $tenantId]);
+        $instance = $this->instanceNotificationContext($tenantId, $instanceId);
 
         while (true) {
 
-            $step = $this->fetchOne("
-                SELECT id, name, role_id, step_order, is_mandatory, department_source, department_id
-                FROM workflow_steps
-                WHERE workflow_id = ? AND tenant_id = ? AND step_order = ?
-                LIMIT 1
-            ", [$instance['workflow_id'], $tenantId, $stepOrder]);
+            $step = $this->resolveStepConfig($instance, $tenantId, $stepOrder);
 
             if (!$step) {
                 $this->finalizeApproved($tenantId, $instanceId, (int) $instance['gatepass_id']);
@@ -244,15 +363,36 @@ class ApprovalService
                 throw new RuntimeException("Step '{$step['name']}' has no eligible approvers.");
             }
 
+            Audit::system($tenantId, 'workflow.step_auto_skipped', 'workflow_step', (int) $step['id'], [
+                'workflow_instance_id' => $instanceId,
+                'gatepass_id'          => (int) $instance['gatepass_id'],
+                'step_order'           => (int) $step['step_order'],
+                'step_name'            => $step['name'],
+                'reason'               => 'no_eligible_approvers',
+            ]);
+
             $stepOrder++;
         }
     }
 
     /**
      * Approvers eligible to act on the step, excluding the requester (no
-     * self-approval). @return array<int, array{id:int, email:?string, first_name:?string, last_name:?string}>
+     * self-approval). Falls back to step.fallback_role_id members when the
+     * primary role resolves to nobody.
+     * @return array<int, array{id:int, email:?string, first_name:?string, last_name:?string}>
      */
     private function resolveApprovers(int $tenantId, array $step, int $gatepassDepartmentId, int $requesterUserId): array
+    {
+        $approvers = $this->approversForRole($tenantId, (int) $step['role_id'], $step, $gatepassDepartmentId, $requesterUserId);
+
+        if (!$approvers && !empty($step['fallback_role_id'])) {
+            $approvers = $this->approversForRole($tenantId, (int) $step['fallback_role_id'], $step, $gatepassDepartmentId, $requesterUserId);
+        }
+
+        return $approvers;
+    }
+
+    private function approversForRole(int $tenantId, int $roleId, array $step, int $gatepassDepartmentId, int $requesterUserId): array
     {
         $query = "
             SELECT u.id, u.email, u.first_name, u.last_name
@@ -263,7 +403,7 @@ class ApprovalService
               AND u.is_active = 1
               AND u.id <> ?
         ";
-        $params = [(int) $step['role_id'], $tenantId, $requesterUserId];
+        $params = [$roleId, $tenantId, $requesterUserId];
 
         $departmentId = match ($step['department_source']) {
             'step'     => $step['department_id'] !== null ? (int) $step['department_id'] : null,
@@ -282,7 +422,7 @@ class ApprovalService
     private function lockInstance(int $instanceId, int $tenantId): array
     {
         $instance = $this->fetchOne("
-            SELECT id, tenant_id, gatepass_id, workflow_id, current_step_order, status
+            SELECT id, tenant_id, gatepass_id, workflow_id, current_step_order, status, step_snapshot
             FROM gatepass_workflow_instances
             WHERE id = ? AND tenant_id = ?
             FOR UPDATE
@@ -300,7 +440,7 @@ class ApprovalService
     private function lockCurrentStepApproval(int $approvalId, int $userId, array $instance): array
     {
         $approval = $this->fetchOne("
-            SELECT ga.id, ga.workflow_step_id, ga.status, ws.step_order
+            SELECT ga.id, ga.workflow_step_id, ga.status, ws.step_order, ws.name AS step_name
             FROM gatepass_approvals ga
             INNER JOIN workflow_steps ws ON ws.id = ga.workflow_step_id AND ws.tenant_id = ga.tenant_id
             WHERE ga.id = ? AND ga.approver_user_id = ? AND ga.tenant_id = ?
@@ -365,6 +505,11 @@ class ApprovalService
             WHERE id = ? AND tenant_id = ?
         ")->execute([$instanceId, $tenantId]);
 
+        Audit::system($tenantId, 'workflow.finalized', 'gatepass_workflow_instance', $instanceId, [
+            'gatepass_id' => $gatepassId,
+            'result'      => 'approved',
+        ]);
+
         $this->setGatepassStatus(
             $tenantId,
             $gatepassId,
@@ -376,6 +521,83 @@ class ApprovalService
         if ($context) {
             $this->notifier->queueDecision($tenantId, $context, true);
         }
+    }
+
+    /** Instance + gatepass + requester row used for step-pending notifications. */
+    private function instanceNotificationContext(int $tenantId, int $instanceId): ?array
+    {
+        return $this->fetchOne("
+            SELECT gwi.workflow_id, gwi.gatepass_id, gwi.step_snapshot,
+                   g.department_id AS gatepass_department_id,
+                   g.gatepass_number, g.purpose, g.created_by,
+                   CONCAT(u.first_name, ' ', u.last_name) AS requested_by_name
+            FROM gatepass_workflow_instances gwi
+            INNER JOIN gatepasses g ON g.id = gwi.gatepass_id AND g.tenant_id = gwi.tenant_id
+            LEFT JOIN users u ON u.id = g.created_by AND u.tenant_id = g.tenant_id
+            WHERE gwi.id = ? AND gwi.tenant_id = ?
+        ", [$instanceId, $tenantId]);
+    }
+
+    /**
+     * Step config for the instance: the frozen snapshot when one exists, so admin
+     * edits to workflow_steps after start cannot hijack in-flight requests.
+     * Instances predating snapshots fall back to the live configuration.
+     */
+    private function resolveStepConfig(array $instance, int $tenantId, int $stepOrder): ?array
+    {
+        $steps = $this->decodedSnapshot($instance);
+
+        if ($steps !== null) {
+            foreach ($steps as $step) {
+                if ((int) ($step['step_order'] ?? 0) === $stepOrder) {
+                    return $step;
+                }
+            }
+            return null;
+        }
+
+        return $this->fetchOne("
+            SELECT id, name, role_id, fallback_role_id, step_order, is_mandatory,
+                   approval_mode, department_source, department_id
+            FROM workflow_steps
+            WHERE workflow_id = ? AND tenant_id = ? AND step_order = ?
+            LIMIT 1
+        ", [(int) $instance['workflow_id'], $tenantId, $stepOrder]);
+    }
+
+    /** Same as resolveStepConfig, keyed by step id (used when a decision is recorded). */
+    private function resolveStepConfigById(array $instance, int $tenantId, int $stepId): array
+    {
+        $steps = $this->decodedSnapshot($instance);
+
+        if ($steps !== null) {
+            foreach ($steps as $step) {
+                if ((int) ($step['id'] ?? 0) === $stepId) {
+                    return $step;
+                }
+            }
+        }
+
+        return $this->fetchOne("
+            SELECT id, name, role_id, fallback_role_id, step_order, is_mandatory,
+                   approval_mode, department_source, department_id
+            FROM workflow_steps
+            WHERE id = ? AND tenant_id = ?
+            LIMIT 1
+        ", [$stepId, $tenantId])
+            ?? throw new RuntimeException('Workflow step configuration not found.');
+    }
+
+    /** @return array<int, array>|null null = no usable snapshot (use live config) */
+    private function decodedSnapshot(array $instance): ?array
+    {
+        if (empty($instance['step_snapshot'])) {
+            return null;
+        }
+
+        $steps = json_decode((string) $instance['step_snapshot'], true);
+
+        return is_array($steps) && $steps !== [] ? $steps : null;
     }
 
     /** Requester + gatepass details needed to notify about the final decision. */
@@ -489,6 +711,7 @@ class ApprovalService
                 g.id AS gatepass_id,
                 g.gatepass_number,
                 g.purpose,
+                gt.name AS type_name,
                 ws.name AS step_name,
                 gwi.status AS workflow_status,
                 ga.status AS approval_status,
@@ -502,6 +725,9 @@ class ApprovalService
             INNER JOIN gatepasses g
                 ON g.id = gwi.gatepass_id
                AND g.tenant_id = gwi.tenant_id
+            LEFT JOIN gatepass_types gt
+                ON gt.id = g.gatepass_type_id
+               AND gt.tenant_id = g.tenant_id
             INNER JOIN workflow_steps ws
                 ON ws.id = ga.workflow_step_id
                AND ws.tenant_id = ga.tenant_id
@@ -524,12 +750,19 @@ class ApprovalService
                 ga.status AS approval_status,
                 ga.comments,
                 ga.acted_at,
+                gwi.id AS workflow_instance_id,
                 gwi.status AS workflow_status,
+                gwi.current_step_order,
                 gwi.started_at AS created_at,
                 ws.name AS step_name,
                 g.id AS gatepass_id,
                 g.gatepass_number,
                 g.purpose,
+                g.is_returnable,
+                g.expected_return_date,
+                gt.name AS type_name,
+                gs.name AS gatepass_status,
+                dep.name AS department_name,
                 CONCAT(u.first_name, ' ', u.last_name) AS requested_by_name
             FROM gatepass_approvals ga
             INNER JOIN gatepass_workflow_instances gwi
@@ -538,10 +771,19 @@ class ApprovalService
             INNER JOIN gatepasses g
                 ON g.id = gwi.gatepass_id
                AND g.tenant_id = ga.tenant_id
+            LEFT JOIN gatepass_types gt
+                ON gt.id = g.gatepass_type_id
+               AND gt.tenant_id = g.tenant_id
+            LEFT JOIN gatepass_statuses gs
+                ON gs.id = g.status_id
+               AND gs.tenant_id = g.tenant_id
+            LEFT JOIN departments dep
+                ON dep.id = g.department_id
+               AND dep.tenant_id = g.tenant_id
             INNER JOIN workflow_steps ws
                 ON ws.id = ga.workflow_step_id
                AND ws.tenant_id = ga.tenant_id
-            INNER JOIN users u
+            LEFT JOIN users u
                 ON u.id = g.created_by
                AND u.tenant_id = g.tenant_id
             WHERE ga.id = ?
@@ -554,12 +796,40 @@ class ApprovalService
             return null;
         }
 
+        return $this->attachDetail($approval, $tenantId);
+    }
+
+    /** Attach gatepass items and the full step trail to an approval row. */
+    private function attachDetail(array $approval, int $tenantId): array
+    {
         $approval['items'] = $this->fetchAll("
-            SELECT *
+            SELECT item_name, description, quantity, serial_number, is_returnable, returned_quantity
             FROM gatepass_items
             WHERE gatepass_id = ?
               AND tenant_id = ?
+            ORDER BY id
         ", [(int) $approval['gatepass_id'], $tenantId]);
+
+        $approval['trail'] = $this->fetchAll("
+            SELECT
+                ws.step_order,
+                ws.name AS step_name,
+                ga.status,
+                ga.comments,
+                ga.acted_at,
+                CONCAT(u.first_name, ' ', u.last_name) AS approver_name
+            FROM gatepass_approvals ga
+            INNER JOIN workflow_steps ws
+                ON ws.id = ga.workflow_step_id
+               AND ws.tenant_id = ga.tenant_id
+            INNER JOIN users u
+                ON u.id = ga.approver_user_id
+               AND u.tenant_id = ga.tenant_id
+            WHERE ga.workflow_instance_id = ?
+              AND ga.tenant_id = ?
+              AND ga.status <> 'cancelled'
+            ORDER BY ws.step_order, ga.id
+        ", [(int) $approval['workflow_instance_id'], $tenantId]);
 
         return $approval;
     }
@@ -576,7 +846,9 @@ class ApprovalService
                 ws.name AS step_name,
                 g.id AS gatepass_id,
                 g.gatepass_number,
-                g.purpose
+                g.purpose,
+                gt.name AS type_name,
+                CONCAT(u.first_name, ' ', u.last_name) AS requested_by_name
             FROM gatepass_approvals ga
             INNER JOIN gatepass_workflow_instances gwi
                 ON gwi.id = ga.workflow_instance_id
@@ -587,12 +859,94 @@ class ApprovalService
             INNER JOIN gatepasses g
                 ON g.id = gwi.gatepass_id
                AND g.tenant_id = gwi.tenant_id
+            LEFT JOIN gatepass_types gt
+                ON gt.id = g.gatepass_type_id
+               AND gt.tenant_id = g.tenant_id
+            LEFT JOIN users u
+                ON u.id = g.created_by
+               AND u.tenant_id = g.tenant_id
             WHERE ga.id = ?
               AND ga.approver_user_id = ?
               AND ga.tenant_id = ?
               AND ga.status = 'pending'
             LIMIT 1
         ", [$approvalId, $userId, $tenantId]);
+    }
+
+    /** Approval as seen by someone with approval.reassign (not the assignee). */
+    public function findApprovalForReassign(int $tenantId, int $approvalId): ?array
+    {
+        $approval = $this->fetchOne("
+            SELECT
+                ga.id,
+                ga.status AS approval_status,
+                ga.approver_user_id,
+                ga.workflow_step_id,
+                ga.workflow_instance_id,
+                gwi.status AS workflow_status,
+                gwi.current_step_order,
+                ws.name AS step_name,
+                g.id AS gatepass_id,
+                g.gatepass_number,
+                g.purpose,
+                g.is_returnable,
+                g.expected_return_date,
+                gt.name AS type_name,
+                gs.name AS gatepass_status,
+                dep.name AS department_name,
+                g.created_by AS requester_id,
+                CONCAT(u.first_name, ' ', u.last_name) AS requested_by_name,
+                CONCAT(a.first_name, ' ', a.last_name) AS approver_name
+            FROM gatepass_approvals ga
+            INNER JOIN gatepass_workflow_instances gwi
+                ON gwi.id = ga.workflow_instance_id
+               AND gwi.tenant_id = ga.tenant_id
+            INNER JOIN workflow_steps ws
+                ON ws.id = ga.workflow_step_id
+               AND ws.tenant_id = ga.tenant_id
+            INNER JOIN gatepasses g
+                ON g.id = gwi.gatepass_id
+               AND g.tenant_id = gwi.tenant_id
+            LEFT JOIN gatepass_types gt
+                ON gt.id = g.gatepass_type_id
+               AND gt.tenant_id = g.tenant_id
+            LEFT JOIN gatepass_statuses gs
+                ON gs.id = g.status_id
+               AND gs.tenant_id = g.tenant_id
+            LEFT JOIN departments dep
+                ON dep.id = g.department_id
+               AND dep.tenant_id = g.tenant_id
+            LEFT JOIN users u
+                ON u.id = g.created_by
+               AND u.tenant_id = g.tenant_id
+            LEFT JOIN users a
+                ON a.id = ga.approver_user_id
+               AND a.tenant_id = ga.tenant_id
+            WHERE ga.id = ?
+              AND ga.tenant_id = ?
+            LIMIT 1
+        ", [$approvalId, $tenantId]);
+
+        if (!$approval) {
+            return null;
+        }
+
+        return $this->attachDetail($approval, $tenantId);
+    }
+
+    /** All pending approvals of a step, for the reassign screen. */
+    public function stepApprovals(int $tenantId, int $workflowStepId, int $instanceId): array
+    {
+        return $this->fetchAll("
+            SELECT ga.id, ga.status, CONCAT(u.first_name, ' ', u.last_name) AS approver_name, u.email
+            FROM gatepass_approvals ga
+            LEFT JOIN users u ON u.id = ga.approver_user_id AND u.tenant_id = ga.tenant_id
+            WHERE ga.tenant_id = ?
+              AND ga.workflow_step_id = ?
+              AND ga.workflow_instance_id = ?
+              AND ga.status <> 'cancelled'
+            ORDER BY ga.id
+        ", [$tenantId, $workflowStepId, $instanceId]);
     }
 
     private function fetchOne(string $sql, array $params): ?array
