@@ -310,9 +310,35 @@ class WorkflowController extends Controller
             Response::abort(403, 'Invalid gatepass type.');
         }
 
-        // INSERT IGNORE is safe — schema has UNIQUE KEY uniq_workflow_type
+        // One workflow per gatepass type — schema has UNIQUE KEY uk_wgt_tenant_type.
+        // INSERT IGNORE would silently no-op a conflicting assignment, so check explicitly.
+        $boundStmt = $this->db->prepare("
+            SELECT wgt.workflow_id, w.name AS workflow_name
+            FROM workflow_gatepass_type wgt
+            INNER JOIN workflows w
+                ON w.id         = wgt.workflow_id
+               AND w.tenant_id  = wgt.tenant_id
+            WHERE wgt.tenant_id        = :tenant_id
+              AND wgt.gatepass_type_id = :gatepass_type_id
+            LIMIT 1
+        ");
+
+        $boundStmt->execute([':tenant_id' => $tenantId, ':gatepass_type_id' => $gatepassTypeId]);
+        $bound = $boundStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($bound) {
+            if ((int) $bound['workflow_id'] === $id) {
+                return $this->redirect('/settings/workflows');
+            }
+
+            Response::abort(422, sprintf(
+                'This gatepass type is already assigned to workflow "%s". Unassign it there first.',
+                $bound['workflow_name']
+            ));
+        }
+
         $stmt = $this->db->prepare("
-            INSERT IGNORE INTO workflow_gatepass_type
+            INSERT INTO workflow_gatepass_type
                 (tenant_id, workflow_id, gatepass_type_id, created_at)
             VALUES
                 (:tenant_id, :workflow_id, :gatepass_type_id, NOW())

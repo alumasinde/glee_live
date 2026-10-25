@@ -53,12 +53,7 @@ class GatepassTypeService
         try {
             DB::transaction(function () use ($id, $after, $before) {
 
-                $updated = $this->repo->updateActions($id, $after);
-
-                // IMPORTANT FIX: rowCount() is unreliable for updates
-                if ($updated === false) {
-                    throw new RuntimeException('Update failed at database level.');
-                }
+                $this->repo->updateActions($id, $after);
 
                 Audit::log(
                     action:     'gatepass_type.updated_actions',

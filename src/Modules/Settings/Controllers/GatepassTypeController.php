@@ -57,11 +57,12 @@ class GatepassTypeController extends Controller
             ], 400);
 
         } catch (\Throwable $e) {
-    Response::json([
-        'message' => $e->getMessage(),
-        'file'    => $e->getFile(),
-        'line'    => $e->getLine(),
-    ], 500);
-}
+            // Never leak file/line of internal errors to the client
+            error_log(sprintf('GatepassTypeController::update failed for type %d: %s', $id, $e->getMessage()));
+
+            return Response::json([
+                'message' => 'Server error while updating the gatepass type.'
+            ], 500);
+        }
     }
 }

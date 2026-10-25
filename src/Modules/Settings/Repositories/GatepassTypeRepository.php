@@ -13,7 +13,7 @@ class GatepassTypeRepository
         $tenantId = Tenant::require();
 
         $rows = DB::query("
-            SELECT id, tenant_id, name, allowed_actions,is_active, type_code AS code, workflow_id,created_at
+            SELECT id, tenant_id, name, allowed_actions,is_active, type_code AS code,created_at
             FROM gatepass_types
             WHERE tenant_id = ?
               AND is_active  = 1
@@ -36,18 +36,18 @@ class GatepassTypeRepository
         return $row ? $this->map($row) : null;
     }
 
-    public function updateActions(int $id, array $actions): bool
+    public function updateActions(int $id, array $actions): void
     {
         $tenantId = Tenant::require();
 
-        $stmt = DB::query("
+        // Row existence is validated by find() before this runs; MySQL reports
+        // rowCount 0 for a save that changed nothing, so never gate on it.
+        DB::query("
             UPDATE gatepass_types
             SET allowed_actions = ?
             WHERE id        = ?
               AND tenant_id  = ?
         ", [json_encode($actions), $id, $tenantId]);
-
-        return $stmt->rowCount() > 0;
     }
 
  private function map(array $row): GatepassTypeDTO

@@ -20,10 +20,12 @@ use RuntimeException;
 class ApprovalService
 {
     private PDO $db;
+    private ApprovalNotifier $notifier;
 
     public function __construct()
     {
-        $this->db = DB::connect();
+        $this->db       = DB::connect();
+        $this->notifier = new ApprovalNotifier();
     }
 
     /* ============================================================
@@ -164,6 +166,11 @@ class ApprovalService
                 'Rejected status not configured.'
             );
 
+            $context = $this->requesterContext($tenantId, (int) $instance['gatepass_id']);
+            if ($context) {
+                $this->notifier->queueDecision($tenantId, $context, false, $comments);
+            }
+
             return $instanceId;
         });
     }
@@ -180,9 +187,12 @@ class ApprovalService
     private function materializeStep(int $tenantId, int $instanceId, int $stepOrder): void
     {
         $instance = $this->fetchOne("
-            SELECT gwi.workflow_id, gwi.gatepass_id, g.department_id AS gatepass_department_id
+            SELECT gwi.workflow_id, gwi.gatepass_id, g.department_id AS gatepass_department_id,
+                   g.gatepass_number, g.purpose, g.created_by,
+                   CONCAT(u.first_name, ' ', u.last_name) AS requested_by_name
             FROM gatepass_workflow_instances gwi
             INNER JOIN gatepasses g ON g.id = gwi.gatepass_id AND g.tenant_id = gwi.tenant_id
+            LEFT JOIN users u ON u.id = g.created_by AND u.tenant_id = g.tenant_id
             WHERE gwi.id = ? AND gwi.tenant_id = ?
         ", [$instanceId, $tenantId]);
 
@@ -200,7 +210,7 @@ class ApprovalService
                 return;
             }
 
-            $approvers = $this->resolveApprovers($tenantId, $step, (int) $instance['gatepass_department_id']);
+            $approvers = $this->resolveApprovers($tenantId, $step, (int) $instance['gatepass_department_id'], (int) ($instance['created_by'] ?? 0));
 
             if ($approvers) {
                 $this->db->prepare("
@@ -215,8 +225,16 @@ class ApprovalService
                     VALUES (?, ?, ?, ?, 'pending')
                 ");
 
-                foreach ($approvers as $approverId) {
-                    $insert->execute([$tenantId, $instanceId, (int) $step['id'], $approverId]);
+                foreach ($approvers as $approver) {
+                    $insert->execute([$tenantId, $instanceId, (int) $step['id'], (int) $approver['id']]);
+
+                    $this->notifier->queueStepPending(
+                        $tenantId,
+                        (int) $this->db->lastInsertId(),
+                        $approver,
+                        $instance,
+                        (string) $step['name']
+                    );
                 }
 
                 return;
@@ -230,18 +248,22 @@ class ApprovalService
         }
     }
 
-    /** @return int[] user ids */
-    private function resolveApprovers(int $tenantId, array $step, int $gatepassDepartmentId): array
+    /**
+     * Approvers eligible to act on the step, excluding the requester (no
+     * self-approval). @return array<int, array{id:int, email:?string, first_name:?string, last_name:?string}>
+     */
+    private function resolveApprovers(int $tenantId, array $step, int $gatepassDepartmentId, int $requesterUserId): array
     {
         $query = "
-            SELECT u.id
+            SELECT u.id, u.email, u.first_name, u.last_name
             FROM users u
             INNER JOIN user_roles ur ON ur.user_id = u.id AND ur.tenant_id = u.tenant_id
             WHERE ur.role_id = ?
               AND u.tenant_id = ?
               AND u.is_active = 1
+              AND u.id <> ?
         ";
-        $params = [(int) $step['role_id'], $tenantId];
+        $params = [(int) $step['role_id'], $tenantId, $requesterUserId];
 
         $departmentId = match ($step['department_source']) {
             'step'     => $step['department_id'] !== null ? (int) $step['department_id'] : null,
@@ -254,9 +276,7 @@ class ApprovalService
             $params[] = $departmentId;
         }
 
-        $rows = $this->fetchAll($query, $params);
-
-        return array_map(fn(array $r) => (int) $r['id'], $rows);
+        return $this->fetchAll($query, $params);
     }
 
     private function lockInstance(int $instanceId, int $tenantId): array
@@ -351,6 +371,23 @@ class ApprovalService
             'approved',
             'Approved status not configured.'
         );
+
+        $context = $this->requesterContext($tenantId, $gatepassId);
+        if ($context) {
+            $this->notifier->queueDecision($tenantId, $context, true);
+        }
+    }
+
+    /** Requester + gatepass details needed to notify about the final decision. */
+    private function requesterContext(int $tenantId, int $gatepassId): ?array
+    {
+        return $this->fetchOne("
+            SELECT g.id AS gatepass_id, g.gatepass_number, g.purpose,
+                   u.email, u.first_name, u.last_name
+            FROM gatepasses g
+            INNER JOIN users u ON u.id = g.created_by AND u.tenant_id = g.tenant_id
+            WHERE g.id = ? AND g.tenant_id = ?
+        ", [$gatepassId, $tenantId]);
     }
 
     private function setGatepassStatus(int $tenantId, int $gatepassId, string $code, string $errorMessage): void
@@ -391,6 +428,7 @@ class ApprovalService
 
             if ($ownTransaction) {
                 $this->db->commit();
+                $this->notifier->flush();
             }
 
             return $result;
@@ -398,8 +436,33 @@ class ApprovalService
             if ($ownTransaction && $this->db->inTransaction()) {
                 $this->db->rollBack();
             }
+            if ($ownTransaction) {
+                $this->notifier->discard();
+            }
             throw $e;
         }
+    }
+
+    /* ============================================================
+       NOTIFICATION FLUSH (for outer-transaction owners)
+    ============================================================ */
+
+    /** Send notifications queued during a workflow start wrapped in an outer transaction. */
+    public function flushNotifications(): void
+    {
+        $this->notifier->flush();
+    }
+
+    /** Drop queued notifications after an outer transaction rolled back. */
+    public function discardNotifications(): void
+    {
+        $this->notifier->discard();
+    }
+
+    /** Notifications waiting to be flushed (observability for tests). */
+    public function pendingNotificationCount(): int
+    {
+        return $this->notifier->pendingCount();
     }
 
     /* ============================================================

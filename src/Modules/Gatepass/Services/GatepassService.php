@@ -92,10 +92,15 @@ class GatepassService
 
             $this->db->commit();
 
+            // startWorkflow ran inside this transaction, so its queued
+            // notifications are only safe to send now that the commit landed.
+            $this->approvalService->flushNotifications();
+
             return $gatepassId;
 
         } catch (Throwable $e) {
             $this->db->rollBack();
+            $this->approvalService->discardNotifications();
             throw $e;
         }
     }
