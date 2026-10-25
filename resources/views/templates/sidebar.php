@@ -1,7 +1,9 @@
 <aside class="sidebar" id="sidebar">
 
     <?php
-        $current ??= parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+        // parse_url() returns null for a malformed URI, which would make every
+        // str_starts_with() below a null-argument deprecation.
+        $current = (string) ($current ?? parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/');
 
         $tenantLogo = $_SESSION['user']['tenant_logo'] ?? '';
         $logoPath   = $tenantLogo !== ''

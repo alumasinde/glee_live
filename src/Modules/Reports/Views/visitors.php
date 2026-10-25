@@ -58,7 +58,7 @@ use App\Core\View;
         </div>
 
         <div class="table-card-foot">
-            <?php include __DIR__ . '/partials/pagination.php'; ?>
+            <?php include base_path('resources/views/partials/pagination.php'); ?>
         </div>
     <?php endif; ?>
 </div>

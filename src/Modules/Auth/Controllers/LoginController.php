@@ -30,6 +30,11 @@ class LoginController extends Controller
             exit;
         }
 
+        // Backing out to the sign-in form abandons any parked challenge.
+        if (!empty($_SESSION[AuthService::MFA_SESSION_KEY])) {
+            $this->auth->clearPendingChallenge();
+        }
+
         try {
             $tenantId = $this->resolveTenantId();
             $tenant = $this->auth->getTenantContext($tenantId);
@@ -80,23 +85,52 @@ public function store(Request $request)
 
     /*
     |--------------------------------------------------------------------------
-    | AUTH FAILURE
+    | AUTH
     |--------------------------------------------------------------------------
+    |
+    | login() returns a status rather than a boolean so the two-factor hand-off
+    | never looks like a failure: an MFA account must not see "Invalid
+    | credentials." after typing its password correctly.
     */
-    if (!$this->auth->attempt($tenantId, $email, $password)) {
+    $result = $this->auth->login($tenantId, $email, $password);
 
-        Audit::system(
-            $tenantId,
-            'user.login_failed',
-            'auth',
-            null,
-            [
-                'email'  => $email,
-                'reason' => 'invalid_credentials'
-            ]
-        );
+    switch ($result['status']) {
+        case AuthService::STATUS_MFA_REQUIRED:
+            if ($this->isAjax($request)) {
+                $this->json(['redirect' => '/login/two-factor'], 200);
+                return;
+            }
 
-        return $this->fail($request, 'Invalid credentials.', 401);
+            header('Location: /login/two-factor');
+            exit;
+
+        case AuthService::STATUS_LOCKED:
+            Audit::system(
+                $tenantId,
+                'user.login_failed',
+                'auth',
+                null,
+                [
+                    'email'  => $email,
+                    'reason' => 'locked'
+                ]
+            );
+
+            return $this->fail($request, 'Too many attempts. Try again later.', 423);
+
+        case AuthService::STATUS_FAILED:
+            Audit::system(
+                $tenantId,
+                'user.login_failed',
+                'auth',
+                null,
+                [
+                    'email'  => $email,
+                    'reason' => 'invalid_credentials'
+                ]
+            );
+
+            return $this->fail($request, 'Invalid credentials.', 401);
     }
 
     /*
@@ -130,6 +164,91 @@ public function store(Request $request)
     header('Location: /dashboard');
     exit;
 }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TWO-FACTOR CHALLENGE (pre-authentication)
+    |--------------------------------------------------------------------------
+    |
+    | Reachable only with the parked challenge that a correct password leaves in
+    | the session; anyone else is bounced back to the login form.
+    */
+    public function twoFactorForm()
+    {
+        $this->startSession();
+
+        if (!$this->auth->pendingChallenge()) {
+            header('Location: /login');
+            exit;
+        }
+
+        return $this->renderTwoFactor();
+    }
+
+    public function twoFactor(Request $request)
+    {
+        $this->startSession();
+
+        if (!$this->auth->pendingChallenge()) {
+            return $this->errorResponse('Your verification window expired. Please sign in again.');
+        }
+
+        $result = $this->auth->verifyChallenge(trim((string) $request->input('code')));
+
+        if ($result['status'] === AuthService::STATUS_LOGIN) {
+            $user = $_SESSION['user'];
+
+            Audit::log('user.login', 'user', (int) $user['id'], [
+                'email'  => $user['email'],
+                'method' => $result['method'] ?? 'totp',
+            ]);
+
+            if ($this->isAjax($request)) {
+                $this->json(['redirect' => '/dashboard'], 200);
+                return;
+            }
+
+            header('Location: /dashboard');
+            exit;
+        }
+
+        $message = $result['status'] === AuthService::STATUS_LOCKED
+            ? 'Too many attempts. Try again later.'
+            : 'That code was not accepted.';
+
+        if ($result['status'] === AuthService::STATUS_LOCKED) {
+            $this->auth->clearPendingChallenge();
+        }
+
+        return $this->renderTwoFactor($message);
+    }
+
+    private function renderTwoFactor(?string $error = null)
+    {
+        try {
+            $tenant = $this->auth->getTenantContext($this->resolveTenantId());
+        } catch (\Throwable $e) {
+            $tenant = ['tenant_name' => 'Company', 'tenant_logo' => null];
+        }
+
+        return View::render(
+            'Auth::two-factor',
+            [
+                'title'        => 'Two-Factor Verification',
+                'error'        => $error,
+                'company_logo' => $tenant['tenant_logo'],
+                'tenant_name'  => $tenant['tenant_name'],
+            ],
+            'guest'
+        );
+    }
+
+    private function startSession(): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+    }
 
     /**
      * Unified failure handler

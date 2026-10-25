@@ -38,7 +38,13 @@ class ApprovalController extends Controller
      * INDEX (Pending Approvals)
      * ========================================================= */
 
-    public function index()
+    public function index(Request $request)
+    {
+        return $this->renderList($request);
+    }
+
+    /** The pending queue, paged and aged. Also the fallback render after a failed decision. */
+    private function renderList(Request $request, ?string $error = null)
     {
         $user = $this->user();
 
@@ -46,12 +52,23 @@ class ApprovalController extends Controller
             Response::abort(403);
         }
 
+        $sort = $request->input('sort') === 'recent' ? 'recent' : 'age';
+
+        $page = $this->service->paginatePending(
+            (int) $user['tenant_id'],
+            (int) $user['id'],
+            $sort,
+            (int) $request->input('page', 1),
+            (int) $request->input('per_page', 20)
+        );
+
         return View::render('Approval::index', [
-            'title' => 'My Approvals',
-            'approvals' => $this->service->getPendingForUser(
-                $user['tenant_id'],
-                $user['id']
-            )
+            'title'         => 'My Approvals',
+            'error'         => $error,
+            'approvals'     => $page['data'],
+            'data'          => ['meta' => $page['meta']],
+            'sort'          => $sort,
+            'reminderHours' => $this->service->reminderHours(),
         ], 'app');
     }
 
@@ -125,15 +142,7 @@ class ApprovalController extends Controller
             exit;
 
         } catch (\Throwable $e) {
-
-            return View::render('Approval::index', [
-                'title' => 'My Approvals',
-                'error' => $e->getMessage(),
-                'approvals' => $this->service->getPendingForUser(
-                    $user['tenant_id'],
-                    $user['id']
-                )
-            ], 'app');
+            return $this->renderList($request, $e->getMessage());
         }
     }
 
@@ -173,15 +182,7 @@ class ApprovalController extends Controller
             exit;
 
         } catch (\Throwable $e) {
-
-            return View::render('Approval::index', [
-                'title' => 'My Approvals',
-                'error' => $e->getMessage(),
-                'approvals' => $this->service->getPendingForUser(
-                    $user['tenant_id'],
-                    $user['id']
-                )
-            ], 'app');
+            return $this->renderList($request, $e->getMessage());
         }
     }
 

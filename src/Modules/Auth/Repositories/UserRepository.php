@@ -71,6 +71,171 @@ LIMIT 1
     }
 
     /**
+     * Login-path lookup: identity columns PLUS the two-factor / lockout state
+     * from migration 0022. Kept separate from findActiveByEmail() on purpose —
+     * the password-reset flow does not need (and must not be broken by) the
+     * security columns. Deliberately does NOT select users.phone (PII).
+     */
+    public function findForLogin(int $tenantId, string $email): ?array
+    {
+        $email = $this->normalizeEmail($email);
+
+        $stmt = $this->db->prepare("
+            SELECT
+                u.id,
+                u.tenant_id,
+                u.first_name,
+                u.last_name,
+                u.email,
+                u.password_hash,
+                u.is_active,
+                u.mfa_enabled,
+                u.mfa_secret,
+                u.mfa_recovery_codes,
+                u.failed_attempts,
+                u.locked_until,
+                u.tokens_invalid_before,
+                t.code AS tenant_code,
+                t.name AS tenant_name,
+                t.logo AS tenant_logo,
+                r.id AS role_id,
+                r.name AS role
+            FROM users u
+            INNER JOIN tenants t
+                ON t.id = u.tenant_id
+            INNER JOIN user_roles ur
+                ON ur.user_id = u.id
+               AND ur.tenant_id = u.tenant_id
+            INNER JOIN roles r
+                ON r.id = ur.role_id
+               AND r.tenant_id = u.tenant_id
+            WHERE u.tenant_id = :tenant_id
+              AND u.email     = :email
+              AND u.is_active = 1
+              AND t.is_active = 1
+            LIMIT 1
+        ");
+
+        $stmt->execute([
+            ':tenant_id' => $tenantId,
+            ':email'     => $email
+        ]);
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
+    /**
+     * Re-hydrate a login that is parked in the two-factor challenge. Used after
+     * the password step only, so a user disabled or locked out mid-challenge
+     * cannot complete. Returns null when the account is no longer usable.
+     */
+    public function findForLoginById(int $tenantId, int $userId): ?array
+    {
+        $stmt = $this->db->prepare("
+            SELECT
+                u.id,
+                u.tenant_id,
+                u.first_name,
+                u.last_name,
+                u.email,
+                u.password_hash,
+                u.is_active,
+                u.mfa_enabled,
+                u.mfa_secret,
+                u.mfa_recovery_codes,
+                u.failed_attempts,
+                u.locked_until,
+                u.tokens_invalid_before,
+                t.code AS tenant_code,
+                t.name AS tenant_name,
+                t.logo AS tenant_logo,
+                r.id AS role_id,
+                r.name AS role
+            FROM users u
+            INNER JOIN tenants t
+                ON t.id = u.tenant_id
+            INNER JOIN user_roles ur
+                ON ur.user_id = u.id
+               AND ur.tenant_id = u.tenant_id
+            INNER JOIN roles r
+                ON r.id = ur.role_id
+               AND r.tenant_id = u.tenant_id
+            WHERE u.tenant_id = :tenant_id
+              AND u.id        = :user_id
+              AND u.is_active = 1
+              AND t.is_active = 1
+            LIMIT 1
+        ");
+
+        $stmt->execute([
+            ':tenant_id' => $tenantId,
+            ':user_id'   => $userId
+        ]);
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    }
+
+    /**
+     * DB-backed lockout, complementary to the IP/email rate limiter.
+     *
+     * Single atomic statement: MySQL applies SET assignments left-to-right, so
+     * failed_attempts is already the incremented value when locked_until is
+     * evaluated. Placeholders are uniquely named because native prepared
+     * statements (EMULATE_PREPARES=false) cannot reuse one.
+     */
+    public function registerFailedAttempt(
+        int $tenantId,
+        int $userId,
+        int $maxAttempts,
+        int $lockoutMinutes
+    ): void {
+        $stmt = $this->db->prepare("
+            UPDATE users
+            SET failed_attempts = failed_attempts + 1,
+                locked_until = CASE
+                    WHEN failed_attempts >= :max_attempts
+                        THEN DATE_ADD(NOW(), INTERVAL :lock_minutes MINUTE)
+                    ELSE locked_until
+                END
+            WHERE tenant_id = :tenant_id
+              AND id        = :user_id
+        ");
+
+        $stmt->execute([
+            ':max_attempts' => $maxAttempts,
+            ':lock_minutes' => $lockoutMinutes,
+            ':tenant_id'    => $tenantId,
+            ':user_id'      => $userId,
+        ]);
+    }
+
+    /**
+     * Successful authentication: clear the lockout counters and stamp
+     * tokens_invalid_before so a later session/token validity check has a
+     * database basis (compare it with the session's own auth timestamp).
+     */
+    public function recordLoginSuccess(int $tenantId, int $userId): void
+    {
+        $stmt = $this->db->prepare("
+            UPDATE users
+            SET failed_attempts        = 0,
+                locked_until           = NULL,
+                tokens_invalid_before  = NOW()
+            WHERE tenant_id = :tenant_id
+              AND id        = :user_id
+        ");
+
+        $stmt->execute([
+            ':tenant_id' => $tenantId,
+            ':user_id'   => $userId,
+        ]);
+    }
+
+    /**
      * Generate and store a reset token (one live token per user).
      * Returns raw token for email delivery; consumed on reset.
      */

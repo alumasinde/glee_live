@@ -9,6 +9,7 @@ use App\Middleware\SecurityHeadersMiddleware;
 use App\Modules\Auth\Controllers\LoginController;
 use App\Modules\Auth\Controllers\LogoutController;
 use App\Modules\Auth\Controllers\PasswordController;
+use App\Modules\Auth\Controllers\TwoFactorController;
 use App\Modules\Dashboard\Controllers\DashboardController;
 use App\Modules\Gatepass\Controllers\GatepassController;
 use App\Modules\Gatepass\Controllers\GateScanController;
@@ -25,6 +26,9 @@ use App\Modules\Settings\Controllers\EmailSettingController;
 use App\Modules\Roles\Controllers\RoleController;
 use App\Modules\Roles\Controllers\UserRoleController;
 use App\Modules\Approval\Controllers\ApprovalController;
+use App\Modules\Approval\Controllers\DelegationController;
+use App\Modules\Audit\Controllers\AuditController;
+use App\Modules\Notifications\Controllers\NotificationController;
 use App\Modules\Settings\Controllers\WorkflowController;
 use App\Modules\Settings\Controllers\GatepassTypeController;
 use App\Modules\Settings\Controllers\DepartmentController;
@@ -55,13 +59,22 @@ $permCsrf = fn(string $p): array => [AuthMiddleware::class, PermissionMiddleware
 //Guest Routes
 $guestCsrf = [CSRFMiddleware::class];
 
-// Rate limiting for authentication endpoints (reads from config/security.php)
+// Rate limiting for authentication endpoints (reads from config/security.php).
+// The middleware key is matched against the config array literally, so these use
+// underscores — "password-reset" silently falls back to the 5/15 defaults.
 $loginRateLimit = [CSRFMiddleware::class, RateLimitMiddleware::class . ':login'];
-$resetRateLimit = [CSRFMiddleware::class, RateLimitMiddleware::class . ':password-reset'];
+$resetRateLimit = [CSRFMiddleware::class, RateLimitMiddleware::class . ':password_reset'];
+$mfaRateLimit   = [CSRFMiddleware::class, RateLimitMiddleware::class . ':mfa'];
+$scanRateLimit  = [AuthMiddleware::class, RateLimitMiddleware::class . ':scan'];
 
 $router->get('/', [LoginController::class, 'index']);
 $router->get('/login', [LoginController::class, 'index']);
 $router->post('/login', [LoginController::class, 'store'], $loginRateLimit);
+
+// Two-factor challenge: only reachable with the parked, password-verified
+// session, and rate limited on top of the account lockout.
+$router->get('/login/two-factor', [LoginController::class, 'twoFactorForm']);
+$router->post('/login/two-factor', [LoginController::class, 'twoFactor'], $mfaRateLimit);
 
 $router->get('/forgot-password', [PasswordController::class, 'forgot']);
 $router->post('/forgot-password', [PasswordController::class, 'sendReset'], $resetRateLimit);
@@ -76,7 +89,8 @@ $router->get('/pass/{token}', [PreRegistrationController::class, 'pass']);
 
 // Gate device scanning (authenticated per-gate by device key, not by session).
 // Path avoids /api/* which the local vhost proxies to a separate backend.
-$router->post('/gate-scan', [DeviceScanController::class, 'scan']);
+// Rate limited by IP: a cloned key hammering the endpoint cannot outrun this.
+$router->post('/gate-scan', [DeviceScanController::class, 'scan'], [RateLimitMiddleware::class . ':scan']);
 
 //Dashboard Routes
 $router->get('/dashboard', [DashboardController::class, 'index'], $perm('dashboard.access'));
@@ -88,11 +102,21 @@ $router->get('/gatepasses/create', [GatepassController::class, 'create'], $perm(
 $router->post('/gatepasses', [GatepassController::class, 'store'], $permCsrf('gatepass.create'));
 
 $router->get('/gatepasses/scan', [GateScanController::class, 'index'], $perm('gatepass.scan'));
-$router->post('/gatepasses/scan', [GateScanController::class, 'process'], $permCsrf('gatepass.scan'));
+$router->post('/gatepasses/scan', [GateScanController::class, 'process'], [
+    AuthMiddleware::class,
+    PermissionMiddleware::class . ':gatepass.scan',
+    CSRFMiddleware::class,
+    RateLimitMiddleware::class . ':scan',
+]);
 
 // ==============================
 // APPROVAL ROUTES
 // ==============================
+
+// Delegation is a literal segment and must be registered before /approvals/{id}.
+$router->get('/approvals/delegation', [DelegationController::class, 'index'], $perm('approval.delegate'));
+$router->post('/approvals/delegation', [DelegationController::class, 'store'], $permCsrf('approval.delegate'));
+$router->post('/approvals/delegation/{id}/delete', [DelegationController::class, 'destroy'], $permCsrf('approval.delegate'));
 
 $router->get('/approvals', [ApprovalController::class, 'index'], $perm('approval.view'));
 $router->get('/approvals/{id}', [ApprovalController::class, 'show'], $perm('approval.view'));
@@ -139,8 +163,41 @@ $router->post('/visits/{id}/checkout', [VisitController::class, 'checkOut'], $pe
 |--------------------------------------------------------------------------
 */
 
+// Register /badges/create before any /badges/{id} pattern: {id} swallows "create".
+$router->get('/badges', [BadgeController::class, 'index'], $perm('visitors.issue_badge'));
+$router->get('/badges/create', [BadgeController::class, 'create'], $perm('visitors.issue_badge'));
+$router->post('/badges', [BadgeController::class, 'store'], $permCsrf('visitors.issue_badge'));
+$router->get('/badges/{id}/issue', [BadgeController::class, 'issueForm'], $perm('visitors.issue_badge'));
+
 $router->post('/badges/{id}/issue', [BadgeController::class, 'issue'], $permCsrf('visitors.issue_badge'));
 $router->post('/badges/{id}/return', [BadgeController::class, 'return'], $permCsrf('visitors.issue_badge'));
+
+/*
+|--------------------------------------------------------------------------
+| Audit Trail (module screens; export stays under /reports)
+|--------------------------------------------------------------------------
+*/
+
+$router->get('/audit', [AuditController::class, 'index'], $perm('audit.view'));
+$router->get('/audit/{id}', [AuditController::class, 'show'], $perm('audit.view'));
+
+/*
+|--------------------------------------------------------------------------
+| Notifications (in-app feed, per-user channels, push devices)
+|--------------------------------------------------------------------------
+*/
+
+$router->get('/notifications', [NotificationController::class, 'index'], $perm('notifications.view'));
+$router->post('/notifications/read-all', [NotificationController::class, 'readAll'], $permCsrf('notifications.view'));
+
+// Preferences is literal and comes before /notifications/{id}/…
+$router->get('/notifications/preferences', [NotificationController::class, 'preferences'], $perm('notifications.view'));
+$router->post('/notifications/preferences', [NotificationController::class, 'savePreferences'], $permCsrf('notifications.update'));
+$router->post('/notifications/devices', [NotificationController::class, 'registerDevice'], $permCsrf('notifications.update'));
+$router->post('/notifications/devices/{id}/delete', [NotificationController::class, 'deleteDevice'], $permCsrf('notifications.update'));
+
+$router->get('/notifications/{id}/read', [NotificationController::class, 'read'], $perm('notifications.view'));
+$router->post('/notifications/{id}/read', [NotificationController::class, 'read'], $permCsrf('notifications.view'));
 
 //Roles
 $router->get('/roles', [RoleController::class, 'index'], $perm('roles.view'));
@@ -184,6 +241,12 @@ $router->get('/settings/users/create', [UserManagementController::class, 'create
 // Profile is self-service: any authenticated user (registered before /{id} wildcard)
 $router->get('/settings/users/profile', [UserManagementController::class, 'profile'], $auth);
 $router->post('/settings/users/profile', [UserManagementController::class, 'updateProfile'], $authCsrf);
+
+// Two-factor enrolment is self-service too; the controller applies the
+// security.two_factor.require_permission gate rather than a role check.
+$router->get('/settings/security/two-factor', [TwoFactorController::class, 'index'], $auth);
+$router->post('/settings/security/two-factor', [TwoFactorController::class, 'enable'], $authCsrf);
+$router->post('/settings/security/two-factor/disable', [TwoFactorController::class, 'disable'], $authCsrf);
 
 $router->post('/settings/users', [UserManagementController::class, 'store'], $permCsrf('users.create'));
 $router->get('/settings/users/{id}/edit', [UserManagementController::class, 'edit'], $perm('users.update'));

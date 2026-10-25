@@ -3,6 +3,7 @@
 use App\Core\App;
 use App\Core\Container;
 use App\Core\DB;
+use App\Core\Permission;
 use App\Core\Request;
 use App\Core\Router;
 use App\Core\Response;
@@ -115,7 +116,7 @@ set_exception_handler(function ($e) {
     Response::abort($code, 'Server Error');
 });
 
-function config(string $key): mixed
+function config(string $key, mixed $default = null): mixed
 {
     static $cache = [];
 
@@ -125,7 +126,7 @@ function config(string $key): mixed
     if (!isset($cache[$file])) {
         $path = base_path("config/{$file}.php");
         if (!file_exists($path)) {
-            return null;
+            return $default;
         }
         $cache[$file] = require $path;
     }
@@ -133,9 +134,12 @@ function config(string $key): mixed
     $config = $cache[$file];
 
     foreach ($parts as $part) {
-        if (!isset($config[$part])) {
-            return null;
+        // array_key_exists, not isset: a configured null/false/0 is a value,
+        // not a missing key.
+        if (!is_array($config) || !array_key_exists($part, $config)) {
+            return $default;
         }
+
         $config = $config[$part];
     }
 
@@ -147,7 +151,7 @@ function config(string $key): mixed
  */
 function can(string $permission): bool
 {
-    return (new \App\Core\Permission(\App\Core\DB::connect()))->can($permission);
+    return (new Permission(DB::connect()))->can($permission);
 }
 
 /**

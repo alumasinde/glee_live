@@ -22,11 +22,13 @@ class ApprovalService
 {
     private PDO $db;
     private ApprovalNotifier $notifier;
+    private DelegationService $delegations;
 
     public function __construct()
     {
-        $this->db       = DB::connect();
-        $this->notifier = new ApprovalNotifier();
+        $this->db          = DB::connect();
+        $this->notifier    = new ApprovalNotifier();
+        $this->delegations = new DelegationService($this->db);
     }
 
     /* ============================================================
@@ -347,9 +349,27 @@ class ApprovalService
                 foreach ($approvers as $approver) {
                     $insert->execute([$tenantId, $instanceId, (int) $step['id'], (int) $approver['id']]);
 
+                    $approvalRowId = (int) $this->db->lastInsertId();
+
+                    if (!empty($approver['covers'])) {
+                        Audit::system($tenantId, 'approval.delegated', 'gatepass_approval', $approvalRowId, [
+                            'workflow_instance_id' => $instanceId,
+                            'gatepass_id'          => (int) $instance['gatepass_id'],
+                            'step_order'           => (int) $step['step_order'],
+                            'from_user_id'         => (int) $approver['covers']['user_id'],
+                            'to_user_id'           => (int) $approver['id'],
+                            'delegate_ends_at'     => $approver['covers']['ends_at'],
+                            'target_label'         => sprintf(
+                                '%s → %s (delegation)',
+                                (string) $approver['covers']['name'],
+                                (string) ($approver['name'] ?? $approver['id'])
+                            ),
+                        ]);
+                    }
+
                     $this->notifier->queueStepPending(
                         $tenantId,
-                        (int) $this->db->lastInsertId(),
+                        $approvalRowId,
                         $approver,
                         $instance,
                         (string) $step['name']
@@ -378,18 +398,94 @@ class ApprovalService
     /**
      * Approvers eligible to act on the step, excluding the requester (no
      * self-approval). Falls back to step.fallback_role_id members when the
-     * primary role resolves to nobody.
-     * @return array<int, array{id:int, email:?string, first_name:?string, last_name:?string}>
+     * primary role resolves to nobody, then redirects anyone covered by an
+     * active delegation onto their delegate.
+     *
+     * @return list<array{id:int, email:?string, first_name:?string, last_name:?string, name?:string, covers?:array}>
      */
     private function resolveApprovers(int $tenantId, array $step, int $gatepassDepartmentId, int $requesterUserId): array
     {
-        $approvers = $this->approversForRole($tenantId, (int) $step['role_id'], $step, $gatepassDepartmentId, $requesterUserId);
+        $roleId    = (int) $step['role_id'];
+        $approvers = $this->approversForRole($tenantId, $roleId, $step, $gatepassDepartmentId, $requesterUserId);
 
         if (!$approvers && !empty($step['fallback_role_id'])) {
-            $approvers = $this->approversForRole($tenantId, (int) $step['fallback_role_id'], $step, $gatepassDepartmentId, $requesterUserId);
+            $roleId    = (int) $step['fallback_role_id'];
+            $approvers = $this->approversForRole($tenantId, $roleId, $step, $gatepassDepartmentId, $requesterUserId);
         }
 
-        return $approvers;
+        return $this->applyDelegations($tenantId, $approvers, $roleId, $requesterUserId);
+    }
+
+    /**
+     * Swap approvers who are covered right now for their delegates. One row per
+     * delegate even if several colleagues hand it to the same person, and never
+     * to the requester (that would reintroduce self-approval). A covered user
+     * whose delegate is the requester drops out entirely — that is the honest
+     * signal that the step cannot be staffed, and is_mandatory decides whether
+     * the workflow skips or errors.
+     */
+    private function applyDelegations(int $tenantId, array $approvers, int $roleId, int $requesterUserId): array
+    {
+        if (!$approvers) {
+            return [];
+        }
+
+        $delegates = $this->delegations->activeDelegatesFor(
+            $tenantId,
+            array_column($approvers, 'id'),
+            $roleId
+        );
+
+        if (!$delegates) {
+            return $approvers;
+        }
+
+        $result = [];
+        $taken  = [];
+
+        foreach ($approvers as $approver) {
+            $userId = (int) $approver['id'];
+
+            if (!isset($delegates[$userId])) {
+                $result[] = $approver;
+                $taken[$userId] = true;
+            }
+        }
+
+        foreach ($approvers as $approver) {
+            $userId = (int) $approver['id'];
+
+            if (!isset($delegates[$userId])) {
+                continue;
+            }
+
+            $delegate = $delegates[$userId];
+            $delegateId = (int) $delegate['delegate_user_id'];
+
+            if ($delegateId === $requesterUserId || isset($taken[$delegateId])) {
+                continue;
+            }
+
+            $taken[$delegateId] = true;
+
+            $result[] = [
+                'id'         => $delegateId,
+                'email'      => $delegate['email'],
+                'name'       => $delegate['delegate_name'],
+                'first_name' => $delegate['delegate_name'],
+                'last_name'  => '',
+                'covers'     => [
+                    'user_id'  => $userId,
+                    'name'     => trim(($approver['first_name'] ?? '') . ' ' . ($approver['last_name'] ?? '')),
+                    'ends_at'  => $delegate['ends_at'],
+                    'note'     => $delegate['note'],
+                ],
+            ];
+        }
+
+        usort($result, static fn (array $a, array $b): int => (int) $a['id'] <=> (int) $b['id']);
+
+        return $result;
     }
 
     private function approversForRole(int $tenantId, int $roleId, array $step, int $gatepassDepartmentId, int $requesterUserId): array
@@ -605,7 +701,7 @@ class ApprovalService
     {
         return $this->fetchOne("
             SELECT g.id AS gatepass_id, g.gatepass_number, g.purpose,
-                   u.email, u.first_name, u.last_name
+                   u.id AS user_id, u.email, u.first_name, u.last_name
             FROM gatepasses g
             INNER JOIN users u ON u.id = g.created_by AND u.tenant_id = g.tenant_id
             WHERE g.id = ? AND g.tenant_id = ?
@@ -702,9 +798,87 @@ class ApprovalService
         ", [$tenantId, $gatepassId]);
     }
 
-    public function getPendingForUser(int $tenantId, int $userId): array
+    /**
+     * Approvals waiting on the acting user.
+     *
+     * $sort 'age' (default) puts the longest-waiting request first, which is the
+     * order a work queue should be cleared in; 'recent' is newest-first.
+     * $limit 0 means "everything" — callers that page use paginatePending().
+     *
+     * @return list<array>
+     */
+    public function getPendingForUser(int $tenantId, int $userId, string $sort = 'age', int $limit = 0, int $offset = 0): array
     {
-        return $this->fetchAll("
+        [$sql, $params] = $this->pendingQuery($tenantId, $userId, $sort);
+
+        if ($limit > 0) {
+            // Cast ints, so interpolating them cannot open an injection hole.
+            $sql .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
+        }
+
+        return $this->fetchAll($sql, $params);
+    }
+
+    public function countPending(int $tenantId, int $userId): int
+    {
+        return (int) $this->fetchOne("
+            SELECT COUNT(*) AS c
+            FROM gatepass_approvals ga
+            INNER JOIN gatepass_workflow_instances gwi
+                ON gwi.id = ga.workflow_instance_id
+               AND gwi.tenant_id = ga.tenant_id
+               AND gwi.status = 'in_progress'
+            INNER JOIN workflow_steps ws
+                ON ws.id = ga.workflow_step_id
+               AND ws.tenant_id = ga.tenant_id
+               AND ws.step_order = gwi.current_step_order
+            WHERE ga.tenant_id = ?
+              AND ga.approver_user_id = ?
+              AND ga.status = 'pending'
+        ", [$tenantId, $userId])['c'];
+    }
+
+    /**
+     * One page of the pending queue plus the meta the paginator view needs.
+     *
+     * @return array{data: list<array>, meta: array{total:int, per_page:int, current_page:int, last_page:int, from:int, to:int}}
+     */
+    public function paginatePending(int $tenantId, int $userId, string $sort = 'age', int $page = 1, int $perPage = 20): array
+    {
+        $perPage      = max(5, min($perPage, 100));
+        $total        = $this->countPending($tenantId, $userId);
+        $lastPage     = max(1, (int) ceil($total / $perPage));
+        $page         = max(1, min($page, $lastPage));
+        $offset       = ($page - 1) * $perPage;
+        $rows         = $this->getPendingForUser($tenantId, $userId, $sort, $perPage, $offset);
+
+        return [
+            'data' => $rows,
+            'meta' => [
+                'total'        => $total,
+                'per_page'     => $perPage,
+                'current_page' => $page,
+                'last_page'    => $lastPage,
+                'from'         => $total > 0 ? $offset + 1 : 0,
+                'to'           => min($offset + $perPage, $total),
+            ],
+        ];
+    }
+
+    /** Hours an approval has been waiting, used to flag overdue items. */
+    public function reminderHours(): int
+    {
+        return max(1, (int) (config('jobs.reminder_hours') ?? 24));
+    }
+
+    /** @return array{0: string, 1: array} SQL and its bound params */
+    private function pendingQuery(int $tenantId, int $userId, string $sort): array
+    {
+        $order = $sort === 'recent'
+            ? 'gwi.started_at DESC, ga.id DESC'
+            : 'gwi.started_at ASC, ga.id ASC';
+
+        $sql = "
             SELECT
                 ga.id,
                 gwi.id AS workflow_instance_id,
@@ -715,8 +889,10 @@ class ApprovalService
                 ws.name AS step_name,
                 gwi.status AS workflow_status,
                 ga.status AS approval_status,
+                ga.escalation_count,
                 CONCAT(u.first_name, ' ', u.last_name) AS requested_by_name,
-                gwi.started_at AS created_at
+                gwi.started_at AS created_at,
+                TIMESTAMPDIFF(HOUR, gwi.started_at, NOW()) AS waiting_hours
             FROM gatepass_approvals ga
             INNER JOIN gatepass_workflow_instances gwi
                 ON gwi.id = ga.workflow_instance_id
@@ -738,8 +914,10 @@ class ApprovalService
             WHERE ga.tenant_id = ?
               AND ga.approver_user_id = ?
               AND ga.status = 'pending'
-            ORDER BY gwi.started_at DESC
-        ", [$tenantId, $userId]);
+            ORDER BY $order
+        ";
+
+        return [$sql, [$tenantId, $userId]];
     }
 
     public function findApproval(int $tenantId, int $approvalId, int $userId): ?array

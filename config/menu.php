@@ -46,6 +46,14 @@ return [
     ],
 
     [
+        'route'      => '/badges',
+        'label'      => 'Badges',
+        'icon'       => 'fa-solid fa-id-card-clip',
+        'permission' => 'visitors.issue_badge',
+        'match'      => 'prefix',
+    ],
+
+    [
         'route'      => '/approvals',
         'label'      => 'Approvals',
         'icon'       => 'fa-solid fa-circle-check',
@@ -54,10 +62,26 @@ return [
     ],
 
     [
+        'route'      => '/notifications',
+        'label'      => 'Notifications',
+        'icon'       => 'fa-solid fa-bell',
+        'permission' => 'notifications.view',
+        'match'      => 'prefix',
+    ],
+
+    [
         'route'      => '/reports',
         'label'      => 'Reports',
         'icon'       => 'fa-solid fa-chart-column',
         'permission' => 'reports.view',
+        'match'      => 'prefix',
+    ],
+
+    [
+        'route'      => '/audit',
+        'label'      => 'Audit trail',
+        'icon'       => 'fa-solid fa-clock-rotate-left',
+        'permission' => 'audit.view',
         'match'      => 'prefix',
     ],
 

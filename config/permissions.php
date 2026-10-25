@@ -36,6 +36,12 @@ return [
         'approve',
         'reject',
         'reassign',
+        'delegate',   // self-service out-of-office coverage
+    ],
+
+    'notifications' => [
+        'view',       // read own in-app feed and preferences
+        'update',     // change own channels, register/remove devices
     ],
 
     'visitors' => [

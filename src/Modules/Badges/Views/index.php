@@ -1,112 +1,253 @@
 <?php
+/**
+ * Badge operations list.
+ *
+ * @var array $badges   Paginated badge rows (BadgeRepository::list)
+ * @var array $meta     Paginator meta: total, per_page, current_page, last_page, from, to
+ * @var array $filters  Echoed filter values: status, visit_id, gatepass_id, holder_id
+ * @var string $search  Active search term
+ * @var array $holders  holder_id => name options for the filter bar
+ */
 
 use App\Core\View;
+use App\Middleware\CSRFMiddleware;
 
+$badges  = $badges ?? [];
+$meta    = $meta ?? ['total' => count($badges), 'current_page' => 1, 'last_page' => 1];
+$filters = $filters ?? [];
+$holders = $holders ?? [];
+$search  = trim((string) ($search ?? ($_GET['q'] ?? '')));
+
+/** Null-safe HTML escape */
+$e = static fn ($value): string => htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
+
+$canBadge = can('visitors.issue_badge');
+$token    = $canBadge ? CSRFMiddleware::token() : '';
+
+/** Pagination link that keeps every active filter. */
+$pageUrl = static function (int $page): string {
+    $query = $_GET;
+    $query['page'] = $page;
+    return '?' . htmlspecialchars(http_build_query($query), ENT_QUOTES, 'UTF-8');
+};
 ?>
 <div class="page-header">
     <h1 class="page-heading">
         <i class="fa-solid fa-id-badge"></i> Badge Operations
     </h1>
+
+    <div class="page-actions">
+        <?php if ($canBadge): ?>
+            <a href="/badges/create" class="btn btn-primary">
+                <i class="fa-solid fa-plus"></i> Issue Badge
+            </a>
+        <?php endif; ?>
+    </div>
 </div>
+
+<form method="GET" action="/badges" class="report-filters">
+
+    <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" style="font-size:0.72rem">Search</label>
+        <input
+            type="text"
+            name="q"
+            value="<?= $e($search) ?>"
+            placeholder="Badge code, holder, company…"
+            style="min-width:220px"
+        >
+    </div>
+
+    <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" style="font-size:0.72rem">Status</label>
+        <select name="status" style="min-width:140px">
+            <option value="">All</option>
+            <option value="issued"   <?= ($filters['status'] ?? '') === 'issued'   ? 'selected' : '' ?>>Issued</option>
+            <option value="returned" <?= ($filters['status'] ?? '') === 'returned' ? 'selected' : '' ?>>Returned</option>
+        </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" style="font-size:0.72rem">Visit</label>
+        <input
+            type="number"
+            name="visit_id"
+            min="1"
+            value="<?= (int) ($filters['visit_id'] ?? 0) ?: '' ?>"
+            placeholder="Visit ID"
+            style="min-width:120px"
+        >
+    </div>
+
+    <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" style="font-size:0.72rem">Gatepass</label>
+        <input
+            type="number"
+            name="gatepass_id"
+            min="1"
+            value="<?= (int) ($filters['gatepass_id'] ?? 0) ?: '' ?>"
+            placeholder="Gatepass ID"
+            style="min-width:130px"
+        >
+    </div>
+
+    <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" style="font-size:0.72rem">Holder</label>
+        <select name="holder_id" style="min-width:170px">
+            <option value="">All holders</option>
+            <?php foreach ($holders as $holderId => $holderName): ?>
+                <option value="<?= (int) $holderId ?>"
+                    <?= (int) ($filters['holder_id'] ?? 0) === (int) $holderId ? 'selected' : '' ?>>
+                    <?= $e($holderName) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+
+    <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" style="font-size:0.72rem; visibility:hidden">Actions</label>
+        <div style="display:flex; gap:var(--space-2); flex-wrap:wrap">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-filter"></i> Apply
+            </button>
+            <a href="/badges" class="btn btn-secondary">
+                <i class="fa-solid fa-xmark"></i> Clear
+            </a>
+        </div>
+    </div>
+
+</form>
 
 <div class="table-card">
     <?php View::render('components/results-bar', [
-        'total' => count($visits),
-        'noun'  => 'visit',
+        'total' => (int) ($meta['total'] ?? count($badges)),
+        'noun'  => 'badge',
+        'query' => $search,
     ]); ?>
 
-    <?php if (empty($visits)): ?>
+    <?php if (empty($badges)): ?>
         <div class="empty-state">
             <i class="fa-solid fa-id-badge"></i>
-            <div class="empty-state-title">No visits to manage</div>
-            <div class="empty-state-text">
-                Badge issuing and returns happen against checked-in visits.
+            <div class="empty-state-title">
+                <?= $search !== '' || !empty(array_filter($filters))
+                    ? 'No matching badges'
+                    : 'No badges issued yet' ?>
             </div>
+            <div class="empty-state-text">
+                Badges are issued against a checked-in visit and closed out when the card comes back.
+            </div>
+            <?php if ($canBadge): ?>
+                <a href="/badges/create" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus"></i> Issue Badge
+                </a>
+            <?php endif; ?>
         </div>
     <?php else: ?>
         <div class="table-responsive">
             <table class="table">
                 <thead>
                     <tr>
-                        <th>Visitor</th>
-                        <th>Company</th>
-                        <th>Purpose</th>
-                        <th>Check-In</th>
-                        <th>Check-Out</th>
                         <th>Badge</th>
-                        <th class="text-end" width="300">Actions</th>
+                        <th>Holder</th>
+                        <th>Visit</th>
+                        <th>Gatepass</th>
+                        <th>Issued</th>
+                        <th>Returned</th>
+                        <th>Status</th>
+                        <?php if ($canBadge): ?>
+                            <th class="text-end" width="150">Actions</th>
+                        <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($visits as $visit): ?>
-                        <?php $id = (int) $visit['id']; ?>
+                    <?php foreach ($badges as $badge): ?>
+                        <?php
+                            $visitId      = (int) ($badge['visit_id'] ?? 0);
+                            $holderId     = (int) ($badge['holder_id'] ?? 0);
+                            $gatepassId   = (int) ($badge['gatepass_id'] ?? 0);
+                            $isReturned   = !empty($badge['returned_at']);
+                            $isIssued     = !$isReturned && (int) ($badge['is_active'] ?? 0) === 1;
+                        ?>
                         <tr>
-                            <td><span class="cell-main"><?= htmlspecialchars($visit['visitor_name']) ?></span></td>
+                            <td><span class="cell-mono"><?= $e($badge['badge_code']) ?></span></td>
 
-                            <td><?= htmlspecialchars($visit['company_name'] ?? '—') ?></td>
-
-                            <td class="text-muted"><?= htmlspecialchars($visit['purpose'] ?? '—') ?></td>
-
-                            <td class="cell-date">
-                                <?= $visit['checkin_time'] ? htmlspecialchars($visit['checkin_time']) : '—' ?>
-                            </td>
-
-                            <td class="cell-date">
-                                <?= $visit['checkout_time'] ? htmlspecialchars($visit['checkout_time']) : '—' ?>
+                            <td>
+                                <?php if ($holderId > 0 && can('visitors.view')): ?>
+                                    <a class="cell-main" href="/visitors/<?= $holderId ?>"><?= $e($badge['holder_name']) ?></a>
+                                <?php else: ?>
+                                    <span class="cell-main"><?= $e($badge['holder_name']) ?></span>
+                                <?php endif; ?>
+                                <span class="cell-sub"><?= $e($badge['company_name'] ?? $badge['department_name'] ?? '—') ?></span>
                             </td>
 
                             <td>
-                                <?php if (!empty($visit['badge_code'])): ?>
-                                    <?php if (!empty($visit['badge_returned_at'])): ?>
-                                        <span class="badge badge-success">
-                                            <?= htmlspecialchars($visit['badge_code']) ?> · Returned
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="badge badge-warning">
-                                            <?= htmlspecialchars($visit['badge_code']) ?>
-                                        </span>
-                                    <?php endif; ?>
+                                <span class="cell-sub" style="margin-top:0">#<?= $visitId ?></span>
+                                <span class="cell-date"><?= $e($badge['purpose'] ?? '—') ?></span>
+                            </td>
+
+                            <td>
+                                <?php if ($gatepassId > 0 && can('gatepass.view')): ?>
+                                    <a href="/gatepasses/<?= $gatepassId ?>"><?= $e($badge['gatepass_number']) ?></a>
                                 <?php else: ?>
-                                    <span class="text-muted">No badge</span>
+                                    <span class="text-muted"><?= $gatepassId > 0 ? $e($badge['gatepass_number']) : '—' ?></span>
                                 <?php endif; ?>
                             </td>
 
-                            <td class="table-actions justify-content-end">
-                                <?php if (empty($visit['checkin_time']) && empty($visit['checkout_time'])): ?>
-                                    <form method="POST" action="/visits/<?= $id ?>/checkin" class="table-action-button">
-                                        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
-                                        <button class="btn btn-sm btn-soft-success">Check In</button>
-                                    </form>
-                                <?php endif; ?>
+                            <td class="cell-date"><?= format_date($badge['issued_at'] ?? null) ?></td>
 
-                                <?php if (!empty($visit['checkin_time']) && empty($visit['checkout_time']) && empty($visit['badge_code'])): ?>
-                                    <form method="POST" action="/badges/<?= $id ?>/issue" class="table-action-button">
-                                        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
-                                        <button class="btn btn-sm btn-secondary">Issue Badge</button>
-                                    </form>
-                                <?php endif; ?>
+                            <td class="cell-date"><?= format_date($badge['returned_at'] ?? null) ?></td>
 
-                                <?php if (!empty($visit['badge_code']) && empty($visit['badge_returned_at'])): ?>
-                                    <form method="POST" action="/badges/<?= $id ?>/return" class="table-action-button">
-                                        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
-                                        <button class="btn btn-sm btn-secondary">Return Badge</button>
-                                    </form>
-                                <?php endif; ?>
-
-                                <?php if (!empty($visit['checkin_time']) && empty($visit['checkout_time'])): ?>
-                                    <form method="POST" action="/visits/<?= $id ?>/checkout" class="table-action-button">
-                                        <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
-                                        <button class="btn btn-sm btn-soft-danger"
-                                            <?= !empty($visit['badge_code']) && empty($visit['badge_returned_at']) ? 'disabled title="Return badge first"' : '' ?>>
-                                            Check Out
-                                        </button>
-                                    </form>
+                            <td>
+                                <?php if ($isReturned): ?>
+                                    <span class="badge badge-returned">Returned</span>
+                                <?php elseif ($isIssued): ?>
+                                    <span class="badge badge-warning">Issued</span>
+                                <?php else: ?>
+                                    <span class="badge badge-secondary">Closed</span>
                                 <?php endif; ?>
                             </td>
+
+                            <?php if ($canBadge): ?>
+                                <td class="table-actions justify-content-end">
+                                    <?php if ($isIssued): ?>
+                                        <form method="POST" action="/badges/<?= $visitId ?>/return" class="table-action-button"
+                                              onsubmit="return confirm('Record this badge as returned?')">
+                                            <input type="hidden" name="_token" value="<?= $e($token) ?>">
+                                            <input type="hidden" name="redirect_to" value="/badges">
+                                            <button class="btn btn-sm btn-secondary">Return</button>
+                                        </form>
+                                    <?php else: ?>
+                                        <span class="text-muted" style="font-size:0.75rem">&mdash;</span>
+                                    <?php endif; ?>
+                                </td>
+                            <?php endif; ?>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
+
+        <?php if ((int) ($meta['last_page'] ?? 1) > 1): ?>
+            <div class="table-card-foot">
+                <span class="text-muted" style="font-size:0.78rem">
+                    Showing <?= (int) ($meta['from'] ?? 1) ?>&ndash;<?= (int) ($meta['to'] ?? 0) ?>
+                    of <?= (int) ($meta['total'] ?? 0) ?>
+                </span>
+
+                <nav class="pagination" aria-label="Pagination">
+                    <?php if ((int) $meta['current_page'] > 1): ?>
+                        <a class="page-link" href="<?= $pageUrl((int) $meta['current_page'] - 1) ?>" aria-label="Previous page">&laquo;</a>
+                    <?php endif; ?>
+
+                    <span class="page-info">
+                        Page <strong><?= (int) $meta['current_page'] ?></strong> of <?= (int) $meta['last_page'] ?>
+                    </span>
+
+                    <?php if ((int) $meta['current_page'] < (int) $meta['last_page']): ?>
+                        <a class="page-link" href="<?= $pageUrl((int) $meta['current_page'] + 1) ?>" aria-label="Next page">&raquo;</a>
+                    <?php endif; ?>
+                </nav>
+            </div>
+        <?php endif; ?>
     <?php endif; ?>
 </div>

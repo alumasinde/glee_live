@@ -1,112 +1,177 @@
 <?php
-/** @var array $visitor */
-/** @var array $visit */
-/** @var string|null $error */
+/**
+ * Per-visit badge issuance screen (POSTs to the existing /badges/{visit}/issue route).
+ *
+ * @var array       $visit   Visit + holder snapshot from BadgeRepository::visitForIssuance()
+ * @var array       $visitor Visitor record (risk / blacklist)
+ * @var string|null $error   Service error (flash-rendered by the layout otherwise)
+ */
+
+$e = static fn ($value): string => htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
+
+$visitId    = (int) ($visit['id'] ?? 0);
+$isCheckedIn = !empty($visit['checkin_time']);
+$isCheckedOut = !empty($visit['checkout_time']);
+$badgeOut   = !empty($visit['active_badge_code']);
+$blacklisted = (int) ($visitor['is_blacklisted'] ?? 0) === 1;
+$risk       = (int) ($visitor['risk_score'] ?? 0);
+
+$blocked = !$isCheckedIn || $isCheckedOut || $badgeOut || $blacklisted;
+$reason  = match (true) {
+    !$isCheckedIn   => 'The visitor is not checked in yet.',
+    $isCheckedOut   => 'The visit already closed out.',
+    $badgeOut      => 'A badge is already out on this visit — return it first.',
+    $blacklisted   => 'Blacklisted visitors cannot receive badges.',
+    default         => '',
+};
 ?>
+<div class="page-header">
+    <h1 class="page-heading">
+        <i class="fa-solid fa-id-badge"></i> Issue Visitor Badge
+    </h1>
 
-<div class="container mt-4">
+    <div class="page-actions">
+        <a href="/badges" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-arrow-left"></i> Back to Badges
+        </a>
+    </div>
+</div>
 
-    <div class="card shadow-sm">
-        <div class="card-header bg-dark text-white">
-            <h4 class="mb-0">Issue Visitor Badge</h4>
+<?php if (!empty($error)): ?>
+    <div class="alert alert-danger"><?= $e($error) ?></div>
+<?php endif; ?>
+
+<div class="table-card">
+    <div class="table-card-head">
+        <span class="table-card-title">
+            <i class="fa-solid fa-user-check"></i> Visit #<?= $visitId ?>
+        </span>
+    </div>
+
+    <div class="card-body">
+        <div class="info-grid">
+            <div class="info-item">
+                <label>Holder</label>
+                <span><?= $e($visit['visitor_name'] ?? '') ?></span>
+            </div>
+
+            <div class="info-item">
+                <label>ID Number</label>
+                <span class="cell-mono"><?= $e($visit['id_number'] ?? '—') ?></span>
+            </div>
+
+            <div class="info-item">
+                <label>Company</label>
+                <span><?= $e($visit['company_name'] ?? '—') ?></span>
+            </div>
+
+            <div class="info-item">
+                <label>Department</label>
+                <span><?= $e($visit['department_name'] ?? '—') ?></span>
+            </div>
+
+            <div class="info-item">
+                <label>Host</label>
+                <span><?= $e($visit['host_name'] ?? '—') ?></span>
+            </div>
+
+            <div class="info-item">
+                <label>Purpose</label>
+                <span><?= $e($visit['purpose'] ?? '—') ?></span>
+            </div>
+
+            <div class="info-item">
+                <label>Check-In</label>
+                <span><?= format_date($visit['checkin_time'] ?? null) ?></span>
+            </div>
+
+            <div class="info-item">
+                <label>Gatepass</label>
+                <span><?= $e($visit['gatepass_number'] ?? '—') ?></span>
+            </div>
+
+            <div class="info-item">
+                <label>Risk</label>
+                <span class="badge <?= $risk >= 70 ? 'badge-danger' : ($risk >= 40 ? 'badge-warning' : 'badge-success') ?>">
+                    <?= $risk ?>
+                </span>
+            </div>
+
+            <div class="info-item">
+                <label>Badge Out</label>
+                <span>
+                    <?php if ($badgeOut): ?>
+                        <span class="badge badge-warning"><?= $e($visit['active_badge_code']) ?></span>
+                    <?php else: ?>
+                        <span class="badge badge-secondary">None</span>
+                    <?php endif; ?>
+                </span>
+            </div>
+        </div>
+
+        <?php if ($blocked): ?>
+            <div class="alert alert-warning" style="margin-top:var(--space-4)">
+                <i class="fa-solid fa-circle-exclamation"></i> <?= $e($reason) ?>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<?php if (!$blocked): ?>
+    <div class="table-card">
+        <div class="table-card-head">
+            <span class="table-card-title">
+                <i class="fa-solid fa-print"></i> Badge Code
+            </span>
         </div>
 
         <div class="card-body">
-
-            <!-- Visitor Summary -->
-            <div class="mb-4">
-                <h5 class="border-bottom pb-2">Visitor Information</h5>
-
-                <div class="row">
-                    <div class="col-md-6">
-                        <strong>Name:</strong>
-                        <?= htmlspecialchars($visitor['first_name'] . ' ' . $visitor['last_name']) ?>
-                    </div>
-
-                    <div class="col-md-6">
-                        <strong>ID Number:</strong>
-                        <?= htmlspecialchars($visitor['id_number'] ?? 'N/A') ?>
-                    </div>
-
-                    <div class="col-md-6 mt-2">
-                        <strong>Company:</strong>
-                        <?= htmlspecialchars($visitor['company_name'] ?? 'N/A') ?>
-                    </div>
-
-                    <div class="col-md-6 mt-2">
-                        <strong>Risk Score:</strong>
-                        <span class="badge bg-<?= $visitor['risk_score'] > 50 ? 'danger' : 'success' ?>">
-                            <?= (int) $visitor['risk_score'] ?>
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Visit Info -->
-            <div class="mb-4">
-                <h5 class="border-bottom pb-2">Visit Details</h5>
-
-                <div class="row">
-                    <div class="col-md-6">
-                        <strong>Purpose:</strong>
-                        <?= htmlspecialchars($visit['purpose'] ?? 'N/A') ?>
-                    </div>
-
-                    <div class="col-md-6">
-                        <strong>Host:</strong>
-                        <?= htmlspecialchars($visit['host_name'] ?? 'N/A') ?>
-                    </div>
-
-                    <div class="col-md-6 mt-2">
-                        <strong>Check-In:</strong>
-                        <?= htmlspecialchars($visit['checked_in_at'] ?? 'Not checked in') ?>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Error Message -->
-            <?php if (!empty($error)): ?>
-                <div class="alert alert-danger">
-                    <?= htmlspecialchars($error) ?>
-                </div>
-            <?php endif; ?>
-
-            <!-- Issue Badge Form -->
-            <form method="POST">
+            <form method="POST" action="/badges/<?= $visitId ?>/issue">
                 <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+                <input type="hidden" name="redirect_to" value="/badges">
 
-                <div class="mb-3">
-                    <label class="form-label">Badge Code</label>
-                    <input 
+                <div class="form-group">
+                    <label class="form-label" for="badge_code">Badge Code <span class="text-muted">(optional)</span></label>
+                    <input
+                        class="form-control"
                         type="text"
                         name="badge_code"
-                        class="form-control"
-                        placeholder="Enter or generate badge code"
-                        required>
+                        id="badge_code"
+                        value="<?= $e($_POST['badge_code'] ?? '') ?>"
+                        placeholder="Auto-generated when left blank"
+                        pattern="[A-Za-z0-9][A-Za-z0-9_\-]{2,59}"
+                        autocomplete="off"
+                    >
                 </div>
 
-                <div class="d-flex justify-content-between">
-                    <button type="button" 
-                            class="btn btn-secondary"
-                            onclick="generateBadge()">
-                        Auto Generate
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-id-badge"></i> Issue Badge
                     </button>
-
-                    <button type="submit" class="btn btn-success">
-                        Issue Badge
-                    </button>
+                    <a href="/badges/create" class="btn btn-ghost">Cancel</a>
                 </div>
-
             </form>
-
         </div>
     </div>
-
-</div>
-
-<script>
-function generateBadge() {
-    const random = 'BDG-' + Math.floor(Math.random() * 1000000);
-    document.querySelector('[name="badge_code"]').value = random;
-}
-</script>
+<?php else: ?>
+    <div class="table-card">
+        <div class="card-body">
+            <?php if ($badgeOut): ?>
+                <form method="POST" action="/badges/<?= $visitId ?>/return" class="form-actions"
+                      onsubmit="return confirm('Record this badge as returned?')">
+                    <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+                    <input type="hidden" name="redirect_to" value="/badges">
+                    <button class="btn btn-secondary">
+                        <i class="fa-solid fa-rotate-left"></i> Return Badge
+                    </button>
+                </form>
+            <?php else: ?>
+                <div class="form-actions">
+                    <a href="/badges/create" class="btn btn-secondary">
+                        <i class="fa-solid fa-id-badge"></i> Choose Another Visit
+                    </a>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+<?php endif; ?>
