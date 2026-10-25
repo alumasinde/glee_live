@@ -20,7 +20,7 @@ PHPUNIT="vendor/bin/phpunit"
 PHPSTAN="vendor/bin/phpstan"
 
 # Known pre-existing phpstan findings (level 5). Anything above this is new.
-PHPSTAN_BASELINE=6
+PHPSTAN_BASELINE=5
 
 RUN_COVERAGE=0
 RUN_LINT=0

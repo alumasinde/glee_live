@@ -86,6 +86,7 @@ class GatepassService
             }
 
             Audit::log('gatepass.created', 'gatepass', $gatepassId, [
+                'target_label'    => $gatepassNumber,
                 'gatepass_number' => $gatepassNumber,
                 'needs_approval'  => $dto->needs_approval,
             ]);
@@ -272,7 +273,9 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
             return;
         }
 
-        $label = $action === 'checkin' ? 'Check-in' : 'Checkout';
+        $labels = ['checkin' => 'Check-in', 'checkout' => 'Checkout', 'return' => 'Return'];
+        $label = $labels[$action] ?? ucfirst($action);
+
         throw new RuntimeException(sprintf(
             '%s is not permitted for the "%s" gatepass type.',
             $label,
@@ -291,9 +294,23 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
             throw new RuntimeException('Gatepass is not returnable.');
         }
 
+        if (!empty($gatepass['actual_return_date'])) {
+            throw new RuntimeException('Gatepass already returned.');
+        }
+
+        $this->assertTypeActionAllowed($gatepass, 'return');
+
         $statusId = $this->statusRepo->requireIdByCode($tenantId, 'RETURNED');
 
-        return $this->repo->updateStatus($tenantId, $gatepassId, $statusId);
+        if (!$this->repo->markReturned($tenantId, $gatepassId, date('Y-m-d H:i:s'), $statusId)) {
+            throw new RuntimeException('Return not allowed in current state.');
+        }
+
+        // The gate has taken the items back, so the quantities the reporting
+        // and overdue queries read have to move with the status.
+        $this->itemRepo->markAllReturned($tenantId, $gatepassId);
+
+        return true;
     }
 
     public function find(int $tenantId, int $id): ?array
@@ -428,7 +445,11 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
             return $transition('checked_in', "{$number}: checked in successfully.");
         }
 
-        if ((int) ($gatepass['is_returnable'] ?? 0) === 1 && empty($gatepass['actual_out'])) {
+        if ((int) ($gatepass['is_returnable'] ?? 0) === 1) {
+            if (!empty($gatepass['actual_return_date'])) {
+                $this->rejectScan($tenantId, $gateId, 'gatepass', $id, $source, $userId, "{$number}: item already returned.");
+            }
+
             $this->markReturned($tenantId, $id);
             return $transition('returned', "{$number}: item returned successfully.");
         }
@@ -719,9 +740,55 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
             $parts[] = $month;
         }
 
-        $parts[] = str_pad((string) $config['sequence'], (int) $config['padding'], '0', STR_PAD_LEFT);
+        $parts = [];
 
-        $config['sequence']++;
+        if (!empty($config['prefix'])) {
+            $parts[] = $config['prefix'];
+        }
+
+        if (!empty($config['include_year'])) {
+            $parts[] = $year;
+        }
+
+        if (!empty($config['include_month'])) {
+            $parts[] = $month;
+        }
+
+        $sequence = (int) $config['sequence'];
+
+        // The stored counter can fall behind the rows that already exist — an
+        // import, a hand-inserted pass, or a create that committed and then had
+        // its counter update skipped. uk_gatepass_tenant_number would reject the
+        // insert with a raw duplicate-key error, so walk past taken numbers.
+        $exists = $this->db->prepare("
+            SELECT 1 FROM gatepasses
+            WHERE tenant_id       = :tenant_id
+              AND gatepass_number = :gatepass_number
+            LIMIT 1
+        ");
+
+        $taken = true;
+        $gatepassNumber = '';
+
+        for ($attempt = 0; $attempt < 100 && $taken; $attempt++) {
+            $gatepassNumber = implode('-', array_merge(
+                $parts,
+                [str_pad((string) $sequence, (int) $config['padding'], '0', STR_PAD_LEFT)]
+            ));
+
+            $exists->execute([':tenant_id' => $tenantId, ':gatepass_number' => $gatepassNumber]);
+            $taken = (bool) $exists->fetchColumn();
+
+            if ($taken) {
+                $sequence++;
+            }
+        }
+
+        if ($taken) {
+            throw new RuntimeException('Unable to allocate a free gatepass number for this tenant.');
+        }
+
+        $config['sequence'] = $sequence + 1;
 
         $update = $this->db->prepare("
             UPDATE tenant_settings
@@ -735,6 +802,6 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
             ':tenant_id'   => $tenantId,
         ]);
 
-        return implode('-', $parts);
+        return $gatepassNumber;
     }
 }

@@ -79,12 +79,9 @@ class Response
         // Uses your helper from bootstrap/app.php
         $base = base_path('resources/views/errors/');
 
-        $file = match ($code) {
-            403 => '403.php',
-            404 => '404.php',
-            500 => '500.php',
-            default => '500.php',
-        };
+        // A dedicated template wins; the generic one now prints the real
+        // status and message, so 419/422/429 stop posing as a 500.
+        $file = is_file($base . $code . '.php') ? $code . '.php' : '500.php';
 
         return $base . $file;
     }

@@ -59,4 +59,14 @@ if ($candidate !== false && is_file($candidate) && str_starts_with($candidate, $
     exit;
 }
 
+// The built-in server reports SCRIPT_NAME/PHP_SELF as the *requested* path when a
+// router handles it, which makes Request::uri() strip the first segment of every
+// nested route (dirname('/settings/gates') === '/settings'). Present the Apache-like
+// values instead, and point DOCUMENT_ROOT at public/ so the layouts' filemtime()
+// asset lookups resolve.
+$_SERVER['SCRIPT_NAME']     = '/index.php';
+$_SERVER['PHP_SELF']        = '/index.php';
+$_SERVER['SCRIPT_FILENAME'] = $publicDir . '/index.php';
+$_SERVER['DOCUMENT_ROOT']   = $publicDir;
+
 require dirname(__DIR__) . '/public/index.php';

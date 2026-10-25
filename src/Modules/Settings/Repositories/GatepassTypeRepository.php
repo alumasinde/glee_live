@@ -8,12 +8,19 @@ use App\Modules\Settings\DTOs\GatepassTypeDTO;
 
 class GatepassTypeRepository
 {
+    /**
+     * One column list for every read, so map() can never be handed a row that
+     * lacks a key it dereferences (the old all() omitted is_returnable and
+     * find() returned type_code, while map() asked for code).
+     */
+    private const COLUMNS = 'id, tenant_id, name, type_code AS code, allowed_actions, is_returnable, is_active, created_at';
+
     public function all(): array
     {
         $tenantId = Tenant::require();
 
         $rows = DB::query("
-            SELECT id, tenant_id, name, allowed_actions,is_active, type_code AS code,created_at
+            SELECT " . self::COLUMNS . "
             FROM gatepass_types
             WHERE tenant_id = ?
               AND is_active  = 1
@@ -26,7 +33,7 @@ class GatepassTypeRepository
     public function find(int $id, int $tenantId): ?GatepassTypeDTO
     {
         $row = DB::query("
-            SELECT *
+            SELECT " . self::COLUMNS . "
             FROM gatepass_types
             WHERE id        = ?
               AND tenant_id = ?
@@ -36,28 +43,45 @@ class GatepassTypeRepository
         return $row ? $this->map($row) : null;
     }
 
-    public function updateActions(int $id, array $actions): void
+    /**
+     * @param array<string, bool> $actions
+     * @param bool|null $isReturnable null leaves the stored flag untouched
+     */
+    public function updateConfig(int $id, array $actions, ?bool $isReturnable): void
     {
         $tenantId = Tenant::require();
 
+        $sets = ['allowed_actions = ?'];
+        $args = [json_encode($actions, JSON_UNESCAPED_SLASHES)];
+
+        if ($isReturnable !== null) {
+            $sets[] = 'is_returnable = ?';
+            $args[] = $isReturnable ? 1 : 0;
+        }
+
         // Row existence is validated by find() before this runs; MySQL reports
         // rowCount 0 for a save that changed nothing, so never gate on it.
+        $args[] = $id;
+        $args[] = $tenantId;
+
         DB::query("
             UPDATE gatepass_types
-            SET allowed_actions = ?
+            SET " . implode(', ', $sets) . "
             WHERE id        = ?
-              AND tenant_id  = ?
-        ", [json_encode($actions), $id, $tenantId]);
+              AND tenant_id = ?
+        ", $args);
     }
 
- private function map(array $row): GatepassTypeDTO
+    private function map(array $row): GatepassTypeDTO
     {
+        $actions = json_decode((string) ($row['allowed_actions'] ?? '[]'), true);
+
         return new GatepassTypeDTO(
             id:             (int) $row['id'],
             tenantId:       (int) $row['tenant_id'],
-            name:           $row['name'],
-            allowedActions: json_decode($row['allowed_actions'] ?? '{}', true) ?? [],
-            code:           $row['code'] ?? null,
+            name:           (string) $row['name'],
+            allowedActions: is_array($actions) ? $actions : [],
+            code:           isset($row['code']) ? (string) $row['code'] : null,
             isReturnable:   !empty($row['is_returnable'])
         );
     }

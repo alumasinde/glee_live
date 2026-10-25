@@ -5,8 +5,8 @@ namespace App\Modules\Settings\Validation;
 
 class GatepassTypeValidator
 {
-    public static function validateActions(bool $checkin, bool $checkout): void
+    public static function validateActions(bool $checkin, bool $checkout, bool $return): void
     {
-        // Both false is valid — a type may have no actions permitted
+        // All three off is valid — a type may permit no gate action at all.
     }
 }

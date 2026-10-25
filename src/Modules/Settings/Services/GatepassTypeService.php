@@ -31,9 +31,13 @@ class GatepassTypeService
         return $type;
     }
 
-    public function updateActions(int $id, bool $checkin, bool $checkout): void
+    /**
+     * @param bool|null $isReturnable null = caller did not send the flag, so the
+     *                                stored value survives untouched.
+     */
+    public function updateConfig(int $id, bool $checkin, bool $checkout, bool $return, ?bool $isReturnable): void
     {
-        GatepassTypeValidator::validateActions($checkin, $checkout);
+        GatepassTypeValidator::validateActions($checkin, $checkout, $return);
 
         $tenantId = Tenant::require();
 
@@ -43,36 +47,33 @@ class GatepassTypeService
             throw new RuntimeException('Gatepass type not found.');
         }
 
-        $before = $type->allowedActions ?? [];
-
-        $after = [
-            'checkin'  => (bool) $checkin,
-            'checkout' => (bool) $checkout,
+        $actions = [
+            'checkin'  => $checkin,
+            'checkout' => $checkout,
+            'return'   => $return,
         ];
 
-        try {
-            DB::transaction(function () use ($id, $after, $before) {
+        $returnableAfter = $isReturnable ?? $type->isReturnable;
 
-                $this->repo->updateActions($id, $after);
+        DB::transaction(function () use ($id, $type, $actions, $isReturnable, $returnableAfter) {
 
-                Audit::log(
-                    action:     'gatepass_type.updated_actions',
-                    entityType: 'gatepass_type',
-                    entityId:   $id,
-                    metadata:   [
-                        'before' => $before,
-                        'after'  => $after,
-                    ]
-                );
-            });
+            $this->repo->updateConfig($id, $actions, $isReturnable);
 
-        } catch (\Throwable $e) {
-            // IMPORTANT: rethrow so controller can show real error
-            throw new RuntimeException(
-                'Gatepass update failed: ' . $e->getMessage(),
-                0,
-                $e
+            Audit::log(
+                action:     'gatepass_type.updated_config',
+                entityType: 'gatepass_type',
+                entityId:   $id,
+                metadata:   [
+                    'before' => [
+                        'allowed_actions' => $type->allowedActions,
+                        'is_returnable'   => $type->isReturnable,
+                    ],
+                    'after'  => [
+                        'allowed_actions' => $actions,
+                        'is_returnable'   => $returnableAfter,
+                    ],
+                ]
             );
-        }
+        });
     }
 }

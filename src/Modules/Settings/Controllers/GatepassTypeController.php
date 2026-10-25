@@ -45,11 +45,25 @@ class GatepassTypeController extends Controller
 
         $checkin = !empty($body['checkin']);
         $checkout = !empty($body['checkout']);
+        $return = !empty($body['return']);
+
+        // Absent key = older form/JSON client that knows nothing about the flag:
+        // leave whatever the row says instead of silently switching it off.
+        $isReturnable = array_key_exists('returnable', $body)
+            ? !empty($body['returnable'])
+            : null;
 
         try {
-            $this->service->updateActions($id, $checkin, $checkout);
+            $this->service->updateConfig($id, $checkin, $checkout, $return, $isReturnable);
 
             return Response::json(['success' => true]);
+
+        } catch (\PDOException $e) {
+            error_log(sprintf('GatepassTypeController::update hit a DB constraint for type %d: %s', $id, $e->getMessage()));
+
+            return Response::json([
+                'message' => 'Gatepass type could not be saved.'
+            ], 400);
 
         } catch (RuntimeException $e) {
             return Response::json([

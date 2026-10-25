@@ -398,14 +398,15 @@ foreach ($tenants as $tid) {
             stampEscalation($pdo, (int) $row['id'], $tid);
 
             \App\Core\Audit::system($tid, 'approval.escalated_reminder', 'gatepass_approval', (int) $row['id'], [
-                'gatepass_number'  => $row['gatepass_number'],
-                'gatepass_id'      => (int) $row['gatepass_id'],
-                'instance_id'      => (int) $row['workflow_instance_id'],
-                'step_name'        => $row['step_name'],
-                'approver_user_id' => (int) $row['approver_user_id'],
-                'age_hours'        => $ageHours,
-                'escalation_count' => $escalated + 1,
-                'channels'         => $outcomes,
+                'target_label'       => $row['gatepass_number'],
+                'gatepass_number'    => $row['gatepass_number'],
+                'gatepass_id'        => (int) $row['gatepass_id'],
+                'instance_id'        => (int) $row['workflow_instance_id'],
+                'step_name'          => $row['step_name'],
+                'approver_user_id'   => (int) $row['approver_user_id'],
+                'age_hours'          => $ageHours,
+                'escalation_count'   => $escalated + 1,
+                'channels'           => $outcomes,
             ]);
 
             $totals['nudged']++;

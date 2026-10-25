@@ -1,11 +1,7 @@
 <?php
-    $createdKey = null;
-    if (!empty($_GET['created'])) {
-        $parts = explode('|', (string) $_GET['created'], 2);
-        if (count($parts) === 2 && $parts[1] !== '') {
-            $createdKey = $parts;
-        }
-    }
+    $createdKey = is_array($created ?? null) && count($created) === 2 && $created[1] !== ''
+        ? $created
+        : null;
     $error = $_GET['error'] ?? null;
 
     use App\Core\View;

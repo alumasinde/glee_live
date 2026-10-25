@@ -253,6 +253,12 @@ try {
 
     $numberConfig += ['prefix' => 'GPN', 'padding' => 4, 'include_year' => true, 'reset_yearly' => true];
 
+    // The format is inherited from the template, the counter is not: a demo has
+    // no rows yet, so it must start at 0001 rather than wherever the template
+    // tenant left off.
+    $numberConfig['sequence']     = 1;
+    $numberConfig['current_year'] = (int) date('Y');
+
     $upsertSetting = $db->prepare('
         INSERT INTO tenant_settings (tenant_id, setting_key, config_json, setting_value, updated_at)
         VALUES (?, ?, ?, ?, NOW())
@@ -263,7 +269,7 @@ try {
     $upsertSetting->execute([$demoId, 'mail', json_encode(\App\Core\Mailer::defaults()), '{"last_seq":0}']);
     $upsertSetting->execute([$demoId, 'sms', json_encode(\App\Core\Notification\NotificationGateway::defaults()), null]);
     $upsertSetting->execute([$demoId, 'push', json_encode(\App\Core\Notification\NotificationGateway::defaults()), null]);
-    $upsertSetting->execute([$demoId, 'gatepass_numbering', json_encode($numberConfig), json_encode(['last_seq' => 0, 'sequence' => 4])]);
+    $upsertSetting->execute([$demoId, 'gatepass_numbering', json_encode($numberConfig), json_encode(['last_seq' => 0])]);
     $upsertSetting->execute([$demoId, 'badge_expiry_hours', '{"max":72,"min":1,"type":"number"}', '{"value":8}']);
     $upsertSetting->execute([$demoId, 'auto_checkout_hours', '{"max":24,"min":1,"type":"number"}', '{"value":12}']);
 
@@ -342,12 +348,19 @@ try {
 
         // A fresh schema seeds fewer roles than a drifted one, so a named role
         // can be absent — never leave a demo user with no permissions at all.
-        $roleId = $roleMap[$role] ?? $fallbackRoleId;
+        // The roster's "Owner" is the administrator: on a schema that has no
+        // Owner role it maps to "admin", otherwise the demo ships with nobody
+        // who can open Settings.
+        $roleName = ($role === 'Owner' && !isset($roleMap['Owner']) && isset($roleMap['admin']))
+            ? 'admin'
+            : $role;
+
+        $roleId = $roleMap[$roleName] ?? $fallbackRoleId;
 
         $db->prepare('INSERT IGNORE INTO user_roles (user_id, role_id, tenant_id) VALUES (?, ?, ?)')
            ->execute([$id, $roleId, $demoId]);
 
-        if (!isset($roleMap[$role])) {
+        if (!isset($roleMap[$roleName])) {
             $unmapped[] = $role;
         }
     }
@@ -466,12 +479,11 @@ try {
         'Bank courier cash collection', 'External trainer for the workshop',
     ];
 
-    $numberSeq = (int) ($numberConfig['last_seq'] ?? 0);
-    $makeNumber = function () use (&$numberSeq, $numberConfig, $db, $demoId): string {
-        $numberSeq++;
-        $db->prepare('UPDATE tenant_settings SET setting_value = ? WHERE tenant_id = ? AND setting_key = ?')
-           ->execute([json_encode(['last_seq' => $numberSeq, 'sequence' => 4]), $demoId, 'gatepass_numbering']);
+    // The service reads its counter from config_json.sequence, so the seeder has
+    // to advance that same key or the first UI create hits the unique index.
+    $numberSeq = (int) ($numberConfig['sequence'] ?? 1);
 
+    $makeNumber = function () use (&$numberSeq, $numberConfig, $db, $demoId): string {
         $parts = [$numberConfig['prefix']];
 
         if (!empty($numberConfig['include_year'])) {
@@ -479,6 +491,15 @@ try {
         }
 
         $parts[] = str_pad((string) $numberSeq, max(2, (int) $numberConfig['padding']), '0', STR_PAD_LEFT);
+
+        $advanced = $numberConfig;
+        $advanced['sequence'] = $numberSeq + 1;
+        $advanced['current_year'] = (int) date('Y');
+
+        $db->prepare('UPDATE tenant_settings SET config_json = ?, setting_value = ? WHERE tenant_id = ? AND setting_key = ?')
+           ->execute([json_encode($advanced), json_encode(['last_seq' => $numberSeq]), $demoId, 'gatepass_numbering']);
+
+        $numberSeq++;
 
         return implode('-', $parts);
     };

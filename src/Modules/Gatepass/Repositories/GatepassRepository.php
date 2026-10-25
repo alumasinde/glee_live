@@ -224,10 +224,43 @@ final class GatepassRepository
 
     /*
     |--------------------------------------------------------------------------
-    | FIND BY ID
+    | RETURN
+    | The guarded actual_return_date IS NULL is what makes a second return
+    | scan fail instead of re-announcing the first one.
     |--------------------------------------------------------------------------
     */
-    public function findById(int $tenantId, int $id): ?array
+    public function markReturned(
+        int    $tenantId,
+        int    $gatepassId,
+        string $timestamp,
+        int    $returnedStatusId
+    ): bool {
+        $stmt = $this->db->prepare("
+            UPDATE gatepasses
+            SET actual_return_date = :timestamp,
+                is_fully_returned  = 1,
+                status_id          = :status_id
+            WHERE tenant_id          = :tenant_id
+              AND id                 = :id
+              AND is_returnable      = 1
+              AND actual_return_date IS NULL
+        ");
+
+        $stmt->execute([
+            ':timestamp'  => $timestamp,
+            ':status_id'  => $returnedStatusId,
+            ':tenant_id'  => $tenantId,
+            ':id'         => $gatepassId,
+        ]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FIND BY ID
+    |--------------------------------------------------------------------------
+    */    public function findById(int $tenantId, int $id): ?array
     {
         $stmt = $this->db->prepare("
             SELECT

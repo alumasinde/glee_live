@@ -23,7 +23,7 @@ class GateSettingController extends Controller
     {
         return $this->view('Settings::gates', [
             'gates'   => $this->service->all(),
-            'created' => $_GET['created'] ?? null,
+            'created' => $_SESSION['flash']['gate_device'] ?? null,
             'error'   => $_GET['error'] ?? null,
         ]);
     }
@@ -36,9 +36,15 @@ class GateSettingController extends Controller
                 trim((string) $request->input('code', ''))
             );
 
-            return Response::redirect(
-                '/settings/gates?created=' . urlencode($result['id'] . '|' . $result['key'])
-            );
+            // The plaintext key is shown once and never travels in a URL: query
+            // strings end up in access logs, browser history and referrer headers.
+            $_SESSION['flash'] = [
+                'type'        => 'success',
+                'message'     => 'Gate created.',
+                'gate_device' => [$result['id'], $result['key']],
+            ];
+
+            return Response::redirect('/settings/gates');
         } catch (RuntimeException $e) {
             return Response::redirect('/settings/gates?error=' . urlencode($e->getMessage()));
         }
@@ -69,9 +75,13 @@ class GateSettingController extends Controller
         try {
             $key = $this->service->rotateKey($id);
 
-            return Response::redirect(
-                '/settings/gates?created=' . urlencode($id . '|' . $key)
-            );
+            $_SESSION['flash'] = [
+                'type'        => 'success',
+                'message'     => 'Device key rotated.',
+                'gate_device' => [$id, $key],
+            ];
+
+            return Response::redirect('/settings/gates');
         } catch (RuntimeException $e) {
             return Response::redirect('/settings/gates?error=' . urlencode($e->getMessage()));
         }

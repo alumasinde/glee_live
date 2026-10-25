@@ -16,10 +16,6 @@ use Throwable;
 
 final class VisitService
 {
-    private const STATUS_PENDING    = 1;
-    private const STATUS_CHECKED_IN = 2;
-    private const STATUS_COMPLETED  = 3;
-
     private VisitRepository $visitRepo;
     private BadgeRepository $badgeRepo;
     private VisitorRepository $visitorRepo;
@@ -31,6 +27,30 @@ final class VisitService
         $this->badgeRepo   = new BadgeRepository();
         $this->visitorRepo = new VisitorRepository();
         $this->db          = DB::connect();
+    }
+
+    /**
+     * Status rows are per-tenant, so their ids can never be hardcoded — the
+     * composite FK on (visit_status_id, tenant_id) rejects another tenant's id.
+     */
+    private function statusId(int $tenantId, string $code): int
+    {
+        $stmt = $this->db->prepare("
+            SELECT id
+            FROM visit_statuses
+            WHERE tenant_id = :tenant_id
+              AND UPPER(code) = :code
+            LIMIT 1
+        ");
+
+        $stmt->execute([':tenant_id' => $tenantId, ':code' => strtoupper($code)]);
+        $id = $stmt->fetchColumn();
+
+        if (!$id) {
+            throw new RuntimeException(strtoupper($code) . ' visit status not configured for this tenant.');
+        }
+
+        return (int) $id;
     }
 
     /*
@@ -70,7 +90,7 @@ final class VisitService
                 'visitor_id'      => $dto->visitor_id,
                 'host_user_id'    => $dto->host_user_id,
                 'visit_type_id'   => $dto->visit_type_id,
-                'visit_status_id' => self::STATUS_PENDING,
+                'visit_status_id' => $this->statusId($dto->tenant_id, 'scheduled'),
                 'purpose'         => $dto->purpose,
                 'expected_in'     => $dto->expected_in,
                 'expected_out'    => $dto->expected_out,
@@ -138,7 +158,7 @@ final class VisitService
             $this->visitRepo->checkIn(
                 $tenantId,
                 $visitId,
-                self::STATUS_CHECKED_IN
+                $this->statusId($tenantId, 'checked_in')
             );
 
             Audit::log(
@@ -177,11 +197,11 @@ final class VisitService
             throw new RuntimeException('Visitor already checked out.');
         }
 
-        if ($this->badgeRepo->hasActiveBadge($visitId, $tenantId)) {
-        throw new RuntimeException(
-            'Badge must be returned before checkout.'
-        );
-    }
+        if ($this->badgeRepo->hasActiveBadge($tenantId, $visitId)) {
+            throw new RuntimeException(
+                'Badge must be returned before checkout.'
+            );
+        }
 
         $this->db->beginTransaction();
 
@@ -191,7 +211,7 @@ final class VisitService
             $this->visitRepo->checkOut(
                 $tenantId,
                 $visitId,
-                self::STATUS_COMPLETED
+                $this->statusId($tenantId, 'checked_out')
             );
 
             // Auto return badge

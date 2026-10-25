@@ -14,6 +14,7 @@ use App\Modules\Gatepass\Policies\GatepassPolicy;
 use App\Modules\Gatepass\Repositories\GatepassTypeRepository;
 use App\Modules\Gatepass\Services\GatepassService;
 use InvalidArgumentException;
+use RuntimeException;
 
 class GatepassController extends Controller
 {
@@ -139,19 +140,21 @@ class GatepassController extends Controller
 
             $gatepassId = $this->service->create($dto);
 
-            Audit::log(
-                'gatepass.created',
-                'gatepass',
-                $gatepassId,
-                [
-                    'target_label' => 'Gatepass #' . $gatepassId
-                ]
-            );
+            // create() already audit-logs gatepass.created with the real
+            // gatepass number inside its transaction — logging here too
+            // wrote two rows per pass.
 
             $_SESSION['flash'] = ['message' => 'Gatepass created successfully.', 'type' => 'success'];
 
-        } catch (\Throwable $e) {
+        } catch (RuntimeException | InvalidArgumentException $e) {
             $_SESSION['flash'] = ['message' => $e->getMessage(), 'type' => 'danger'];
+            header('Location: /gatepasses/create');
+            exit;
+
+        } catch (\Throwable $e) {
+            error_log('Gatepass create failed: ' . $e->getMessage());
+
+            $_SESSION['flash'] = ['message' => 'The gatepass could not be saved.', 'type' => 'danger'];
             header('Location: /gatepasses/create');
             exit;
         }

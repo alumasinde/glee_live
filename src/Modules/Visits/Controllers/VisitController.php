@@ -10,6 +10,7 @@ use App\Core\View;
 use App\Core\Response;
 use App\Modules\Visits\Services\VisitService;
 use App\Modules\Visits\DTOs\VisitDTO;
+use InvalidArgumentException;
 use RuntimeException;
 
 final class VisitController extends Controller
@@ -107,11 +108,20 @@ public function create(Request $request): void
                 'message' => 'Visit created successfully.'
             ];
 
-        } catch (RuntimeException $e) {
+        } catch (RuntimeException | InvalidArgumentException $e) {
 
             $_SESSION['flash'] = [
                 'type' => 'danger',
                 'message' => $e->getMessage()
+            ];
+
+        } catch (\Throwable $e) {
+
+            error_log('Visit action failed: ' . $e->getMessage());
+
+            $_SESSION['flash'] = [
+                'type' => 'danger',
+                'message' => 'The visit could not be saved.'
             ];
         }
 
@@ -140,11 +150,20 @@ public function create(Request $request): void
                 'message' => 'Visitor checked in successfully.'
             ];
 
-        } catch (RuntimeException $e) {
+        } catch (RuntimeException | InvalidArgumentException $e) {
 
             $_SESSION['flash'] = [
                 'type' => 'danger',
                 'message' => $e->getMessage()
+            ];
+
+        } catch (\Throwable $e) {
+
+            error_log('Visit action failed: ' . $e->getMessage());
+
+            $_SESSION['flash'] = [
+                'type' => 'danger',
+                'message' => 'The visit could not be saved.'
             ];
         }
 
@@ -173,11 +192,20 @@ public function create(Request $request): void
                 'message' => 'Visitor checked out successfully.'
             ];
 
-        } catch (RuntimeException $e) {
+        } catch (RuntimeException | InvalidArgumentException $e) {
 
             $_SESSION['flash'] = [
                 'type' => 'danger',
                 'message' => $e->getMessage()
+            ];
+
+        } catch (\Throwable $e) {
+
+            error_log('Visit action failed: ' . $e->getMessage());
+
+            $_SESSION['flash'] = [
+                'type' => 'danger',
+                'message' => 'The visit could not be saved.'
             ];
         }
 

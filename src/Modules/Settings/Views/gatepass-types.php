@@ -22,7 +22,8 @@
             <i class="fa-solid fa-id-badge"></i>
             <div class="empty-state-title">No gatepass types found</div>
             <div class="empty-state-text">
-                Types define which actions — check-in, check-out, returnable — a gatepass permits.
+                Types decide which gate actions a pass allows, and whether new
+                passes of that type start out returnable.
             </div>
         </div>
     <?php else: ?>
@@ -35,16 +36,31 @@
                     <th>Code</th>
                     <th>Check-in</th>
                     <th>Check-out</th>
-                    <th>Returnable</th>
+                    <th>Return scan</th>
+                    <th>Returnable by default</th>
                     <th></th>
                 </tr>
             </thead>
 
             <tbody>
+                <?php
+                // Matches assertTypeActionAllowed(): no config means the gate
+                // allows everything, so say that instead of implying a block.
+                $actionBadge = function (bool $allowed, bool $configured): string {
+                    if (!$configured) {
+                        return '<span class="badge badge-secondary">Allowed · unset</span>';
+                    }
+
+                    return $allowed
+                        ? '<span class="badge badge-success">Enabled</span>'
+                        : '<span class="badge badge-danger">Disabled</span>';
+                };
+                ?>
                 <?php foreach ($types as $type):
-                    $actions = $type->allowedActions ?? ['checkin' => false, 'checkout' => false];
-                    $checkin  = !empty($actions['checkin']);
-                    $checkout = !empty($actions['checkout']);
+                    $configured = $type->hasActionConfig();
+                    $checkin  = $type->allowsAction('checkin');
+                    $checkout = $type->allowsAction('checkout');
+                    $return   = $type->allowsAction('return');
 
                     // SAFE JS encoding (important fix)
                     $safeName = htmlspecialchars(json_encode($type->name), ENT_QUOTES, 'UTF-8');
@@ -54,20 +70,14 @@
                         <td><strong><?= htmlspecialchars($type->name) ?></strong></td>
                         <td><code><?= htmlspecialchars($type->code ?? '—') ?></code></td>
 
-                        <td>
-                            <?= $checkin
-                                ? '<span class="badge badge-success">Enabled</span>'
-                                : '<span class="badge badge-secondary">Disabled</span>' ?>
-                        </td>
+                        <td><?= $actionBadge($checkin, $configured) ?></td>
+
+                        <td><?= $actionBadge($checkout, $configured) ?></td>
+
+                        <td><?= $actionBadge($return, $configured) ?></td>
 
                         <td>
-                            <?= $checkout
-                                ? '<span class="badge badge-success">Enabled</span>'
-                                : '<span class="badge badge-secondary">Disabled</span>' ?>
-                        </td>
-
-                        <td>
-                            <?= !empty($type->isReturnable)
+                            <?= $type->isReturnable
                                 ? '<span class="badge badge-info">Yes</span>'
                                 : '<span class="badge badge-secondary">No</span>' ?>
                         </td>
@@ -79,6 +89,8 @@
                                     <?= (int)$type->id ?>,
                                     <?= $checkin ? 'true' : 'false' ?>,
                                     <?= $checkout ? 'true' : 'false' ?>,
+                                    <?= $return ? 'true' : 'false' ?>,
+                                    <?= $type->isReturnable ? 'true' : 'false' ?>,
                                     <?= $safeName ?>
                                 )"
                             >
@@ -118,6 +130,25 @@
                     Allow Check-out
                 </label>
             </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="return">
+                    Allow Return scan
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="returnable">
+                    Returnable by default
+                </label>
+                <p class="form-text">
+                    New gatepasses of this type start with the Returnable box ticked.
+                    The requester can still change it, and a returnable pass needs an
+                    expected return date.
+                </p>
+            </div>
         </div>
 
         <div class="modal-footer">
@@ -132,13 +163,15 @@
 let currentId = null;
 
 /* ---------------- MODAL ---------------- */
-function openEditModal(id, checkin, checkout, name) {
+function openEditModal(id, checkin, checkout, returnAction, returnable, name) {
     currentId = id;
 
     document.getElementById('modalTitle').innerText = "Configure: " + name;
 
     document.getElementById('checkin').checked = !!checkin;
     document.getElementById('checkout').checked = !!checkout;
+    document.getElementById('return').checked = !!returnAction;
+    document.getElementById('returnable').checked = !!returnable;
 
     document.getElementById('modal').classList.add('show');
 }
@@ -208,6 +241,8 @@ async function save(btn) {
             id: currentId,
             checkin: document.getElementById('checkin').checked ? 1 : 0,
             checkout: document.getElementById('checkout').checked ? 1 : 0,
+            return: document.getElementById('return').checked ? 1 : 0,
+            returnable: document.getElementById('returnable').checked ? 1 : 0,
         });
 
         let data = {};

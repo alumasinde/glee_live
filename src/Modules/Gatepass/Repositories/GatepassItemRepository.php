@@ -72,21 +72,24 @@ class GatepassItemRepository
         $stmt->execute([':tenant_id' => $tenantId, ':gatepass_id' => $gatepassId]);
     }
 
-    public function updateReturnedQuantity(int $tenantId, int $itemId, int $returnedQty): bool
+    /**
+     * Close out the expected quantities when the gate takes the items back.
+     * Consumable lines (is_returnable = 0) stay at their recorded quantity so
+     * the pass can still be marked fully returned.
+     */
+    public function markAllReturned(int $tenantId, int $gatepassId): int
     {
         $stmt = $this->db->prepare("
             UPDATE gatepass_items
-            SET returned_quantity = :returned_quantity
-            WHERE tenant_id = :tenant_id
-              AND id        = :id
+            SET returned_quantity = quantity
+            WHERE tenant_id   = :tenant_id
+              AND gatepass_id = :gatepass_id
+              AND is_returnable = 1
+              AND (returned_quantity IS NULL OR returned_quantity < quantity)
         ");
 
-        $stmt->execute([
-            ':returned_quantity' => max(0, $returnedQty),
-            ':tenant_id'         => $tenantId,
-            ':id'                => $itemId,
-        ]);
+        $stmt->execute([':tenant_id' => $tenantId, ':gatepass_id' => $gatepassId]);
 
-        return $stmt->rowCount() > 0;
+        return $stmt->rowCount();
     }
 }

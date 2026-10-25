@@ -30,6 +30,7 @@
                 <option value="">— Select Type —</option>
                 <?php foreach (($types ?? []) as $type): ?>
                     <option value="<?= $type['id'] ?>"
+                        data-returnable="<?= (int) ($type['is_returnable'] ?? 0) ?>"
                         <?= (($_POST['gatepass_type_id'] ?? '') == $type['id']) ? 'selected' : '' ?>>
                         <?= htmlspecialchars($type['name']) ?>
                     </option>
@@ -45,8 +46,8 @@
 
         <!-- RETURN DATE -->
         <div class="gp-field">
-            <label class="gp-label">Expected Return Date <span class="gp-hint">(Optional)</span></label>
-            <input class="gp-input" type="date" name="expected_return_date"
+            <label class="gp-label">Expected Return Date <span class="gp-hint" id="return-date-hint">(Optional)</span></label>
+            <input class="gp-input" type="date" id="expected_return_date" name="expected_return_date"
                    value="<?= htmlspecialchars($_POST['expected_return_date'] ?? '') ?>">
         </div>
 
@@ -54,7 +55,7 @@
         <div class="gp-options">
             <input type="hidden" name="is_returnable" value="0">
             <label class="gp-checkbox">
-                <input type="checkbox" name="is_returnable" value="1"
+                <input type="checkbox" id="is_returnable" name="is_returnable" value="1"
                     <?= isset($_POST['is_returnable']) && $_POST['is_returnable'] == 1 ? 'checked' : '' ?>>
                 <span class="gp-checkbox__box"></span>
                 <span class="gp-checkbox__label">Is Returnable <span class="gp-hint">(Gatepass Level)</span></span>
@@ -190,4 +191,43 @@ function addItem() {
 function removeItem(button) {
     button.closest('.gp-item').remove();
 }
+
+/* Type decides the starting Returnable value; the requester may still change it. */
+(function () {
+    const typeSelect = document.querySelector('select[name="gatepass_type_id"]');
+    const returnable = document.getElementById('is_returnable');
+    const returnDate = document.getElementById('expected_return_date');
+    const hint       = document.getElementById('return-date-hint');
+
+    if (!typeSelect || !returnable || !returnDate) return;
+
+    // A submitted form already carries the requester's own choice.
+    let overridden = <?= isset($_POST['is_returnable']) ? 'true' : 'false' ?>;
+
+    function typeDefault() {
+        const opt = typeSelect.selectedOptions[0];
+        return !!opt && opt.dataset.returnable === '1';
+    }
+
+    function syncDateRequirement() {
+        returnDate.required = returnable.checked;
+
+        if (hint) {
+            hint.textContent = returnable.checked ? '(Required for a returnable pass)' : '(Optional)';
+        }
+    }
+
+    typeSelect.addEventListener('change', function () {
+        if (!overridden) returnable.checked = typeDefault();
+        syncDateRequirement();
+    });
+
+    returnable.addEventListener('change', function () {
+        overridden = true;
+        syncDateRequirement();
+    });
+
+    if (!overridden && typeSelect.value) returnable.checked = typeDefault();
+    syncDateRequirement();
+})();
 </script>
