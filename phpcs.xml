@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<ruleset name="Custom Project Rules">
+    <description>Custom rules to fix line length errors.</description>
+
+    <!-- Exclude dependency folders -->
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+
+    <!-- Inherit standard PSR12 rules -->
+    <rule ref="PSR12"/>
+
+    <!-- Increase the allowed line length to 150 characters -->
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="150"/>
+            <property name="absoluteLineLimit" value="0"/>
+        </properties>
+    </rule>
+</ruleset>

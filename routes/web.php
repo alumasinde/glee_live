@@ -49,8 +49,8 @@ $router->setGlobalMiddleware([SecurityHeadersMiddleware::class]);
 $auth     = [AuthMiddleware::class];
 $authCsrf = [AuthMiddleware::class, CSRFMiddleware::class];
 
-$perm     = fn (string $p): array => [AuthMiddleware::class, PermissionMiddleware::class . ':' . $p];
-$permCsrf = fn (string $p): array => [AuthMiddleware::class, PermissionMiddleware::class . ':' . $p, CSRFMiddleware::class];
+$perm     = fn(string $p): array => [AuthMiddleware::class, PermissionMiddleware::class . ':' . $p];
+$permCsrf = fn(string $p): array => [AuthMiddleware::class, PermissionMiddleware::class . ':' . $p, CSRFMiddleware::class];
 
 //Guest Routes
 $guestCsrf = [CSRFMiddleware::class];
