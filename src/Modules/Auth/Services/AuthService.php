@@ -460,7 +460,7 @@ public function getTenantContext(int $id): array
         string $newPassword
     ): array {
 
-        $this->assertStrongPassword($newPassword);
+        self::assertStrongPassword($newPassword);
 
         $user = $this->users->findByValidResetToken(
             $tenantId,
@@ -489,18 +489,39 @@ public function getTenantContext(int $id): array
     | PASSWORD POLICY
     |--------------------------------------------------------------------------
     */
-    private function assertStrongPassword(string $password): void
+    public static function assertStrongPassword(string $password): void
     {
-        if (strlen($password) < 12) {
-            throw new RuntimeException('Password must be at least 12 characters.');
+        $policy = (array) (function_exists('config') ? config('security.password') : null);
+
+        // Floor of 8: a mistyped PASSWORD_MIN_LENGTH must not silently weaken
+        // every account created from then on.
+        $minLength = max(8, (int) ($policy['min_length'] ?? 12));
+
+        if (strlen($password) < $minLength) {
+            throw new RuntimeException("Password must be at least {$minLength} characters.");
         }
 
-        if (!preg_match('/[A-Z]/', $password) ||
-            !preg_match('/[a-z]/', $password) ||
-            !preg_match('/[0-9]/', $password)) {
+        $missing = [];
 
+        if (($policy['require_uppercase'] ?? true) && ! preg_match('/[A-Z]/', $password)) {
+            $missing[] = 'uppercase';
+        }
+
+        if (($policy['require_lowercase'] ?? true) && ! preg_match('/[a-z]/', $password)) {
+            $missing[] = 'lowercase';
+        }
+
+        if (($policy['require_numbers'] ?? true) && ! preg_match('/[0-9]/', $password)) {
+            $missing[] = 'numeric';
+        }
+
+        if (($policy['require_special_chars'] ?? false) && ! preg_match('/[^A-Za-z0-9]/', $password)) {
+            $missing[] = 'special';
+        }
+
+        if ($missing !== []) {
             throw new RuntimeException(
-                'Password must contain upper, lower, and numeric characters.'
+                'Password must contain ' . implode(', ', $missing) . ' characters.'
             );
         }
     }

@@ -8,6 +8,7 @@ use App\Core\DB;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Tenant;
+use App\Modules\Auth\Services\AuthService;
 use PDO;
 
 class UserManagementController extends Controller
@@ -152,6 +153,8 @@ class UserManagementController extends Controller
         if ($password === '') {
             throw new \RuntimeException('Password is required.');
         }
+
+        AuthService::assertStrongPassword($password);
 
         // Uniqueness check — scoped to tenant (schema: uk_user_tenant_email, uk_user_tenant_username)
         $check = $this->db->prepare("
@@ -412,6 +415,8 @@ class UserManagementController extends Controller
                     if ($newPassword !== $confirmPassword) {
                         throw new \RuntimeException('Passwords do not match.');
                     }
+
+                    AuthService::assertStrongPassword($newPassword);
 
                     $stmt = $this->db->prepare("
                         SELECT password_hash

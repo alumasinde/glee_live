@@ -61,6 +61,11 @@ class DepartmentController extends Controller
 
         return Response::redirect('/settings/departments?success=Department created successfully');
 
+    } catch (\PDOException $e) {
+        error_log(sprintf('DepartmentController::store hit a DB constraint: %s', $e->getMessage()));
+
+        return Response::redirect('/settings/departments?error=' . urlencode('Department could not be saved.'));
+
     } catch (RuntimeException $e) {
         return Response::redirect('/settings/departments?error=' . urlencode($e->getMessage()));
 
@@ -74,30 +79,34 @@ class DepartmentController extends Controller
         $body = $this->input($request);
 
         $id = (int) ($body['id'] ?? 0);
-        $name = trim($body['name'] ?? '');
-        $code = trim($body['code'] ?? '');
+        $name = trim((string) ($body['name'] ?? ''));
+        $code = trim((string) ($body['code'] ?? ''));
 
         if ($id <= 0) {
             return Response::json(['message' => 'Invalid department ID.'], 422);
         }
 
-        if ($name === '') {
-            return Response::json(['message' => 'Department name is required.'], 422);
-        }
-
         try {
-            $updated = $this->service->update($id, $name);
+            $updated = $this->service->update($id, $name, $code);
 
             return Response::json([
                 'success' => true,
                 'data' => $updated
             ]);
 
+        } catch (\PDOException $e) {
+            error_log(sprintf('DepartmentController::update hit a DB constraint for department %d: %s', $id, $e->getMessage()));
+
+            return Response::json(['message' => 'Department could not be saved.'], 400);
+
         } catch (RuntimeException $e) {
             return Response::json(['message' => $e->getMessage()], 400);
 
         } catch (\Throwable $e) {
-            return Response::json(['message' => $e->getMessage()], 500);
+            // Never leak internal error text to the client
+            error_log(sprintf('DepartmentController::update failed for department %d: %s', $id, $e->getMessage()));
+
+            return Response::json(['message' => 'Server error while updating the department.'], 500);
         }
     }
 
@@ -115,11 +124,18 @@ class DepartmentController extends Controller
 
             return Response::json(['success' => true]);
 
+        } catch (\PDOException $e) {
+            error_log(sprintf('DepartmentController::delete hit a DB constraint for department %d: %s', $id, $e->getMessage()));
+
+            return Response::json(['message' => 'Department is still linked to other records.'], 400);
+
         } catch (RuntimeException $e) {
             return Response::json(['message' => $e->getMessage()], 400);
 
         } catch (\Throwable $e) {
-            return Response::json(['message' => $e->getMessage()], 500);
+            error_log(sprintf('DepartmentController::delete failed for department %d: %s', $id, $e->getMessage()));
+
+            return Response::json(['message' => 'Server error while deleting the department.'], 500);
         }
     }
     public function toggle(Request $request)
@@ -140,14 +156,23 @@ class DepartmentController extends Controller
                 'success' => true
             ]);
 
+        } catch (\PDOException $e) {
+            error_log(sprintf('DepartmentController::toggle hit a DB constraint for department %d: %s', $id, $e->getMessage()));
+
+            return Response::json([
+                'message' => 'Department could not be updated.'
+            ], 400);
+
         } catch (RuntimeException $e) {
             return Response::json([
                 'message' => $e->getMessage()
             ], 400);
 
         } catch (\Throwable $e) {
+            error_log(sprintf('DepartmentController::toggle failed for department %d: %s', $id, $e->getMessage()));
+
             return Response::json([
-                'message' => $e->getMessage()
+                'message' => 'Server error while toggling the department.'
             ], 500);
         }
     }

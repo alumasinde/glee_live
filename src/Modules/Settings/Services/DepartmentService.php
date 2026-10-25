@@ -36,33 +36,29 @@ class DepartmentService
         $this->validateName($name);
         $this->validateCode($code);
 
-        try {
-            $department = $this->repo->create($name, $code);
-
-            Audit::log(
-                action: 'department.created',
-                entityType: 'department',
-                entityId: $department->id,
-                metadata: [
-                    'name' => $department->name,
-                    'code' => $code,
-                ]
-            );
-
-            return $department;
-
-        } catch (\Throwable $e) {
-            throw new RuntimeException(
-                'Department creation failed: ' . $e->getMessage(),
-                0,
-                $e
-            );
+        if ($this->repo->codeExists($code)) {
+            throw new RuntimeException('Department code is already in use.');
         }
+
+        $department = $this->repo->create($name, $code);
+
+        Audit::log(
+            action: 'department.created',
+            entityType: 'department',
+            entityId: $department->id,
+            metadata: [
+                'name' => $department->name,
+                'code' => $code,
+            ]
+        );
+
+        return $department;
     }
 
-    public function update(int $id, string $name)
+    public function update(int $id, string $name, string $code)
     {
         $this->validateName($name);
+        $this->validateCode($code);
 
         $tenantId = Tenant::require();
 
@@ -72,36 +68,33 @@ class DepartmentService
             throw new RuntimeException('Department not found.');
         }
 
-        try {
-            $updated = $this->repo->update($id, $name);
-
-            if (! $updated) {
-                throw new RuntimeException('Department update failed.');
-            }
-
-            Audit::log(
-                action: 'department.updated',
-                entityType: 'department',
-                entityId: $id,
-                metadata: [
-                    'before' => [
-                        'name' => $existing->name,
-                    ],
-                    'after' => [
-                        'name' => $name,
-                    ],
-                ]
-            );
-
-            return $this->repo->find($id, $tenantId);
-
-        } catch (\Throwable $e) {
-            throw new RuntimeException(
-                'Department update failed: ' . $e->getMessage(),
-                0,
-                $e
-            );
+        if ($this->repo->codeExists($code, $id)) {
+            throw new RuntimeException('Department code is already in use.');
         }
+
+        $updated = $this->repo->update($id, $name, $code);
+
+        if (! $updated) {
+            throw new RuntimeException('Department not found.');
+        }
+
+        Audit::log(
+            action: 'department.updated',
+            entityType: 'department',
+            entityId: $id,
+            metadata: [
+                'before' => [
+                    'name' => $existing->name,
+                    'code' => $existing->code,
+                ],
+                'after' => [
+                    'name' => $updated->name,
+                    'code' => $updated->code,
+                ],
+            ]
+        );
+
+        return $updated;
     }
 
     public function delete(int $id): bool
@@ -114,31 +107,20 @@ class DepartmentService
             throw new RuntimeException('Department not found.');
         }
 
-        try {
-            $deleted = $this->repo->delete($id);
-
-            if (! $deleted) {
-                throw new RuntimeException('Department deletion failed.');
-            }
-
-            Audit::log(
-                action: 'department.deleted',
-                entityType: 'department',
-                entityId: $id,
-                metadata: [
-                    'name' => $existing->name,
-                ]
-            );
-
-            return true;
-
-        } catch (\Throwable $e) {
-            throw new RuntimeException(
-                'Department deletion failed: ' . $e->getMessage(),
-                0,
-                $e
-            );
+        if (! $this->repo->delete($id)) {
+            throw new RuntimeException('Department not found.');
         }
+
+        Audit::log(
+            action: 'department.deleted',
+            entityType: 'department',
+            entityId: $id,
+            metadata: [
+                'name' => $existing->name,
+            ]
+        );
+
+        return true;
     }
 
     public function toggle(int $id)
@@ -151,34 +133,25 @@ class DepartmentService
             throw new RuntimeException('Department not found.');
         }
 
-        try {
-            $newStatus = ! (bool) $department->isActive;
+        $newStatus = ! (bool) $department->isActive;
 
-            $updated = $this->repo->updateStatus($id, $newStatus);
+        $updated = $this->repo->updateStatus($id, $newStatus);
 
-            if (! $updated) {
-                throw new RuntimeException('Department status update failed.');
-            }
-
-            Audit::log(
-                action: 'department.toggled',
-                entityType: 'department',
-                entityId: $id,
-                metadata: [
-                    'previous' => (bool) $department->isActive,
-                    'new' => $newStatus,
-                ]
-            );
-
-            return $this->repo->find($id, $tenantId);
-
-        } catch (\Throwable $e) {
-            throw new RuntimeException(
-                'Department status toggle failed: ' . $e->getMessage(),
-                0,
-                $e
-            );
+        if (! $updated) {
+            throw new RuntimeException('Department not found.');
         }
+
+        Audit::log(
+            action: 'department.toggled',
+            entityType: 'department',
+            entityId: $id,
+            metadata: [
+                'previous' => (bool) $department->isActive,
+                'new' => $newStatus,
+            ]
+        );
+
+        return $updated;
     }
 
     private function validateName(string $name): void

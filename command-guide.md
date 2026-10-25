@@ -266,3 +266,33 @@ composer install              restore from composer.lock
 composer update               refresh deps (touches composer.json/lock — review the diff)
 composer dump-autoload -o     after adding classes when the optimised map is stale
 ```
+
+---
+
+## Before you share this project (zip, push, hand-off)
+
+`.env` is git-ignored and untracked; `.env.example` is the committed template and
+carries every key the code actually reads (`config/*.php` plus the MFA cipher).
+Copy it and fill in the blanks:
+
+```
+cp .env.example .env                  # then edit DB_*, MAIL_*, APP_KEY
+php -r "echo bin2hex(random_bytes(32));"   # -> APP_KEY (2FA secret encryption)
+```
+
+Check nothing secret crept back in before zipping:
+
+```
+git ls-files | grep -iE "\.env$|\.pem$|secret|credential"   # only .env.example is allowed
+git grep -nI "DB_PASSWORD=\|MAIL_PASSWORD=\|key_hash" -- .  # must show no real values
+```
+
+Two things a clean working tree does NOT fix:
+
+* **Git history keeps old `.env` blobs.** `git log --oneline -- .env` lists the
+  commits that still contain the previous DB/mail/Redis passwords. Untracking
+  stops new leaks; it does not revoke the old ones. If the repo or zip went out,
+  change those credentials — they are the only ones still in the history.
+* **Gate device keys are seeded as plaintext in demo data only.** Real installs
+  store `hash('sha256', $plain)` in `gates.key_hash`; a key that appeared in a
+  shared log or zip is burned — reissue it from Settings → Gates.

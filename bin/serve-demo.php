@@ -12,6 +12,7 @@
  *
  * Then open http://demo.gpms.local:8123 (hosts entry: 127.0.0.1 demo.gpms.local).
  * The first host label is the tenant code — see LoginController::resolveTenantId().
+ * No -t flag is needed: this router delivers public/ assets itself.
  */
 
 if (!in_array(PHP_SAPI, ['cli', 'cli-server'], true)) {
@@ -30,11 +31,32 @@ putenv('DB_DATABASE=' . $schema);
 
 error_log('[serve-demo] schema: ' . $schema);
 
-$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$file = dirname(__DIR__) . '/public' . $path;
+$publicDir = realpath(dirname(__DIR__) . '/public');
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
+$candidate = $publicDir === false ? false : realpath($publicDir . str_replace('/', DIRECTORY_SEPARATOR, rawurldecode($path)));
 
-if ($path !== '/' && is_file($file)) {
-    return false; // let the server deliver static assets as-is
+if ($candidate !== false && is_file($candidate) && str_starts_with($candidate, $publicDir)
+    && strtolower(pathinfo($candidate, PATHINFO_EXTENSION)) !== 'php') {
+    $types = [
+        'css'   => 'text/css',
+        'js'    => 'application/javascript',
+        'map'   => 'application/json',
+        'svg'   => 'image/svg+xml',
+        'png'   => 'image/png',
+        'jpg'   => 'image/jpeg',
+        'jpeg'  => 'image/jpeg',
+        'gif'   => 'image/gif',
+        'ico'   => 'image/x-icon',
+        'woff'  => 'font/woff',
+        'woff2' => 'font/woff2',
+        'ttf'   => 'font/ttf',
+        'txt'   => 'text/plain',
+    ];
+
+    header('Content-Type: ' . ($types[strtolower(pathinfo($candidate, PATHINFO_EXTENSION))] ?? 'application/octet-stream'));
+    header('Content-Length: ' . filesize($candidate));
+    readfile($candidate);
+    exit;
 }
 
 require dirname(__DIR__) . '/public/index.php';
