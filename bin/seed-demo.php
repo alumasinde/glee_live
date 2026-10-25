@@ -373,7 +373,9 @@ try {
             continue;
         }
 
-        $plain = 'demo-' . strtolower($code) . '-' . bin2hex(random_bytes(8));
+        // DeviceScanController only accepts ^gk_[0-9a-f]{40}$ — anything else is
+        // stored fine but can never authenticate a scan.
+        $plain = 'gk_' . bin2hex(random_bytes(20));
 
         $db->prepare('INSERT INTO gates (tenant_id, name, code, key_hash, is_active) VALUES (?, ?, ?, ?, 1)')
            ->execute([$demoId, $name, $code, hash('sha256', $plain)]);
@@ -844,5 +846,7 @@ foreach ($gateKeys as $code => $gate) {
     printf("  %-8s %s\n", $code, $gate['key']);
 }
 
-echo "\nPoint a second install at this schema with DB_DATABASE=" . env('DB_DATABASE')
-   . " and leave MAIL_HOST empty. Outbound is already disabled per-tenant.\n";
+echo "\nServe it locally:  php -S 127.0.0.1:8123 bin/serve-demo.php"
+   . "\nThen open          http://demo.gpms.local:8123  (hosts: 127.0.0.1 demo.gpms.local)"
+   . "\nThe first host label is the tenant code ('" . $options['tenant'] . "'); a deployed install instead sets"
+   . "\nDB_DATABASE=" . env('DB_DATABASE') . " in its own .env. Outbound is already disabled per-tenant.\n";

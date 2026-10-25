@@ -181,12 +181,46 @@ Approvals are produced by the real workflow engine rather than inserted, so
 invariants — expect a mix of `pending` / `in_progress` / `approved` / `rejected`
 plus deliberately overdue rows for `approval-escalation.php` to find.
 
-Outbound is switched off in the *data* (`tenant_settings` `mail`/`sms`/`push`
-get the disabled defaults), so a leaked `.env` cannot make this install send.
-Serve it with `php -S 127.0.0.1:8080 -t public` and `DB_DATABASE=glee_feedback`.
-The seeder prints the login roster and the cleartext gate device keys once —
-only their sha256 is stored, so copy the keys at seed time if you want the
-`/gate-scan` device flow testable.
+### Reaching it in a browser
+
+Two independent selectors decide what a visitor sees:
+
+- **Schema** — `.env` `DB_DATABASE`. One install = one schema; the web app has no
+  per-request override (`--db=` exists only on the CLI scripts).
+- **Tenant** — the first label of the hostname (`LoginController::resolveTenantId()`),
+  matched case-insensitively against `tenants.code`. `gpms.local` → tenant `gpms`;
+  `demo.gpms.local` → tenant `DEMO` (the seeded one). A bare IP or `localhost`
+  looks for a tenant coded `default`, which does not exist, so login 400s.
+
+So the demo URL is `http://demo.<your-domain>`, and the demo *install* is whatever
+`.env` points at `glee_feedback`.
+
+Locally, without editing `.env` or Apache:
+
+```
+127.0.0.1 demo.gpms.local        <- add to C:\Windows\System32\drivers\etc\hosts (admin)
+php -S 127.0.0.1:8123 bin/serve-demo.php
+```
+
+open `http://demo.gpms.local:8123` — the router pins `DB_DATABASE=glee_feedback`
+before `.env` loads (`DEMO_DB=` overrides). Login as any seeded user
+(`mary.njeri@demo.example` / `Demo!2026`); `/approvals` correctly 403s for the
+Security Officer.
+
+To exercise the gate hardware endpoint, use a printed device key (`gk_` + 40 hex,
+shown once at seed time and only as its sha256 in the DB):
+
+```
+curl -X POST http://demo.gpms.local:8123/gate-scan -H "Content-Type: application/json" \
+  -d '{"key":"gk_....","code":"GPN-2026-0014"}'
+```
+
+`code` accepts a gatepass number or a 64-hex scan token.
+
+For outside testers over the internet, that means a second vhost (or second
+server) whose `.env` has `DB_DATABASE=glee_feedback` — outbound stays off because
+the demo tenant's `mail`/`sms`/`push` settings are the disabled defaults, whatever
+`.env` says.
 
 ---
 
