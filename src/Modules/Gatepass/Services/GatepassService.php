@@ -202,8 +202,9 @@ class GatepassService
     }
 
     Audit::log('gatepass.checked_in', 'gatepass', $gatepassId, [
-        'user_id'   => $userId,
-        'timestamp' => $now,
+        'user_id'      => $userId,
+        'timestamp'    => $now,
+        'target_label' => (string) $gatepass['gatepass_number'],
     ]);
 
     return true;
@@ -249,8 +250,9 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
     }
 
     Audit::log('gatepass.checked_out', 'gatepass', $gatepassId, [
-        'user_id'   => $userId,
-        'timestamp' => $timestamp,
+        'user_id'      => $userId,
+        'timestamp'    => $timestamp,
+        'target_label' => (string) $gatepass['gatepass_number'],
     ]);
 
     return true;
@@ -309,6 +311,10 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
         // The gate has taken the items back, so the quantities the reporting
         // and overdue queries read have to move with the status.
         $this->itemRepo->markAllReturned($tenantId, $gatepassId);
+
+        Audit::log('gatepass.returned', 'gatepass', $gatepassId, [
+            'target_label' => (string) $gatepass['gatepass_number'],
+        ]);
 
         return true;
     }

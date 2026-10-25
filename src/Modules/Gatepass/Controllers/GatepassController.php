@@ -181,17 +181,13 @@ class GatepassController extends Controller
             ]
         );
 
-        $qrDataUri = null;
-
-        if (can('gatepass.print') || can('gatepass.scan')) {
-            $qrDataUri = \App\Core\QrCode::svgDataUri((string) $gatepass['scan_token']);
-        }
-
+        // Anyone allowed to open the pass can carry it to the gate, so the QR
+        // follows pass visibility instead of a separate print permission.
         View::render('Gatepass::show', [
             'title'       => 'View Gatepass',
             'gatepass'    => $gatepass,
             'items'       => $gatepass['items'] ?? [],
-            'qr_data_uri' => $qrDataUri,
+            'qr_data_uri' => \App\Core\QrCode::svgDataUri((string) $gatepass['scan_token']),
         ], 'app');
 
         return null;
@@ -268,13 +264,10 @@ public function update(Request $request, int $id): void
     {
         $user = $this->user();
 
-        $gatepass = $this->findGatepassOrFail($user['tenant_id'], $id);
+        // Keeps the 404 for a missing pass; checkIn() writes the audit row.
+        $this->findGatepassOrFail($user['tenant_id'], $id);
 
         $this->service->checkIn($user['tenant_id'], $id, $user['id']);
-
-        Audit::log('gatepass.checked_in', 'gatepass', $id, [
-            'target_label' => $gatepass['gatepass_number']
-        ]);
 
         $_SESSION['flash'] = ['message' => 'Gatepass checked in successfully.', 'type' => 'success'];
 
@@ -286,13 +279,9 @@ public function update(Request $request, int $id): void
     {
         $user = $this->user();
 
-        $gatepass = $this->findGatepassOrFail($user['tenant_id'], $id);
+        $this->findGatepassOrFail($user['tenant_id'], $id);
 
         $this->service->checkOut($user['tenant_id'], $id, $user['id']);
-
-        Audit::log('gatepass.checked_out', 'gatepass', $id, [
-            'target_label' => $gatepass['gatepass_number']
-        ]);
 
         $_SESSION['flash'] = ['message' => 'Gatepass checked out successfully.', 'type' => 'success'];
 

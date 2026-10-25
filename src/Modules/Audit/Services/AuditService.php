@@ -58,6 +58,7 @@ class AuditService
         'gatepass.deleted'        => '{actor} deleted gatepass {target}',
         'gatepass.checked_in'     => '{actor} checked in gatepass {target}',
         'gatepass.checked_out'    => '{actor} checked out gatepass {target}',
+        'gatepass.returned'       => '{actor} returned gatepass {target} to the gate',
 
         // Badges
         'visit.badge_issued'     => '{actor} issued badge {target}',

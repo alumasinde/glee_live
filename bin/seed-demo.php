@@ -729,13 +729,13 @@ try {
 
         $db->prepare('INSERT INTO scan_logs (tenant_id, gate_id, subject_type, subject_id, action, source, user_id, detail, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-           ->execute([$demoId, $gate, 'gatepass', (int) $gp['id'], 'in',
+           ->execute([$demoId, $gate, 'gatepass', (int) $gp['id'], 'checked_in',
                $i % 3 === 0 ? 'device' : 'manual', $security[0] ?? null, 'Demo scan', $inAt]);
 
         if ($outAt !== null) {
             $db->prepare('INSERT INTO scan_logs (tenant_id, gate_id, subject_type, subject_id, action, source, user_id, detail, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-               ->execute([$demoId, $gate, 'gatepass', (int) $gp['id'], 'out', 'manual',
+               ->execute([$demoId, $gate, 'gatepass', (int) $gp['id'], 'checked_out', 'manual',
                    $security[1] ?? $security[0] ?? null, 'Demo scan', $outAt]);
         }
     }
@@ -789,7 +789,8 @@ try {
         $db->prepare('INSERT INTO scan_logs (tenant_id, gate_id, subject_type, subject_id, action, source, user_id, detail, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
            ->execute([$demoId, $gateIds[$i % max(1, count($gateIds))] ?? null, 'visit', $visitId,
-               $code === 'checked_out' ? 'out' : 'in', 'manual', $security[0] ?? null, 'Desk check-in', $backdate($age)]);
+               $code === 'checked_out' ? 'checked_out' : 'checked_in', 'manual', $security[0] ?? null,
+               $code === 'checked_out' ? 'Desk check-out' : 'Desk check-in', $backdate($age)]);
     }
 
     $stats['visits'] = $options['visits'] . ' with visitors and badges';
