@@ -30,7 +30,7 @@
         </a>
     <?php endif; ?>
 
-    <?php if (can('settings.view')): ?>
+    <?php if (can('gatepass_types.view')): ?>
         <a href="/settings/gatepass-types" class="report-card">
             <i class="fa-solid fa-id-badge"></i>
             <h3>Gatepass Types</h3>

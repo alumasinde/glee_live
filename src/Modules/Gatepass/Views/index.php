@@ -18,7 +18,6 @@ $statusSlug = static fn ($name): string => preg_replace(
 
 $canScan     = can('gatepass.scan');
 $canCreate   = can('gatepass.create');
-$canUpdate   = can('gatepass.update');
 $canCheckin  = can('gatepass.checkin');
 $canCheckout = can('gatepass.checkout');
 $csrfToken   = ($canCheckin || $canCheckout) ? CSRFMiddleware::token() : '';
@@ -111,16 +110,16 @@ $csrfToken   = ($canCheckin || $canCheckout) ? CSRFMiddleware::token() : '';
                         <td>
                             <?php if ($returnable): ?>
                                 <span class="badge badge-info" title="Returnable item">
-                                    <i class="fa-solid fa-rotate-left" style="font-size:0.65rem"></i>&nbsp;Returnable
+                                    <i class="fa-solid fa-rotate-left u-fs-065"></i>&nbsp;Returnable
                                 </span>
                             <?php endif; ?>
                             <?php if ($needsApprov): ?>
                                 <span class="badge badge-warning" title="Needs approval">
-                                    <i class="fa-solid fa-user-check" style="font-size:0.65rem"></i>&nbsp;Approval
+                                    <i class="fa-solid fa-user-check u-fs-065"></i>&nbsp;Approval
                                 </span>
                             <?php endif; ?>
                             <?php if (!$returnable && !$needsApprov): ?>
-                                <span class="text-subtle" style="color:var(--color-text-subtle)">—</span>
+                                <span class="text-subtle u-text-subtle">—</span>
                             <?php endif; ?>
                         </td>
 
@@ -131,7 +130,7 @@ $csrfToken   = ($canCheckin || $canCheckout) ? CSRFMiddleware::token() : '';
                                 <i class="fa-solid fa-eye"></i>
                             </a>
 
-                            <?php if ($canUpdate): ?>
+                            <?php if (!empty($g['can_edit'])): ?>
                                 <a href="/gatepasses/<?= $id ?>/edit" class="btn btn-sm btn-ghost btn-icon" title="Edit">
                                     <i class="fa-solid fa-pen"></i>
                                 </a>

@@ -116,7 +116,7 @@ $topDepartments      = $stats['top_departments'] ?? [];
     <?php require __DIR__ . '/charts.php'; ?>
 
     <?php if (can('reports.view_scans') || can('reports.view_departments')): ?>
-        <div class="dashboard-grid" style="align-items: start;">
+        <div class="dashboard-grid u-items-start">
 
             <?php if (can('reports.view_scans')): ?>
                 <div class="table-card">

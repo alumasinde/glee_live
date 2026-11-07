@@ -32,7 +32,7 @@ class VisitorPolicy
 
     public function issueBadge(): bool
     {
-        return $this->permission->can(   'visitors.issue_badge');
+        return $this->permission->can(   'badges.issue');
     }
 
 }

@@ -72,10 +72,9 @@ abstract class BaseRepository
 
         $sortDir = $sortDir === 'asc' ? 'ASC' : 'DESC';
 
-        // ✅ DO NOT prefix alias — sortable already contains full columns
-        $orderBy = " ORDER BY {$sortBy} {$sortDir}";
-
-        $dataSql = $sql . $orderBy;
+        // Same ORDER BY construction as App\Core\Repository, so the two list
+        // implementations cannot drift apart again.
+        $dataSql = QueryBuilder::applySort($sql, $sortBy, $sortDir, $this->sortable, $this->defaultSort);
 
         $paginator = new Paginator(
             $this->db,

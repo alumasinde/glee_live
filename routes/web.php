@@ -34,11 +34,25 @@ use App\Modules\Settings\Controllers\GatepassTypeController;
 use App\Modules\Settings\Controllers\DepartmentController;
 use App\Modules\Settings\Controllers\GateSettingController;
 use App\Modules\Gatepass\Controllers\DeviceScanController;
+use App\Middleware\FeatureMiddleware;
+use App\Middleware\ImpersonationGuardMiddleware;
+use App\Middleware\ModuleMiddleware;
+use App\Middleware\PlatformAuthMiddleware;
+use App\Modules\Platform\Controllers\PlatformAuditController;
+use App\Modules\Platform\Controllers\PlatformAuthController;
+use App\Modules\Platform\Controllers\PlatformDashboardController;
+use App\Modules\Platform\Controllers\PlatformSettingsController;
+use App\Modules\Platform\Controllers\PlatformTenantController;
 
 $router = new Router();
 
 // Apply security headers to all routes
-$router->setGlobalMiddleware([SecurityHeadersMiddleware::class]);
+$router->setGlobalMiddleware([
+    SecurityHeadersMiddleware::class,
+    FeatureMiddleware::class,
+    ModuleMiddleware::class,
+    ImpersonationGuardMiddleware::class,
+]);
 
 /*
 |--------------------------------------------------------------------------
@@ -164,13 +178,13 @@ $router->post('/visits/{id}/checkout', [VisitController::class, 'checkOut'], $pe
 */
 
 // Register /badges/create before any /badges/{id} pattern: {id} swallows "create".
-$router->get('/badges', [BadgeController::class, 'index'], $perm('visitors.issue_badge'));
-$router->get('/badges/create', [BadgeController::class, 'create'], $perm('visitors.issue_badge'));
-$router->post('/badges', [BadgeController::class, 'store'], $permCsrf('visitors.issue_badge'));
-$router->get('/badges/{id}/issue', [BadgeController::class, 'issueForm'], $perm('visitors.issue_badge'));
+$router->get('/badges', [BadgeController::class, 'index'], $perm('badges.view'));
+$router->get('/badges/create', [BadgeController::class, 'create'], $perm('badges.issue'));
+$router->post('/badges', [BadgeController::class, 'store'], $permCsrf('badges.issue'));
+$router->get('/badges/{id}/issue', [BadgeController::class, 'issueForm'], $perm('badges.issue'));
 
-$router->post('/badges/{id}/issue', [BadgeController::class, 'issue'], $permCsrf('visitors.issue_badge'));
-$router->post('/badges/{id}/return', [BadgeController::class, 'return'], $permCsrf('visitors.issue_badge'));
+$router->post('/badges/{id}/issue', [BadgeController::class, 'issue'], $permCsrf('badges.issue'));
+$router->post('/badges/{id}/return', [BadgeController::class, 'return'], $permCsrf('badges.return'));
 
 /*
 |--------------------------------------------------------------------------
@@ -232,8 +246,8 @@ $router->post('/settings/gates/update', [GateSettingController::class, 'update']
 $router->post('/settings/gates/rotate', [GateSettingController::class, 'rotate'], $permCsrf('gates.rotate'));
 $router->post('/settings/gates/delete', [GateSettingController::class, 'delete'], $permCsrf('gates.delete'));
 
-$router->get('/settings/gatepass-types', [GatepassTypeController::class, 'index'], $perm('settings.view'));
-$router->post('/settings/gatepass-types/update', [GatepassTypeController::class, 'update'], $permCsrf('settings.update'));
+$router->get('/settings/gatepass-types', [GatepassTypeController::class, 'index'], $perm('gatepass_types.view'));
+$router->post('/settings/gatepass-types/update', [GatepassTypeController::class, 'update'], $permCsrf('gatepass_types.update'));
 
 $router->get('/settings/users', [UserManagementController::class, 'index'], $perm('users.view'));
 $router->get('/settings/users/create', [UserManagementController::class, 'create'], $perm('users.create'));
@@ -251,6 +265,8 @@ $router->post('/settings/security/two-factor/disable', [TwoFactorController::cla
 $router->post('/settings/users', [UserManagementController::class, 'store'], $permCsrf('users.create'));
 $router->get('/settings/users/{id}/edit', [UserManagementController::class, 'edit'], $perm('users.update'));
 $router->post('/settings/users/{id}', [UserManagementController::class, 'update'], $permCsrf('users.update'));
+$router->post('/settings/users/{id}/deactivate', [UserManagementController::class, 'deactivate'], $permCsrf('users.disable'));
+$router->post('/settings/users/{id}/activate', [UserManagementController::class, 'activate'], $permCsrf('users.disable'));
 
 $router->get('/settings/departments', [DepartmentController::class, 'index'], $perm('departments.view'));
 $router->post('/settings/departments/create', [DepartmentController::class, 'store'], $permCsrf('departments.create'));
@@ -307,6 +323,40 @@ $router->get('/gatepasses/{id}/edit', [GatepassController::class, 'edit'], $perm
 $router->post('/gatepasses/{id}', [GatepassController::class, 'update'], $permCsrf('gatepass.update'));
 $router->post('/gatepasses/{id}/update', [GatepassController::class, 'update'], $permCsrf('gatepass.update'));
 $router->post('/gatepasses/{id}/delete', [GatepassController::class, 'delete'], $permCsrf('gatepass.delete'));
+
+/*
+|--------------------------------------------------------------------------
+| Platform (provider) console
+|--------------------------------------------------------------------------
+|
+| Separate identity plane: PlatformAuthMiddleware only accepts the platform
+| session key, so a tenant session can never open these screens. Module and
+| feature gating intentionally do not apply to /platform.
+|
+*/
+
+$platformAuth     = [PlatformAuthMiddleware::class];
+$platformAuthCsrf = [PlatformAuthMiddleware::class, CSRFMiddleware::class];
+
+$router->get('/platform/login', [PlatformAuthController::class, 'loginForm'], [CSRFMiddleware::class]);
+$router->post('/platform/login', [PlatformAuthController::class, 'login'], [CSRFMiddleware::class, RateLimitMiddleware::class . ':login']);
+$router->post('/platform/logout', [PlatformAuthController::class, 'logout'], $platformAuthCsrf);
+
+$router->get('/platform', [PlatformDashboardController::class, 'index'], $platformAuth);
+$router->get('/platform/features', [PlatformSettingsController::class, 'index'], $platformAuth);
+$router->post('/platform/features', [PlatformSettingsController::class, 'update'], $platformAuthCsrf);
+$router->get('/platform/audit', [PlatformAuditController::class, 'index'], $platformAuth);
+
+// /platform/tenants/create must be registered before the {id} wildcard.
+$router->get('/platform/tenants/create', [PlatformTenantController::class, 'createForm'], $platformAuth);
+$router->post('/platform/tenants', [PlatformTenantController::class, 'store'], $platformAuthCsrf);
+
+$router->get('/platform/tenants/{id}', [PlatformTenantController::class, 'show'], $platformAuth);
+$router->post('/platform/tenants/{id}/modules', [PlatformTenantController::class, 'updateModules'], $platformAuthCsrf);
+$router->post('/platform/tenants/{id}/suspend', [PlatformTenantController::class, 'suspend'], $platformAuthCsrf);
+$router->post('/platform/tenants/{id}/reactivate', [PlatformTenantController::class, 'reactivate'], $platformAuthCsrf);
+$router->post('/platform/tenants/{id}/impersonate', [PlatformTenantController::class, 'impersonate'], $platformAuthCsrf);
+$router->post('/platform/impersonation/stop', [PlatformTenantController::class, 'stopImpersonation'], $platformAuthCsrf);
 
 //Logout Routes
 $router->post(

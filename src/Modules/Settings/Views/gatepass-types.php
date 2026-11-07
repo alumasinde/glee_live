@@ -82,17 +82,16 @@
                                 : '<span class="badge badge-secondary">No</span>' ?>
                         </td>
 
-                        <td style="text-align:right;">
+                        <td class="text-right">
                             <button
                                 class="btn btn-secondary btn-sm"
-                                onclick="openEditModal(
-                                    <?= (int)$type->id ?>,
-                                    <?= $checkin ? 'true' : 'false' ?>,
-                                    <?= $checkout ? 'true' : 'false' ?>,
-                                    <?= $return ? 'true' : 'false' ?>,
-                                    <?= $type->isReturnable ? 'true' : 'false' ?>,
-                                    <?= $safeName ?>
-                                )"
+                                data-open-form="#modal"
+                                data-open-title="Configure: <?= htmlspecialchars($type->name, ENT_QUOTES) ?>"
+                                data-field-id="<?= (int) $type->id ?>"
+                                data-field-checkin="<?= $checkin ? '1' : '0' ?>"
+                                data-field-checkout="<?= $checkout ? '1' : '0' ?>"
+                                data-field-return="<?= $return ? '1' : '0' ?>"
+                                data-field-returnable="<?= $type->isReturnable ? '1' : '0' ?>"
                             >
                                 Configure
                             </button>
@@ -112,35 +111,36 @@
     <div class="modal-content">
 
         <div class="modal-header">
-            <h3 id="modalTitle">Configure</h3>
-            <button type="button" onclick="closeModal()" aria-label="Close">&times;</button>
+            <h3 id="modalTitle" data-modal-title>Configure</h3>
+            <button type="button" data-close="#modal" aria-label="Close">&times;</button>
         </div>
 
         <div class="modal-body">
+            <input type="hidden" name="id">
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="checkin">
+                    <input type="checkbox" id="checkin" name="checkin">
                     Allow Check-in
                 </label>
             </div>
 
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="checkout">
+                    <input type="checkbox" id="checkout" name="checkout">
                     Allow Check-out
                 </label>
             </div>
 
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="return">
+                    <input type="checkbox" id="return" name="return">
                     Allow Return scan
                 </label>
             </div>
 
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="returnable">
+                    <input type="checkbox" id="returnable" name="returnable">
                     Returnable by default
                 </label>
                 <p class="form-text">
@@ -152,118 +152,11 @@
         </div>
 
         <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-            <button type="button" class="btn btn-primary" onclick="save(this)">Save</button>
+            <button type="button" class="btn btn-secondary" data-close="#modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="gt-save">Save</button>
         </div>
 
     </div>
 </div>
 
-<script>
-let currentId = null;
-
-/* ---------------- MODAL ---------------- */
-function openEditModal(id, checkin, checkout, returnAction, returnable, name) {
-    currentId = id;
-
-    document.getElementById('modalTitle').innerText = "Configure: " + name;
-
-    document.getElementById('checkin').checked = !!checkin;
-    document.getElementById('checkout').checked = !!checkout;
-    document.getElementById('return').checked = !!returnAction;
-    document.getElementById('returnable').checked = !!returnable;
-
-    document.getElementById('modal').classList.add('show');
-}
-
-function closeModal() {
-    document.getElementById('modal').classList.remove('show');
-    currentId = null;
-}
-
-document.getElementById('modal').addEventListener('click', function (e) {
-    if (e.target === this) closeModal();
-});
-
-document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') closeModal();
-});
-
-/* ---------------- API ---------------- */
-async function apiPost(url, data) {
-    return fetch(url, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-Token": "<?= \App\Middleware\CSRFMiddleware::token() ?>"
-        },
-        body: JSON.stringify(data)
-    });
-}
-
-/* ---------------- TOAST ---------------- */
-function showToast(message, type = 'info') {
-    const toast = document.createElement("div");
-    toast.innerText = message;
-
-    toast.style.position = "fixed";
-    toast.style.bottom = "20px";
-    toast.style.right = "20px";
-    toast.style.padding = "10px 15px";
-    toast.style.borderRadius = "6px";
-    toast.style.color = "#fff";
-    toast.style.zIndex = "9999";
-    toast.style.fontSize = "14px";
-    toast.style.maxWidth = "300px";
-
-    if (type === 'error') {
-        toast.style.background = "#dc3545";
-    } else if (type === 'success') {
-        toast.style.background = "#28a745";
-    } else {
-        toast.style.background = "#333";
-    }
-
-    document.body.appendChild(toast);
-
-    setTimeout(() => toast.remove(), 3000);
-}
-
-/* ---------------- SAVE ---------------- */
-async function save(btn) {
-    if (!currentId || btn.disabled) return;
-
-    btn.disabled = true;
-    btn.innerText = "Saving...";
-
-    try {
-        const res = await apiPost('/settings/gatepass-types/update', {
-            id: currentId,
-            checkin: document.getElementById('checkin').checked ? 1 : 0,
-            checkout: document.getElementById('checkout').checked ? 1 : 0,
-            return: document.getElementById('return').checked ? 1 : 0,
-            returnable: document.getElementById('returnable').checked ? 1 : 0,
-        });
-
-        let data = {};
-        try {
-            data = await res.json();
-        } catch (e) {}
-
-        if (!res.ok) {
-            throw new Error(data.message || "Update failed");
-        }
-
-        showToast("Saved successfully", "success");
-
-        setTimeout(() => location.reload(), 800);
-
-    } catch (e) {
-        console.error(e);
-        showToast(e.message || "Network error", "error");
-    } finally {
-        btn.disabled = false;
-        btn.innerText = "Save";
-    }
-}
-</script>
+<script src="/assets/js/pages/gatepass-types.js" defer></script>

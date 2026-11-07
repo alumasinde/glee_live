@@ -46,19 +46,22 @@ class UserRepository
     t.code AS tenant_code,
     t.name AS tenant_name,
     t.logo AS tenant_logo,
-    r.id AS role_id,
-    r.name AS role
+    MIN(r.id) AS role_id,
+    GROUP_CONCAT(DISTINCT r.name ORDER BY r.name SEPARATOR ', ') AS role
 FROM users u
 INNER JOIN tenants t 
     ON t.id = u.tenant_id
-INNER JOIN user_roles ur 
+LEFT JOIN user_roles ur
     ON ur.user_id = u.id
-INNER JOIN roles r 
+   AND ur.tenant_id = u.tenant_id
+LEFT JOIN roles r
     ON r.id = ur.role_id
+   AND r.tenant_id = u.tenant_id
 WHERE u.tenant_id = :tenant_id
   AND u.email = :email
   AND u.is_active = 1
   AND t.is_active = 1
+GROUP BY u.id
 LIMIT 1
         ");
 
@@ -98,21 +101,22 @@ LIMIT 1
                 t.code AS tenant_code,
                 t.name AS tenant_name,
                 t.logo AS tenant_logo,
-                r.id AS role_id,
-                r.name AS role
+                MIN(r.id) AS role_id,
+                GROUP_CONCAT(DISTINCT r.name ORDER BY r.name SEPARATOR ', ') AS role
             FROM users u
             INNER JOIN tenants t
                 ON t.id = u.tenant_id
-            INNER JOIN user_roles ur
+            LEFT JOIN user_roles ur
                 ON ur.user_id = u.id
                AND ur.tenant_id = u.tenant_id
-            INNER JOIN roles r
+            LEFT JOIN roles r
                 ON r.id = ur.role_id
                AND r.tenant_id = u.tenant_id
             WHERE u.tenant_id = :tenant_id
               AND u.email     = :email
               AND u.is_active = 1
               AND t.is_active = 1
+            GROUP BY u.id
             LIMIT 1
         ");
 
@@ -151,21 +155,22 @@ LIMIT 1
                 t.code AS tenant_code,
                 t.name AS tenant_name,
                 t.logo AS tenant_logo,
-                r.id AS role_id,
-                r.name AS role
+                MIN(r.id) AS role_id,
+                GROUP_CONCAT(DISTINCT r.name ORDER BY r.name SEPARATOR ', ') AS role
             FROM users u
             INNER JOIN tenants t
                 ON t.id = u.tenant_id
-            INNER JOIN user_roles ur
+            LEFT JOIN user_roles ur
                 ON ur.user_id = u.id
                AND ur.tenant_id = u.tenant_id
-            INNER JOIN roles r
+            LEFT JOIN roles r
                 ON r.id = ur.role_id
                AND r.tenant_id = u.tenant_id
             WHERE u.tenant_id = :tenant_id
               AND u.id        = :user_id
               AND u.is_active = 1
               AND t.is_active = 1
+            GROUP BY u.id
             LIMIT 1
         ");
 
@@ -218,21 +223,53 @@ LIMIT 1
      * tokens_invalid_before so a later session/token validity check has a
      * database basis (compare it with the session's own auth timestamp).
      */
-    public function recordLoginSuccess(int $tenantId, int $userId): void
+    public function recordLoginSuccess(int $tenantId, int $userId): string
     {
+        // Stamped from PHP, not NOW(): App\Core\Auth compares it against a
+        // session value this process wrote, so both sides must share one clock
+        // and timezone.
+        $stamp = date('Y-m-d H:i:s');
+
         $stmt = $this->db->prepare("
             UPDATE users
             SET failed_attempts        = 0,
                 locked_until           = NULL,
-                tokens_invalid_before  = NOW()
+                tokens_invalid_before  = :stamp
             WHERE tenant_id = :tenant_id
               AND id        = :user_id
         ");
 
         $stmt->execute([
+            ':stamp'     => $stamp,
             ':tenant_id' => $tenantId,
             ':user_id'   => $userId,
         ]);
+
+        return $stamp;
+    }
+
+    /**
+     * Revoke every session issued before now (password change or reset).
+     * Returns the stamp so the caller can keep its own session usable.
+     */
+    public function invalidateSessions(int $tenantId, int $userId): string
+    {
+        $stamp = date('Y-m-d H:i:s');
+
+        $stmt = $this->db->prepare("
+            UPDATE users
+            SET tokens_invalid_before = :stamp
+            WHERE tenant_id = :tenant_id
+              AND id        = :user_id
+        ");
+
+        $stmt->execute([
+            ':stamp'     => $stamp,
+            ':tenant_id' => $tenantId,
+            ':user_id'   => $userId,
+        ]);
+
+        return $stamp;
     }
 
     /**
@@ -296,6 +333,7 @@ LIMIT 1
               AND pr.expires_at > NOW()
               AND u.is_active = 1
               AND t.is_active = 1
+            GROUP BY u.id
             LIMIT 1
         ");
 

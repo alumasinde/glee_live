@@ -62,10 +62,10 @@ use App\Core\View;
                                 <?php endif; ?>
                                 <?php if (can('roles.delete')): ?>
                                     <form action="/roles/<?= $id ?>/delete" method="POST" class="table-action-button"
-                                          onsubmit="return confirm('Delete this role?')">
+                                          data-confirm="Delete this role?">
                                         <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
                                         <button class="btn btn-sm btn-ghost btn-icon" title="Delete">
-                                            <i class="fa-solid fa-trash" style="color:var(--color-danger)"></i>
+                                            <i class="fa-solid fa-trash text-danger"></i>
                                         </button>
                                     </form>
                                 <?php endif; ?>

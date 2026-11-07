@@ -19,9 +19,11 @@ require BASE_PATH . '/vendor/autoload.php';
 
 Dotenv\Dotenv::createImmutable(BASE_PATH)->load();
 
+// Delegates to the single implementation used by the web application, so
+// string values such as "false" are cast consistently.
 function env(string $key, $default = null): mixed
 {
-    return $_ENV[$key] ?? $_SERVER[$key] ?? $default;
+    return \App\Core\Env::get($key, $default);
 }
 
 $migrationsDir = BASE_PATH . '/database/migrations';

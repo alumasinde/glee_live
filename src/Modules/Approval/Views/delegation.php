@@ -36,19 +36,19 @@ $toLocal = static function (?string $ts): string {
     <div class="gp-alert gp-alert--danger"><?= htmlspecialchars($error) ?></div>
 <?php endif; ?>
 
-<p class="form-text" style="margin-top:0;max-width:900px;">
+<p class="form-text u-mt-0 u-maxw-900">
     While a delegation is live, <em>new</em> approval requests that reach you are routed to your
     delegate as well. Requests already sitting in your queue stay yours — use the approval screen
     or ask an administrator to reassign those.
 </p>
 
-<div class="table-card" style="max-width:900px;">
+<div class="table-card u-maxw-900">
     <div class="table-card-head">
         <span class="table-card-title">My out-of-office cover</span>
     </div>
     <div class="card-body">
         <?php if (!$candidates): ?>
-            <p class="form-text" style="margin:0;">
+            <p class="form-text u-m-0">
                 There are no other active users in this company to delegate to yet.
             </p>
         <?php else: ?>
@@ -110,7 +110,7 @@ $toLocal = static function (?string $ts): string {
     </div>
 </div>
 
-<div class="table-card" style="max-width:900px;margin-top:var(--space-4);">
+<div class="table-card u-maxw-900 u-mt-s4">
     <div class="table-card-head">
         <span class="table-card-title">Scheduled</span>
     </div>
@@ -168,7 +168,7 @@ $toLocal = static function (?string $ts): string {
 </div>
 
 <?php if ($incoming): ?>
-    <div class="table-card" style="max-width:900px;margin-top:var(--space-4);">
+    <div class="table-card u-maxw-900 u-mt-s4">
         <div class="table-card-head">
             <span class="table-card-title">I am covering</span>
         </div>

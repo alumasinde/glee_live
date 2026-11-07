@@ -8,7 +8,9 @@ use App\Core\DB;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Tenant;
+use App\Modules\Auth\Repositories\UserRepository;
 use App\Modules\Auth\Services\AuthService;
+use App\Modules\Settings\Services\UserStatusService;
 use PDO;
 
 class UserManagementController extends Controller
@@ -32,6 +34,19 @@ class UserManagementController extends Controller
     {
         $tenantId = Tenant::require();
 
+        // Status filter: all (default), active or inactive. Anything else is
+        // treated as "all" so a hand-edited query string cannot break the list.
+        $status = (string) ($_GET['status'] ?? 'all');
+        $status = in_array($status, ['active', 'inactive'], true) ? $status : 'all';
+
+        $params       = [':tenant_id' => $tenantId];
+        $statusClause = '';
+
+        if ($status !== 'all') {
+            $statusClause         = ' AND u.is_active = :is_active';
+            $params[':is_active'] = $status === 'active' ? 1 : 0;
+        }
+
         $stmt = $this->db->prepare("
             SELECT u.*,
                    GROUP_CONCAT(DISTINCT r.name) AS roles,
@@ -46,16 +61,17 @@ class UserManagementController extends Controller
             LEFT JOIN departments d
                 ON d.id         = u.department_id
                AND d.tenant_id  = u.tenant_id
-            WHERE u.tenant_id = :tenant_id
+            WHERE u.tenant_id = :tenant_id{$statusClause}
             GROUP BY u.id
             ORDER BY u.id DESC
         ");
 
-        $stmt->execute([':tenant_id' => $tenantId]);
+        $stmt->execute($params);
 
         return $this->view('Settings::users.index', [
-            'title' => 'User Management',
-            'users' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'title'  => 'User Management',
+            'users'  => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'status' => $status,
         ]);
     }
 
@@ -355,6 +371,38 @@ class UserManagementController extends Controller
     }
 
     /**
+     * Deactivate a user (reversible; keeps the account and its history).
+     */
+    public function deactivate(Request $request, int $id)
+    {
+        return $this->setStatus($id, false);
+    }
+
+    /**
+     * Reactivate a previously deactivated user.
+     */
+    public function activate(Request $request, int $id)
+    {
+        return $this->setStatus($id, true);
+    }
+
+    private function setStatus(int $id, bool $active)
+    {
+        try {
+            (new UserStatusService($this->db))->setActive(
+                Tenant::require(),
+                $id,
+                (int) Auth::id(),
+                $active
+            );
+
+            return $this->redirect('/settings/users');
+        } catch (\RuntimeException $e) {
+            return $this->redirect('/settings/users?error=' . urlencode($e->getMessage()));
+        }
+    }
+
+    /**
      * Profile page
      */
     public function profile()
@@ -390,8 +438,10 @@ class UserManagementController extends Controller
             ]);
         }
 
+        $sessionStamp = null;
+
         try {
-            DB::transaction(function () use ($tenantId, $userId, $firstName, $lastName, $email, $currentPassword, $newPassword, $confirmPassword) {
+            DB::transaction(function () use ($tenantId, $userId, $firstName, $lastName, $email, $currentPassword, $newPassword, $confirmPassword, &$sessionStamp) {
 
                 $stmt = $this->db->prepare("
                     UPDATE users
@@ -443,8 +493,17 @@ class UserManagementController extends Controller
                         ':id'        => $userId,
                         ':tenant_id' => $tenantId,
                     ]);
+
+                    // Revoke every other session in the same transaction as the
+                    // password write: the two must not be able to disagree. The
+                    // current session adopts the new stamp below.
+                    $sessionStamp = (new UserRepository())->invalidateSessions($tenantId, (int) $userId);
                 }
             });
+
+            if ($sessionStamp !== null) {
+                $_SESSION['auth_at'] = $sessionStamp;
+            }
 
             // Sync session
             $_SESSION['user']['first_name'] = $firstName;

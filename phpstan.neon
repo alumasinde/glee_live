@@ -12,6 +12,7 @@ parameters:
             - src/Modules/Badges/Views
             - src/Modules/Dashboard/Views
             - src/Modules/Gatepass/Views
+            - src/Modules/Platform/Views
             - src/Modules/Reports/Views
             - src/Modules/Roles/Views
             - src/Modules/Settings/Views

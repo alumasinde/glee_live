@@ -33,12 +33,11 @@
    }
    ?>
    <?php if (function_exists('can') && can('notifications.view')): ?>
-       <a href="/notifications" class="notif-bell" aria-label="Notifications<?= $unread ? ' (' . $unread . ' unread)' : '' ?>"
-          title="Notifications" style="position:relative; margin-right:var(--space-3);">
+       <a href="/notifications" class="notif-bell u-pos-relative u-mr-s3" aria-label="Notifications<?= $unread ? ' (' . $unread . ' unread)' : '' ?>"
+          title="Notifications">
            <i class="fa-solid fa-bell"></i>
            <?php if ($unread > 0): ?>
-               <span class="badge badge-danger"
-                     style="position:absolute;top:-6px;right:-8px;font-size:0.6rem;">
+               <span class="badge badge-danger u-pos-absolute u-top-neg6 u-right-neg8 u-fs-060">
                    <?= $unread > 99 ? '99+' : (int) $unread ?>
                </span>
            <?php endif; ?>
@@ -52,7 +51,7 @@
 
     <form method="POST" action="/logout">
         <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
-        <button type="submit" class="logout-btn" style="background:none; border:none; padding:0; cursor:pointer;">
+        <button type="submit" class="logout-btn u-bg-none u-b-none u-p-0 u-cursor-pointer">
             <i class="fa-solid fa-right-from-bracket"></i>
         </button>
     </form>

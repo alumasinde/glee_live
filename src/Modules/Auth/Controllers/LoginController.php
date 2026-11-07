@@ -4,7 +4,9 @@ namespace App\Modules\Auth\Controllers;
 
 use App\Modules\Auth\Services\AuthService;
 use App\Modules\Tenant\Repositories\TenantRepository;
+use App\Middleware\RateLimitMiddleware;
 use App\Core\Controller;
+use App\Core\Auth;
 use App\Core\Audit;
 use App\Core\View;
 use App\Core\Request;
@@ -26,8 +28,14 @@ class LoginController extends Controller
         }
 
         if (!empty($_SESSION['user'])) {
-            header('Location: /dashboard');
-            exit;
+            if (Auth::sessionIsValid()) {
+                header('Location: /dashboard');
+                exit;
+            }
+
+            // Stale session (account disabled or password changed elsewhere):
+            // drop it instead of bouncing between /login and /dashboard.
+            Auth::forget();
         }
 
         // Backing out to the sign-in form abandons any parked challenge.
@@ -138,6 +146,11 @@ public function store(Request $request)
     | SUCCESS
     |--------------------------------------------------------------------------
     */
+
+    // A successful sign-in clears the failed-attempt bucket, so repeated valid
+    // logins cannot lock a legitimate user out of their own account.
+    RateLimitMiddleware::reset('login', $request);
+
     $user = $_SESSION['user'];
 
     Audit::log(
@@ -196,6 +209,8 @@ public function store(Request $request)
         $result = $this->auth->verifyChallenge(trim((string) $request->input('code')));
 
         if ($result['status'] === AuthService::STATUS_LOGIN) {
+            RateLimitMiddleware::reset('mfa', $request);
+
             $user = $_SESSION['user'];
 
             Audit::log('user.login', 'user', (int) $user['id'], [

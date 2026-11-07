@@ -75,6 +75,7 @@ class GatepassController extends Controller
             $actions = $this->service->getAvailableActions($g);
             $g['can_checkin']  = $actions['can_checkin'];
             $g['can_checkout'] = $actions['can_checkout'];
+            $g['can_edit']     = $this->policy->update($user, $g);
         }
         unset($g);
 
@@ -181,13 +182,19 @@ class GatepassController extends Controller
             ]
         );
 
+        if (!$this->policy->view($user, $gatepass)) {
+            Response::abort(403);
+        }
+
         // Anyone allowed to open the pass can carry it to the gate, so the QR
         // follows pass visibility instead of a separate print permission.
         View::render('Gatepass::show', [
             'title'       => 'View Gatepass',
             'gatepass'    => $gatepass,
-            'items'       => $gatepass['items'] ?? [],
-            'qr_data_uri' => \App\Core\QrCode::svgDataUri((string) $gatepass['scan_token']),
+            'items'          => $gatepass['items'] ?? [],
+            'approval_trail' => $this->service->approvalTrail((int) $user['tenant_id'], (int) $gatepass['id']),
+            'can_edit'       => $this->policy->update($user, $gatepass),
+            'qr_data_uri'    => \App\Core\QrCode::svgDataUri((string) $gatepass['scan_token']),
         ], 'app');
 
         return null;
@@ -301,13 +308,17 @@ public function update(Request $request, int $id): void
             Response::abort(403);
         }
 
-        $gatepass = $this->findGatepassOrFail($user['tenant_id'], $id);
+        $this->findGatepassOrFail($user['tenant_id'], $id);
 
-        $this->service->delete($user['tenant_id'], $id);
+        try {
+            // delete() writes the audit row itself, inside its transaction.
+            $this->service->delete($user['tenant_id'], $id);
+        } catch (RuntimeException | InvalidArgumentException $e) {
+            $_SESSION['flash'] = ['message' => $e->getMessage(), 'type' => 'danger'];
 
-        Audit::log('gatepass.deleted', 'gatepass', $id, [
-            'target_label' => $gatepass['gatepass_number']
-        ]);
+            header('Location: /gatepasses/' . (int) $id);
+            exit;
+        }
 
         $_SESSION['flash'] = ['message' => 'Gatepass deleted successfully.', 'type' => 'success'];
 

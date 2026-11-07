@@ -2,6 +2,11 @@
 
 use App\Core\View;
 
+$canCheckIn  = can('visits.check_in');
+$canCheckOut = can('visits.check_out');
+$canIssue    = can('badges.issue');
+$canReturn   = can('badges.return');
+
 ?>
 <div class="page-header">
     <h1 class="page-heading">
@@ -90,28 +95,28 @@ use App\Core\View;
                             </td>
 
                             <td class="table-actions justify-content-end">
-                                <?php if (empty($visit['checkin_time']) && empty($visit['checkout_time'])): ?>
+                                <?php if ($canCheckIn && empty($visit['checkin_time']) && empty($visit['checkout_time'])): ?>
                                     <form method="POST" action="/visits/<?= $id ?>/checkin" class="table-action-button">
                                         <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
                                         <button class="btn btn-sm btn-soft-success">Check In</button>
                                     </form>
                                 <?php endif; ?>
 
-                                <?php if (!empty($visit['checkin_time']) && empty($visit['checkout_time']) && empty($visit['badge_code'])): ?>
+                                <?php if ($canIssue && !empty($visit['checkin_time']) && empty($visit['checkout_time']) && empty($visit['badge_code'])): ?>
                                     <form method="POST" action="/badges/<?= $id ?>/issue" class="table-action-button">
                                         <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
                                         <button class="btn btn-sm btn-secondary">Issue Badge</button>
                                     </form>
                                 <?php endif; ?>
 
-                                <?php if ($badgeNotReturned): ?>
+                                <?php if ($canReturn && $badgeNotReturned): ?>
                                     <form method="POST" action="/badges/<?= $id ?>/return" class="table-action-button">
                                         <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
                                         <button class="btn btn-sm btn-secondary">Return Badge</button>
                                     </form>
                                 <?php endif; ?>
 
-                                <?php if (!empty($visit['checkin_time']) && empty($visit['checkout_time'])): ?>
+                                <?php if ($canCheckOut && !empty($visit['checkin_time']) && empty($visit['checkout_time'])): ?>
                                     <form method="POST" action="/visits/<?= $id ?>/checkout" class="table-action-button">
                                         <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
                                         <button class="btn btn-sm btn-soft-danger" <?= $badgeNotReturned ? 'disabled title="Return badge first"' : '' ?>>

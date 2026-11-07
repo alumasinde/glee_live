@@ -180,6 +180,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Trusted Proxies
+    |--------------------------------------------------------------------------
+    |
+    | Comma-separated IPs of the reverse proxies in front of this app. Only when
+    | REMOTE_ADDR matches one of them is X-Forwarded-For / CF-Connecting-IP read
+    | for the client IP in the audit log; otherwise those headers are ignored,
+    | because any client can send them. Empty = trust no proxy (correct for a
+    | direct connection).
+    |
+    */
+
+    'trusted_proxies' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('TRUSTED_PROXIES', ''))
+    ))),
+
+    /*
+    |--------------------------------------------------------------------------
     | Security Headers
     |--------------------------------------------------------------------------
     */

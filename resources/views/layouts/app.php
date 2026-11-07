@@ -11,6 +11,7 @@ $title = $title ?? 'GPMS Dashboard';
 <head>
     <meta charset="UTF-8">
     <title><?= htmlspecialchars($title) ?></title>
+    <meta name="csrf-token" content="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
     <!-- Main CSS -->
     <link rel="stylesheet" href="/assets/css/app.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/assets/css/app.css'); ?>">
@@ -20,9 +21,30 @@ $title = $title ?? 'GPMS Dashboard';
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
+    <!-- Shared delegated UI behaviour; views carry no inline script. -->
+    <script src="/assets/js/app.js" defer></script>
 </head>
 
 <body>
+
+    <?php $supportSession = \App\Modules\Platform\Services\PlatformImpersonationService::active(); ?>
+
+    <?php if ($supportSession !== null): ?>
+        <div class="impersonation-banner">
+            <div>
+                <i class="fa-solid fa-user-shield"></i>
+                <strong>Support session</strong> — viewing as
+                <?= htmlspecialchars(trim((string) ($_SESSION['user']['first_name'] ?? '') . ' ' . (string) ($_SESSION['user']['last_name'] ?? ''))) ?>
+                at <?= htmlspecialchars((string) ($_SESSION['user']['tenant_name'] ?? '')) ?>.
+                Ends <?= htmlspecialchars((string) ($supportSession['expires_at'] ?? '')) ?>.
+            </div>
+
+            <form method="POST" action="/platform/impersonation/stop">
+                <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
+                <button type="submit" class="btn btn-secondary">Return to platform</button>
+            </form>
+        </div>
+    <?php endif; ?>
 
     <div class="app-container">
 
@@ -60,88 +82,6 @@ $title = $title ?? 'GPMS Dashboard';
 
     </div>
 
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-
-            const toggleBtn = document.getElementById("sidebarToggle");
-            const sidebar = document.getElementById("sidebar");
-
-            toggleBtn.addEventListener("click", function() {
-
-                // Mobile behavior
-                if (window.innerWidth <= 768) {
-                    sidebar.classList.toggle("open");
-                }
-                // Desktop collapse behavior
-                else {
-                    document.body.classList.toggle("sidebar-collapsed");
-                }
-
-            });
-
-        });
-
-        document.addEventListener("DOMContentLoaded", function() {
-            const alerts = document.querySelectorAll(".auto-dismiss");
-
-            alerts.forEach(function(alert) {
-
-                // Auto dismiss after 4 seconds
-                setTimeout(function() {
-                    alert.classList.add("hide");
-
-                    // Remove from DOM after animation completes
-                    setTimeout(function() {
-                        alert.remove();
-                    }, 400); // matches CSS transition time
-
-                }, 4000);
-            });
-        });
-
-        // Modal auto-dismiss functionality
-        function openModal(id) {
-            const modal = document.getElementById(id);
-            if (modal) {
-                modal.classList.add('show');
-                const autoDismiss = parseInt(modal.dataset.autoDismiss || 0);
-                if (autoDismiss > 0) {
-                    setTimeout(function() {
-                        closeModal(id);
-                    }, autoDismiss * 1000);
-                }
-            }
-        }
-
-        function closeModal(id) {
-            const modal = document.getElementById(id);
-            if (modal) {
-                modal.classList.add('hide');
-                setTimeout(function() {
-                    modal.classList.remove('show', 'hide');
-                }, 300);
-            }
-        }
-
-        // Close modal on backdrop click
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('modal')) {
-                closeModal(e.target.id);
-            }
-        });
-
-        // Close modal on Escape key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                const modal = document.querySelector('.modal.show');
-                if (modal) {
-                    closeModal(modal.id);
-                }
-            }
-        });
-    </script>
-
-
-</body>
+    </body>
 
 </html>

@@ -9,7 +9,7 @@ $completed = !empty($visit['checkout_time']);
         <div class="brand-name"><?= htmlspecialchars($visit['tenant_name']) ?></div>
     </div>
 
-    <div class="login-card" style="text-align:center;">
+    <div class="login-card text-center">
 
         <?php if ($completed): ?>
             <h2>Visit completed</h2>
@@ -23,8 +23,8 @@ $completed = !empty($visit['checkout_time']);
             <img src="<?= $qr ?>" alt="Visit QR pass" width="220" height="220">
         <?php endif; ?>
 
-        <div class="form-group" style="text-align:left;">
-            <table style="width:100%; border-collapse:collapse;">
+        <div class="form-group u-ta-left">
+            <table class="u-w-full u-border-collapse">
                 <tr>
                     <td><strong>Visitor</strong></td>
                     <td><?= htmlspecialchars($visit['visitor_first'] . ' ' . $visit['visitor_last']) ?></td>

@@ -7,7 +7,9 @@ use PDO;
 /**
  * Repository — single-file, multi-tenant data layer.
  *
- * Replaces: BaseRepository, QueryBuilder, SearchBuilder, Paginator.
+ * Supersedes the ad-hoc query construction in BaseRepository for new code.
+ * Search, filtering and sorting are delegated to QueryBuilder, which is now the
+ * single implementation shared with BaseRepository and SearchBuilder.
  *
  * ┌─────────────────────────────────────────────┐
  * │  HOW TO USE IN A SUBCLASS                   │
@@ -138,12 +140,16 @@ abstract class Repository
 
         // ── Search ───────────────────────────────────────────────────────────
         if ($search !== '' && !empty($this->searchable)) {
-            $sql = $this->applySearch($sql, $bindings, $search);
+            $sql = QueryBuilder::applySearch($sql, $this->searchable, $bindings, $search);
         }
 
         // ── Filters ──────────────────────────────────────────────────────────
         if (!empty($filters)) {
-            $sql = $this->applyFilters($sql, $bindings, $filters);
+            $normalised = $this->normaliseFilters($filters);
+
+            if ($normalised !== []) {
+                $sql = QueryBuilder::applyFilters($sql, $normalised, $bindings);
+            }
         }
 
         // ── Sort ─────────────────────────────────────────────────────────────
@@ -229,128 +235,36 @@ abstract class Repository
     // =========================================================================
 
     /**
-     * Append multi-term LIKE conditions.
-     * Each word must match at least one searchable column (AND terms, OR columns).
-     */
-    private function applySearch(string $sql, array &$bindings, string $search): string
-    {
-        $terms = array_values(array_filter(preg_split('/\s+/', $search)));
-        if (empty($terms)) return $sql;
-
-        $termClauses = [];
-        foreach ($terms as $ti => $term) {
-            $colClauses = [];
-            foreach ($this->searchable as $ci => $col) {
-                $param = ":srch_t{$ti}_c{$ci}";
-                $colClauses[]    = "{$col} LIKE {$param}";
-                $bindings[$param] = "%{$term}%";
-            }
-            if ($colClauses) {
-                $termClauses[] = '(' . implode(' OR ', $colClauses) . ')';
-            }
-        }
-
-        return empty($termClauses)
-            ? $sql
-            : $this->and($sql, '(' . implode(' AND ', $termClauses) . ')');
-    }
-
-    /**
-     * Append whitelisted filter conditions.
+     * Translate request filter keys to whitelisted SQL columns.
      *
-     * Supported operators: =  !=  <>  >  >=  <  <=  LIKE  NOT LIKE
-     *                      IN  NOT IN  BETWEEN  NOT BETWEEN  IS NULL  IS NOT NULL
+     * The clause construction itself lives in QueryBuilder, so a filter means
+     * the same thing here and in BaseRepository.
+     *
+     * @return array<string, mixed> SQL column => raw value/operator entry
      */
-    private function applyFilters(string $sql, array &$bindings, array $rawFilters): string
+    private function normaliseFilters(array $rawFilters): array
     {
-        // Build requestKey → sqlColumn map
         $colMap = [];
-        foreach ($this->filterable as $k => $v) {
-            if (is_int($k)) {
-                $colMap[$v] = "{$this->alias}.{$v}";   // indexed
+
+        foreach ($this->filterable as $key => $column) {
+            if (is_int($key)) {
+                $colMap[$column] = "{$this->alias}.{$column}";   // indexed
             } else {
-                $colMap[$k] = $v;                       // associative
+                $colMap[$key] = $column;                        // associative
             }
         }
+
+        $normalised = [];
 
         foreach ($rawFilters as $key => $raw) {
-            if (!array_key_exists($key, $colMap)) continue;
-
-            $col      = $colMap[$key];
-            $paramBase = ':f_' . preg_replace('/[^a-zA-Z0-9_]/', '_', $col);
-
-            // Normalise to [value, OPERATOR]
-            if (!is_array($raw) || !array_key_exists('value', $raw)) {
-                [$value, $op] = [$raw, '='];
-            } else {
-                $value = $raw['value'];
-                $op    = strtoupper($raw['operator'] ?? '=');
+            if (!array_key_exists($key, $colMap)) {
+                continue;
             }
 
-            $clause = $this->buildClause($col, $value, $op, $paramBase, $bindings);
-            if ($clause !== null) {
-                $sql = $this->and($sql, $clause);
-            }
+            $normalised[$colMap[$key]] = $raw;
         }
 
-        return $sql;
-    }
-
-    /**
-     * Build a single SQL condition and register its bindings.
-     * Returns null when the entry should be skipped.
-     */
-    private function buildClause(
-        string $col,
-        mixed  $value,
-        string $op,
-        string $base,
-        array  &$bindings
-    ): ?string {
-        switch ($op) {
-            case 'IS NULL':     return "{$col} IS NULL";
-            case 'IS NOT NULL': return "{$col} IS NOT NULL";
-
-            case 'IN':
-            case 'NOT IN':
-                if (!is_array($value) || empty($value)) return null;
-                $phs = [];
-                foreach (array_values($value) as $i => $v) {
-                    $p = "{$base}_{$i}";
-                    $phs[]       = $p;
-                    $bindings[$p] = $v;
-                }
-                return "{$col} {$op} (" . implode(', ', $phs) . ")";
-
-            case 'BETWEEN':
-            case 'NOT BETWEEN':
-                if (!is_array($value) || count($value) !== 2) return null;
-                $bindings["{$base}_from"] = $value[0];
-                $bindings["{$base}_to"]   = $value[1];
-                return "{$col} {$op} {$base}_from AND {$base}_to";
-
-            case 'LIKE':
-            case 'NOT LIKE':
-                if ($value === null || $value === '') return null;
-                $wrapped = str_contains((string)$value, '%') ? $value : "%{$value}%";
-                $bindings[$base] = $wrapped;
-                return "{$col} {$op} {$base}";
-
-            default:
-                if (!in_array($op, ['=','!=','<>','>','>=','<','<='], true)) $op = '=';
-                if ($value === null || $value === '') return null;
-                $bindings[$base] = $value;
-                return "{$col} {$op} {$base}";
-        }
-    }
-
-    /** Append a condition with WHERE or AND as appropriate. */
-    private function and(string $sql, string $condition): string
-    {
-        $sql = rtrim($sql);
-        return preg_match('/\bWHERE\b/i', $sql)
-            ? "{$sql} AND {$condition}"
-            : "{$sql} WHERE {$condition}";
+        return $normalised;
     }
 
     /**

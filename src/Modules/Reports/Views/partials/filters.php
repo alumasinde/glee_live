@@ -1,13 +1,13 @@
 <form method="GET" class="report-filters">
 
-    <div class="form-group" style="margin-bottom:0">
-        <label class="form-label" style="font-size:0.72rem">Search</label>
+    <div class="form-group mb-0">
+        <label class="form-label u-fs-072">Search</label>
         <input
             type="text"
             name="search"
             value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
             placeholder="Search…"
-            style="min-width:220px"
+            class="u-minw-220"
         >
     </div>
 
@@ -19,12 +19,12 @@
                     : $name;
                 $short = str_replace('_id', '', $short);
             ?>
-            <div class="form-group" style="margin-bottom:0">
-                <label class="form-label" style="font-size:0.72rem">
+            <div class="form-group mb-0">
+                <label class="form-label u-fs-072">
                     <?= htmlspecialchars(ucfirst(str_replace('_', ' ', $short))) ?>
                 </label>
 
-                <select name="filters[<?= htmlspecialchars($name) ?>]" style="min-width:160px">
+                <select name="filters[<?= htmlspecialchars($name) ?>]" class="u-minw-160">
                     <option value="">All</option>
 
                     <?php foreach ($options as $value => $label): ?>
@@ -40,9 +40,9 @@
         <?php endforeach; ?>
     <?php endif; ?>
 
-    <div class="form-group" style="margin-bottom:0">
-        <label class="form-label" style="font-size:0.72rem; visibility:hidden">Actions</label>
-        <div style="display:flex; gap:var(--space-2); flex-wrap:wrap">
+    <div class="form-group mb-0">
+        <label class="form-label u-fs-072 u-vis-hidden">Actions</label>
+        <div class="d-flex gap-2 flex-wrap">
             <button type="submit" class="btn btn-primary">
                 <i class="fa-solid fa-filter"></i> Apply
             </button>

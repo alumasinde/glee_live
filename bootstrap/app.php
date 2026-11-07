@@ -3,6 +3,7 @@
 use App\Core\App;
 use App\Core\Container;
 use App\Core\DB;
+use App\Core\Env;
 use App\Core\Permission;
 use App\Core\Request;
 use App\Core\Router;
@@ -23,46 +24,42 @@ $dotenv->load();
 
 /**
  * Read an environment value.
- * Dotenv returns everything as strings, so "false" would be truthy in PHP.
- * Cast the common literals to real booleans/null.
+ * The casting rules live in App\Core\Env so the CLI scripts in bin/ cannot
+ * drift from the web application (they used to read the raw string, making
+ * {"false"} truthy).
  */
 function env(string $key, $default = null)
 {
-    $value = $_ENV[$key] ?? $_SERVER[$key] ?? null;
-
-    if ($value === null) {
-        return $default;
-    }
-
-    if (!is_string($value)) {
-        return $value;
-    }
-
-    return match (strtolower($value)) {
-        'true', '(true)'   => true,
-        'false', '(false)' => false,
-        'null', '(null)'   => null,
-        'empty', '(empty)' => '',
-        default            => $value,
-    };
+    return Env::get($key, $default);
 }
 
+// Always record errors, including warnings that error_reporting(0) used to
+// discard silently; only their display depends on the environment.
+ini_set('log_errors', '1');
+error_reporting(E_ALL);
+
 if (env('APP_DEBUG', false)) {
-    error_reporting(E_ALL);
-    ini_set('display_errors', 1);
-    ini_set('display_startup_errors', 1);
+    ini_set('display_errors', '1');
+    ini_set('display_startup_errors', '1');
 } else {
-    error_reporting(0);
-    ini_set('display_errors', 0);
+    ini_set('display_errors', '0');
+    ini_set('display_startup_errors', '0');
 }
 
 date_default_timezone_set(config('app.timezone') ?? 'UTC');
 
 if (session_status() === PHP_SESSION_NONE) {
+    // isset($_SERVER['HTTPS']) is false behind every TLS-terminating proxy and
+    // true for the literal value "off", so derive the scheme instead.
+    $https = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
+        || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https'
+        || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443;
+
     session_set_cookie_params([
         'httponly' => true,
-        'secure' => isset($_SERVER['HTTPS']),
-        'samesite' => 'Strict'
+        'secure'   => $https || (bool) env('SESSION_SECURE', false),
+        'samesite' => 'Strict',
+        'path'     => '/',
     ]);
 
     // Use Redis for sessions only if enabled AND Redis is actually reachable.

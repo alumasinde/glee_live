@@ -90,7 +90,7 @@ if (!empty($tenant_name)) {
             </div>
         </div>
 
-        <button type="submit" class="btn-login">
+        <button type="submit" class="btn-login" data-loading-label="Resetting…">
             Reset Password
         </button>
 
@@ -104,22 +104,3 @@ if (!empty($tenant_name)) {
 
 </div>
 
-<script>
-    document.querySelectorAll('.reveal-toggle').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            var input = document.getElementById(btn.dataset.target);
-            var showing = input.type === 'password';
-            input.type = showing ? 'text' : 'password';
-            btn.setAttribute('aria-pressed', showing ? 'true' : 'false');
-            btn.setAttribute('aria-label', showing ? 'Hide password' : 'Show password');
-            btn.querySelector('i').className = showing ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
-            input.focus();
-        });
-    });
-
-    document.querySelector('.login-card').addEventListener('submit', function() {
-        var btn = this.querySelector('.btn-login');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Resetting\u2026';
-    });
-</script>

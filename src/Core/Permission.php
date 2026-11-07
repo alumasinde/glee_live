@@ -66,10 +66,19 @@ class Permission
             ':tenant_id' => (int) $user['tenant_id'],
         ]);
 
-        $perms = [];
+        $perms      = [];
+        $restricted = PlatformPolicy::restrictedPermissions();
 
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $perms[strtolower($row['module'] . '.' . $row['action'])] = true;
+            $key = strtolower($row['module'] . '.' . $row['action']);
+
+            // A platform-restricted permission is withheld at runtime even if a
+            // tenant role still carries the grant.
+            if ($restricted !== [] && in_array($key, $restricted, true)) {
+                continue;
+            }
+
+            $perms[$key] = true;
         }
 
         return self::$cached = $perms;

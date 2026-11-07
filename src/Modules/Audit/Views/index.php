@@ -28,8 +28,8 @@ $arrow = static function (string $column) use ($sortBy, $sortDir): string {
     }
 
     return $sortDir === 'asc'
-        ? ' <i class="fa-solid fa-arrow-up-short-wide" style="font-size:0.7rem"></i>'
-        : ' <i class="fa-solid fa-arrow-down-short-wide" style="font-size:0.7rem"></i>';
+        ? ' <i class="fa-solid fa-arrow-up-short-wide u-fs-070"></i>'
+        : ' <i class="fa-solid fa-arrow-down-short-wide u-fs-070"></i>';
 };
 ?>
 <div class="page-header">

@@ -25,7 +25,7 @@
     </div>
 </div>
 
-<div class="report-dashboard" style="margin-bottom: var(--space-6);">
+<div class="report-dashboard u-mb-s6">
     <div class="report-card">
         <div class="card-icon"><i class="fa-solid fa-users-rays"></i></div>
         <h3><?= (int) $totalOnSite ?></h3>

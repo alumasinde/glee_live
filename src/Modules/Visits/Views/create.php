@@ -139,30 +139,4 @@ $visitor = $visitor ?? null;
 </div>
 
 <!-- AUTO SELECT DEPARTMENT SCRIPT -->
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-
-    const hostSelect = document.getElementById('hostSelect');
-    const deptSelect = document.getElementById('departmentSelect');
-
-    function syncDepartment() {
-        const selected = hostSelect.options[hostSelect.selectedIndex];
-        if (!selected) return;
-
-        const departmentId = selected.getAttribute('data-department');
-
-        if (departmentId && deptSelect) {
-            deptSelect.value = departmentId;
-        }
-    }
-
-    // On host change
-    hostSelect.addEventListener('change', syncDepartment);
-
-    // On page load (important for validation reload)
-    if (hostSelect.value) {
-        syncDepartment();
-    }
-
-});
-</script>
+<script src="/assets/js/pages/visit-create.js" defer></script>

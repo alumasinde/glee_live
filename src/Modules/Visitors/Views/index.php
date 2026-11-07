@@ -76,7 +76,7 @@ use App\Core\View;
                             </td>
 
                             <td>
-                                <span class="cell-sub" style="margin-top:0">
+                                <span class="cell-sub u-mt-0">
                                     <?= htmlspecialchars($v['id_type_name'] ?? '—') ?>
                                 </span>
                                 <span class="cell-mono"><?= htmlspecialchars($v['id_number'] ?? '—') ?></span>
@@ -121,7 +121,7 @@ use App\Core\View;
                                 <?php else: ?>
                                     <?php if (can('visitors.blacklist')): ?>
                                         <form method="POST" action="/visitors/<?= $id ?>/blacklist" class="table-action-button"
-                                              onsubmit="return confirm('Blacklist this visitor?')">
+                                              data-confirm="Blacklist this visitor?">
                                             <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
                                             <button class="btn btn-sm btn-secondary">Blacklist</button>
                                         </form>

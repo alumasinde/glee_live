@@ -127,14 +127,53 @@ class Audit
         return array_merge($metadata ?? [], ['_request' => $context ?: null]);
     }
 
+    /**
+     * The client IP, trusting forwarding headers only when the direct peer is
+     * a configured proxy.
+     *
+     * HTTP_X_FORWARDED_FOR is client-writable, so on a direct connection it
+     * would let any caller attribute an action to any address. Only when
+     * REMOTE_ADDR is listed in TRUSTED_PROXIES is the chain read, and then
+     * right-to-left: the rightmost entry was appended by the hop we trust.
+     */
     private static function clientIp(): ?string
     {
-        foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'] as $key) {
-            if (!empty($_SERVER[$key])) {
-                return explode(',', $_SERVER[$key])[0];
+        $remote = $_SERVER['REMOTE_ADDR'] ?? null;
+
+        if ($remote === null || $remote === '') {
+            return null;
+        }
+
+        $trusted = config('security.trusted_proxies') ?? [];
+
+        if (!is_array($trusted) || !in_array($remote, $trusted, true)) {
+            return $remote;
+        }
+
+        $chain = [];
+
+        if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+            $chain[] = trim((string) $_SERVER['HTTP_CF_CONNECTING_IP']);
+        }
+
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            foreach (explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']) as $hop) {
+                $chain[] = trim($hop);
             }
         }
 
-        return null;
+        foreach (array_reverse($chain) as $candidate) {
+            if (filter_var($candidate, FILTER_VALIDATE_IP) === false) {
+                continue;
+            }
+
+            if (in_array($candidate, $trusted, true)) {
+                continue;
+            }
+
+            return $candidate;
+        }
+
+        return $remote;
     }
 }

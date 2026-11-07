@@ -53,7 +53,7 @@ class Redis
     public static function get(string $key, $default = null)
     {
         if (!self::isEnabled()) {
-            return self::sessionGet($key, $default);
+            return self::storeGet($key, $default);
         }
 
         $value = self::$client->get($key);
@@ -63,7 +63,7 @@ class Redis
     public static function set(string $key, $value, int $ttl = null): bool
     {
         if (!self::isEnabled()) {
-            return self::sessionSet($key, $value, $ttl);
+            return self::storeSet($key, $value, $ttl);
         }
 
         $serialized = json_encode($value);
@@ -76,7 +76,7 @@ class Redis
     public static function delete(string $key): bool
     {
         if (!self::isEnabled()) {
-            return self::sessionDelete($key);
+            return self::storeDelete($key);
         }
 
         return self::$client->del($key) > 0;
@@ -85,7 +85,7 @@ class Redis
     public static function exists(string $key): bool
     {
         if (!self::isEnabled()) {
-            return self::sessionExists($key);
+            return self::storeExists($key);
         }
 
         return self::$client->exists($key) > 0;
@@ -94,7 +94,7 @@ class Redis
     public static function increment(string $key, int $value = 1): int
     {
         if (!self::isEnabled()) {
-            return self::sessionIncrement($key, $value);
+            return self::storeIncrement($key, $value);
         }
 
         return self::$client->incrby($key, $value);
@@ -103,7 +103,7 @@ class Redis
     public static function expire(string $key, int $seconds): bool
     {
         if (!self::isEnabled()) {
-            return self::sessionExpire($key, $seconds);
+            return self::storeExpire($key, $seconds);
         }
 
         return self::$client->expire($key, $seconds) > 0;
@@ -112,95 +112,171 @@ class Redis
     public static function ttl(string $key): int
     {
         if (!self::isEnabled()) {
-            return self::sessionTtl($key);
+            return self::storeTtl($key);
         }
 
         return self::$client->ttl($key);
     }
 
-    // Session fallback methods
-    private static function sessionGet(string $key, $default = null)
+    // ─────────────────────────────────────────────────────────────────────────
+    // Fallback store (no Redis configured)
+    //
+    // Previously this lived in $_SESSION, which made every caller per-browser:
+    // counters vanished when the client dropped its cookie, and the gate device
+    // endpoint — which sends no cookie at all — got a fresh bucket per request,
+    // so its rate limit never applied. One file per key inside var/cache/kv is
+    // shared by all PHP workers and needs no extra service.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private static function storeDir(): string
     {
-        $sessionKey = 'redis_fallback:' . $key;
-        $data = $_SESSION[$sessionKey] ?? null;
+        $dir = dirname(__DIR__, 2) . '/var/cache/kv';
+
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        return $dir;
+    }
+
+    private static function storePath(string $key): string
+    {
+        return self::storeDir() . '/' . hash('sha256', $key) . '.json';
+    }
+
+    /** @return array{value: mixed, expires: int|null}|null */
+    private static function storeRead(string $key): ?array
+    {
+        $path = self::storePath($key);
+
+        if (!is_file($path)) {
+            return null;
+        }
+
+        $raw = @file_get_contents($path);
+
+        if ($raw === false || $raw === '') {
+            return null;
+        }
+
+        $data = json_decode($raw, true);
+
+        if (!is_array($data) || !array_key_exists('value', $data)) {
+            return null;
+        }
+
+        $expires = $data['expires'] ?? null;
+        $expires = is_int($expires) ? $expires : null;
+
+        if ($expires !== null && time() > $expires) {
+            @unlink($path);
+            return null;
+        }
+
+        return ['value' => $data['value'], 'expires' => $expires];
+    }
+
+    private static function storeWrite(string $key, $value, ?int $expires): bool
+    {
+        $payload = json_encode(['value' => $value, 'expires' => $expires]);
+
+        if ($payload === false) {
+            return false;
+        }
+
+        return @file_put_contents(self::storePath($key), $payload, LOCK_EX) !== false;
+    }
+
+    private static function storeGet(string $key, $default = null)
+    {
+        $data = self::storeRead($key);
+
+        return $data === null ? $default : $data['value'];
+    }
+
+    private static function storeSet(string $key, $value, ?int $ttl = null): bool
+    {
+        return self::storeWrite($key, $value, $ttl !== null ? time() + $ttl : null);
+    }
+
+    private static function storeDelete(string $key): bool
+    {
+        $existed = self::storeRead($key) !== null;
+
+        @unlink(self::storePath($key));
+
+        return $existed;
+    }
+
+    private static function storeExists(string $key): bool
+    {
+        return self::storeRead($key) !== null;
+    }
+
+    private static function storeIncrement(string $key, int $value = 1): int
+    {
+        $handle = @fopen(self::storePath($key), 'c+');
+
+        if ($handle === false) {
+            return $value;
+        }
+
+        try {
+            if (!flock($handle, LOCK_EX)) {
+                return $value;
+            }
+
+            $raw  = stream_get_contents($handle) ?: '';
+            $data = json_decode($raw, true);
+
+            $expires = is_array($data) && is_int($data['expires'] ?? null) ? $data['expires'] : null;
+
+            if ($expires !== null && time() > $expires) {
+                $data    = null;
+                $expires = null;
+            }
+
+            $current = is_array($data) && is_numeric($data['value'] ?? null)
+                ? (int) $data['value']
+                : 0;
+
+            $current += $value;
+
+            ftruncate($handle, 0);
+            rewind($handle);
+            fwrite($handle, (string) json_encode(['value' => $current, 'expires' => $expires]));
+            fflush($handle);
+            flock($handle, LOCK_UN);
+
+            return $current;
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    private static function storeExpire(string $key, int $seconds): bool
+    {
+        $data = self::storeRead($key);
 
         if ($data === null) {
-            return $default;
+            return false;
         }
 
-        // Check expiration
-        if (isset($data['expires']) && time() > $data['expires']) {
-            unset($_SESSION[$sessionKey]);
-            return $default;
-        }
-
-        return $data['value'];
+        return self::storeWrite($key, $data['value'], time() + $seconds);
     }
 
-    private static function sessionSet(string $key, $value, int $ttl = null): bool
+    private static function storeTtl(string $key): int
     {
-        $sessionKey = 'redis_fallback:' . $key;
-        $_SESSION[$sessionKey] = [
-            'value' => $value,
-            'expires' => $ttl !== null ? time() + $ttl : null,
-        ];
-        return true;
-    }
-
-    private static function sessionDelete(string $key): bool
-    {
-        $sessionKey = 'redis_fallback:' . $key;
-        $exists = isset($_SESSION[$sessionKey]);
-        unset($_SESSION[$sessionKey]);
-        return $exists;
-    }
-
-    private static function sessionExists(string $key): bool
-    {
-        $sessionKey = 'redis_fallback:' . $key;
-        $data = $_SESSION[$sessionKey] ?? null;
+        $data = self::storeRead($key);
 
         if ($data === null) {
-            return false;
+            return -2;
         }
 
-        // Check expiration
-        if (isset($data['expires']) && time() > $data['expires']) {
-            unset($_SESSION[$sessionKey]);
-            return false;
-        }
-
-        return true;
-    }
-
-    private static function sessionIncrement(string $key, int $value = 1): int
-    {
-        $sessionKey = 'redis_fallback:' . $key;
-        $current = $_SESSION[$sessionKey]['value'] ?? 0;
-        $_SESSION[$sessionKey]['value'] = $current + $value;
-        return $_SESSION[$sessionKey]['value'];
-    }
-
-    private static function sessionExpire(string $key, int $seconds): bool
-    {
-        $sessionKey = 'redis_fallback:' . $key;
-        if (!isset($_SESSION[$sessionKey])) {
-            return false;
-        }
-        $_SESSION[$sessionKey]['expires'] = time() + $seconds;
-        return true;
-    }
-
-    private static function sessionTtl(string $key): int
-    {
-        $sessionKey = 'redis_fallback:' . $key;
-        $data = $_SESSION[$sessionKey] ?? null;
-
-        if ($data === null || !isset($data['expires'])) {
+        if ($data['expires'] === null) {
             return -1;
         }
 
-        $remaining = $data['expires'] - time();
-        return max(-2, $remaining);
+        return max(0, $data['expires'] - time());
     }
 }

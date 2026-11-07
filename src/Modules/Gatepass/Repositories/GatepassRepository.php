@@ -306,6 +306,51 @@ final class GatepassRepository
 
     /*
     |--------------------------------------------------------------------------
+    | APPROVAL TRAIL
+    |--------------------------------------------------------------------------
+    | Every approver row of the pass's latest workflow instance, in step order —
+    | including siblings cancelled when another approver satisfied an "any" step.
+    */
+    public function approvalTrail(int $tenantId, int $gatepassId): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT
+                ga.id, ga.status, ga.comments, ga.created_at, ga.acted_at,
+                ws.name AS step_name,
+                ws.step_order,
+                u.first_name AS approver_first_name,
+                u.last_name  AS approver_last_name,
+                u.email      AS approver_email
+            FROM gatepass_approvals ga
+            INNER JOIN gatepass_workflow_instances gwi
+                ON gwi.id = ga.workflow_instance_id AND gwi.tenant_id = ga.tenant_id
+            LEFT JOIN workflow_steps ws
+                ON ws.id = ga.workflow_step_id AND ws.tenant_id = ga.tenant_id
+            LEFT JOIN users u
+                ON u.id = ga.approver_user_id AND u.tenant_id = ga.tenant_id
+            WHERE ga.tenant_id   = :tenant_id
+              AND gwi.gatepass_id = :gatepass_id
+              AND gwi.id = (
+                  SELECT MAX(latest.id)
+                  FROM gatepass_workflow_instances latest
+                  WHERE latest.tenant_id   = :latest_tenant_id
+                    AND latest.gatepass_id = :latest_gatepass_id
+              )
+            ORDER BY ws.step_order ASC, ga.id ASC
+        ");
+
+        $stmt->execute([
+            ':tenant_id'          => $tenantId,
+            ':gatepass_id'        => $gatepassId,
+            ':latest_tenant_id'   => $tenantId,
+            ':latest_gatepass_id' => $gatepassId,
+        ]);
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | FIND BY GATEPASS NUMBER
     |--------------------------------------------------------------------------
     */

@@ -5,7 +5,7 @@
     </h1>
 </div>
 
-<div class="gp-card" style="max-width: 520px;">
+<div class="gp-card u-maxw-520">
     <div class="gp-section-header">
         <h2 class="gp-section-title"><?= htmlspecialchars($message) ?></h2>
         <?php if (!empty($gate)): ?>

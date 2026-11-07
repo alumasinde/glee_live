@@ -171,14 +171,13 @@ class RoleController extends Controller
     // Convert to ID array (IMPORTANT FIX)
     $rolePermissionIds = array_column($rolePermissions, 'id');
 
-    $allPermissions = $this->service->allPermissions();
-
-    return View::render('Roles::permissions', [
-        'role' => $role,
-        'rolePermissions' => $rolePermissionIds, // now guaranteed array
-        'allPermissions' => $allPermissions,
-        'title' => 'Assign Permissions'
-    ], 'app');
+    $allPermissions = $this->service->allPermissions();        return View::render('Roles::permissions', [
+            'role' => $role,
+            'rolePermissions' => $rolePermissionIds, // now guaranteed array
+            'allPermissions' => $allPermissions,
+            'restrictedPermissions' => \App\Core\PlatformPolicy::restrictedPermissions(),
+            'title' => 'Assign Permissions'
+        ], 'app');
 }
 
     /* ============================================================
@@ -205,6 +204,16 @@ class RoleController extends Controller
 
         if (!is_array($permissionIds)) {
             Response::abort(400);
+        }
+
+        // Platform-restricted keys are never grantable by a tenant, whatever
+        // the submitted form contained.
+        $restrictedIds = $this->service->permissionIdsForKeys(
+            \App\Core\PlatformPolicy::restrictedPermissions()
+        );
+
+        if ($restrictedIds !== []) {
+            $permissionIds = array_values(array_diff(array_map('intval', $permissionIds), $restrictedIds));
         }
 
         $this->service->assignPermissions(

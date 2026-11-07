@@ -26,7 +26,7 @@
     </div>
 </div>
 
-<div class="gp-card" style="max-width: 520px;">
+<div class="gp-card u-maxw-520">
 
     <?php if (!empty($error)): ?>
         <div class="gp-alert gp-alert--danger">
@@ -52,7 +52,7 @@
                 <span class="gp-hint">Scans are attributed to this gate for occupancy and audit.</span>
             </div>
         <?php else: ?>
-            <div class="gp-hint" style="margin-bottom:12px;">
+            <div class="gp-hint u-mb-12">
                 No gates configured yet — add them under Settings → Gates to track scans per gate.
             </div>
         <?php endif; ?>
@@ -75,7 +75,7 @@
             </span>
         </div>
 
-        <div id="qr-reader" style="display:none; max-width:400px; margin:0 auto 12px;"></div>
+        <div id="qr-reader" class="u-d-none u-maxw-400 u-mt-0 u-mx-auto u-mb-12"></div>
 
         <div class="gp-actions">
             <button type="submit" class="gp-btn gp-btn--primary">
@@ -85,7 +85,7 @@
             <button type="button" class="gp-btn" id="btn-camera-scan">
                 <i class="fa-solid fa-camera"></i> Start Camera
             </button>
-            <button type="button" class="gp-btn" id="btn-camera-stop" style="display:none;">
+            <button type="button" class="gp-btn u-d-none" id="btn-camera-stop">
                 <i class="fa-solid fa-camera"></i> Stop Camera
             </button>
         </div>
@@ -93,52 +93,4 @@
 </div>
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script>
-(function () {
-    var reader = document.getElementById('qr-reader');
-    var input = document.getElementById('gatepass_number');
-    var form = input.closest('form');
-    var startBtn = document.getElementById('btn-camera-scan');
-    var stopBtn = document.getElementById('btn-camera-stop');
-    var scanner = null;
-
-    startBtn.addEventListener('click', function () {
-        if (!window.Html5Qrcode) {
-            alert('Camera library failed to load. Use manual entry.');
-            return;
-        }
-        reader.style.display = 'block';
-        startBtn.style.display = 'none';
-        stopBtn.style.display = '';
-
-        scanner = new Html5Qrcode('qr-reader');
-        scanner.start(
-            { facingMode: 'environment' },
-            { fps: 10, qrbox: 250 },
-            function (decodedText) {
-                scanner.stop().catch(function () {});
-                reader.style.display = 'none';
-                stopBtn.style.display = 'none';
-                startBtn.style.display = '';
-                input.value = decodedText;
-                form.submit();
-            },
-            function () {}
-        ).catch(function (err) {
-            alert('Could not start camera: ' + err);
-            reader.style.display = 'none';
-            stopBtn.style.display = 'none';
-            startBtn.style.display = '';
-        });
-    });
-
-    stopBtn.addEventListener('click', function () {
-        if (scanner) {
-            scanner.stop().catch(function () {});
-        }
-        reader.style.display = 'none';
-        stopBtn.style.display = 'none';
-        startBtn.style.display = '';
-    });
-})();
-</script>
+<script src="/assets/js/pages/scan.js" defer></script>

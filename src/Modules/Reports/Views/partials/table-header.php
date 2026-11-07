@@ -13,8 +13,8 @@ function sortLink($column, $label)
     $icon = '';
     if ($isActive) {
         $icon = ($_GET['sort_dir'] ?? 'asc') === 'asc'
-            ? ' <i class="fa-solid fa-arrow-up-wide-short" style="font-size:0.65rem"></i>'
-            : ' <i class="fa-solid fa-arrow-down-wide-short" style="font-size:0.65rem"></i>';
+            ? ' <i class="fa-solid fa-arrow-up-wide-short u-fs-065"></i>'
+            : ' <i class="fa-solid fa-arrow-down-wide-short u-fs-065"></i>';
     }
 
     echo '<th><a class="sort-link' . ($isActive ? ' sort-active' : '') . '" href=\'' . htmlspecialchars($url, ENT_QUOTES) . '\'>'

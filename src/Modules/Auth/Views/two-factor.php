@@ -52,7 +52,7 @@ $logoPath = $logo !== '' ? base_path('public/uploads/tenants/' . basename($logo)
             </p>
         </div>
 
-        <button type="submit" class="btn-login">Verify and sign in</button>
+        <button type="submit" class="btn-login" data-loading-label="Verifying…">Verify and sign in</button>
 
         <div class="extra-links">
             <a href="/login">Use a different account</a>
@@ -64,10 +64,3 @@ $logoPath = $logo !== '' ? base_path('public/uploads/tenants/' . basename($logo)
 
 </div>
 
-<script>
-    document.getElementById('mfa-form').addEventListener('submit', function() {
-        var btn = this.querySelector('.btn-login');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Verifying\u2026';
-    });
-</script>

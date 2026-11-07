@@ -22,7 +22,7 @@ use App\Core\View;
         </span>
     </div>
 
-    <div class="card-body" style="max-width:560px">
+    <div class="card-body u-maxw-560">
         <form method="POST" action="/settings/departments/create">
             <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
@@ -91,7 +91,7 @@ use App\Core\View;
                                 <label class="toggle-switch">
                                     <input type="checkbox"
                                            <?= $dept->isActive ? 'checked' : '' ?>
-                                           onchange="toggleDepartment(<?= (int) $dept->id ?>)">
+                                           data-department-toggle data-id="<?= (int) $dept->id ?>">
                                     <span class="slider"></span>
                                 </label>
                             </td>
@@ -100,19 +100,19 @@ use App\Core\View;
                                 <button
                                     class="btn btn-sm btn-ghost btn-icon"
                                     title="Edit"
-                                    data-edit
-                                    data-id="<?= (int) $dept->id ?>"
-                                    data-name="<?= htmlspecialchars($dept->name, ENT_QUOTES) ?>"
-                                    data-code="<?= htmlspecialchars($dept->code, ENT_QUOTES) ?>"
+                                    data-open-form="#editModal"
+                                    data-field-id="<?= (int) $dept->id ?>"
+                                    data-field-name="<?= htmlspecialchars($dept->name, ENT_QUOTES) ?>"
+                                    data-field-code="<?= htmlspecialchars($dept->code, ENT_QUOTES) ?>"
                                 >
                                     <i class="fa-solid fa-pen"></i>
                                 </button>
                                 <button
                                     class="btn btn-sm btn-ghost btn-icon"
                                     title="Delete"
-                                    onclick="deleteDepartment(<?= (int) $dept->id ?>)"
+                                    data-department-delete data-id="<?= (int) $dept->id ?>"
                                 >
-                                    <i class="fa-solid fa-trash" style="color:var(--color-danger)"></i>
+                                    <i class="fa-solid fa-trash text-danger"></i>
                                 </button>
                             </td>
                         </tr>
@@ -124,14 +124,14 @@ use App\Core\View;
 </div>
 
 <!-- ===================== EDIT MODAL (simple inline JS version) ===================== -->
-<div id="editModal" style="display:none;" class="table-card mt-4">
+<div id="editModal" class="table-card mt-4 u-d-none">
     <div class="table-card-head">
         <span class="table-card-title">
             <i class="fa-solid fa-pen"></i> Edit Department
         </span>
     </div>
 
-    <div class="card-body" style="max-width:560px">
+    <div class="card-body u-maxw-560">
         <form method="POST" action="/settings/departments/update">
             <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
             <input type="hidden" name="id" id="edit_id">
@@ -148,59 +148,11 @@ use App\Core\View;
 
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Update</button>
-                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-close="#editModal">Cancel</button>
             </div>
         </form>
     </div>
 </div>
 
 <!-- ===================== SIMPLE JS ACTIONS ===================== -->
-<script>
-function openEditModal(id, name, code) {
-    document.getElementById('edit_id').value = id;
-    document.getElementById('edit_name').value = name;
-    document.getElementById('edit_code').value = code;
-    const modal = document.getElementById('editModal');
-    modal.style.display = 'block';
-    modal.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-document.querySelectorAll('[data-edit]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-        openEditModal(btn.dataset.id, btn.dataset.name, btn.dataset.code);
-    });
-});
-
-function closeEditModal() {
-    document.getElementById('editModal').style.display = 'none';
-}
-
-function toggleDepartment(id) {
-    fetch('/settings/departments/toggle', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': '<?= \App\Middleware\CSRFMiddleware::token() ?>'
-        },
-        body: JSON.stringify({ id })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.message || 'Toggle failed');
-        }
-    });
-}
-
-function deleteDepartment(id) {
-    if (!confirm('Are you sure you want to delete this department?')) return;
-
-    fetch('/settings/departments/delete', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': '<?= \App\Middleware\CSRFMiddleware::token() ?>'},
-        body: JSON.stringify({id})
-    }).then(() => location.reload());
-}
-</script>
+<script src="/assets/js/pages/departments.js" defer></script>

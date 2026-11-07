@@ -28,7 +28,6 @@ return [
         'checkin',
         'checkout',
         'scan',
-        'print',
     ],
 
     'approval' => [
@@ -37,6 +36,12 @@ return [
         'reject',
         'reassign',
         'delegate',   // self-service out-of-office coverage
+    ],
+
+    'badges' => [
+        'view',       // badge register
+        'issue',      // issue a badge against a checked-in visit
+        'return',     // close a badge out when the card comes back
     ],
 
     'notifications' => [
@@ -51,7 +56,6 @@ return [
         'delete',
         'blacklist',
         'unblacklist',
-        'issue_badge',
     ],
 
     'visits' => [
@@ -59,7 +63,6 @@ return [
         'create',
         'check_in',
         'check_out',
-        'export',
     ],
 
     'reports' => [
@@ -89,6 +92,11 @@ return [
         'update',
         'delete',
         'rotate',
+    ],
+
+    'gatepass_types' => [
+        'view',       // type catalogue and its allowed actions
+        'update',     // change what each type permits / requires approval
     ],
 
     'email' => [
@@ -121,7 +129,6 @@ return [
         'view',
         'create',
         'update',
-        'delete',
     ],
 
     'departments' => [

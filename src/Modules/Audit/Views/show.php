@@ -67,7 +67,7 @@ $value = static function (mixed $v): string {
     </div>
 <?php endif; ?>
 
-<div class="table-card" style="max-width:900px;">
+<div class="table-card u-maxw-900">
     <div class="table-card-head">
         <span class="table-card-title"><?= htmlspecialchars($entry['action_label'] ?? ($entry['action'] ?? '')) ?></span>
         <span class="cell-date"><?= htmlspecialchars($entry['created_at'] ?? '') ?></span>
@@ -129,7 +129,7 @@ $value = static function (mixed $v): string {
 </div>
 
 <?php if (!empty($changes)): ?>
-    <div class="table-card" style="max-width:900px;margin-top:var(--space-4);">
+    <div class="table-card u-maxw-900 u-mt-s4">
         <div class="table-card-head">
             <span class="table-card-title">Field changes</span>
         </div>
@@ -157,7 +157,7 @@ $value = static function (mixed $v): string {
 <?php endif; ?>
 
 <?php if (!empty($attrs)): ?>
-    <div class="table-card" style="max-width:900px;margin-top:var(--space-4);">
+    <div class="table-card u-maxw-900 u-mt-s4">
         <div class="table-card-head">
             <span class="table-card-title">Recorded context</span>
         </div>
@@ -177,7 +177,7 @@ $value = static function (mixed $v): string {
 <?php endif; ?>
 
 <?php if (!empty($related)): ?>
-    <div class="table-card" style="max-width:900px;margin-top:var(--space-4);">
+    <div class="table-card u-maxw-900 u-mt-s4">
         <div class="table-card-head">
             <span class="table-card-title">Same <?= strtolower((string) ($entry['entity_type'] ?? 'entity')) ?> #<?= (int) ($entry['entity_id'] ?? 0) ?></span>
         </div>

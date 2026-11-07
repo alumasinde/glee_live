@@ -28,7 +28,7 @@
     <div class="info-row">
         <strong>Created By:</strong>
         <?= htmlspecialchars(
-            trim(($gatepass['first_name'] ?? '') . ' ' . ($gatepass['last_name'] ?? ''))
+            trim(($gatepass['created_by_first_name'] ?? '') . ' ' . ($gatepass['created_by_last_name'] ?? ''))
         ) ?: 'N/A' ?>
     </div>
 
@@ -62,7 +62,7 @@
 
     <?php if (!empty($qr_data_uri)): ?>
         <hr>
-        <div class="info-row" style="text-align:center;">
+        <div class="info-row text-center">
             <strong>Scan Pass</strong>
             <div>
                 <img src="<?= $qr_data_uri ?>"
@@ -105,9 +105,72 @@
         <p>No items attached to this gatepass.</p>
     <?php endif; ?>
 
+    <?php if (!empty($gatepass['needs_approval'])): ?>
+        <hr>
+
+        <h3>Approval Trail</h3>
+
+        <?php if (empty($approval_trail)): ?>
+            <p>No approval activity recorded yet.</p>
+        <?php else: ?>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Step</th>
+                            <th>Approver</th>
+                            <th>Decision</th>
+                            <th>Comment</th>
+                            <th>When</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($approval_trail as $approval): ?>
+                        <?php
+                            $decision = strtolower((string) ($approval['status'] ?? 'pending'));
+                            $approver = trim(
+                                ($approval['approver_first_name'] ?? '') . ' ' . ($approval['approver_last_name'] ?? '')
+                            );
+                            $stepLabel = $approval['step_name'] ?? '';
+                            if ($stepLabel === '') {
+                                $stepLabel = 'Step ' . (int) ($approval['step_order'] ?? 0);
+                            }
+                            $actedAt = $approval['acted_at'] ?? ($decision === 'pending' ? ($approval['created_at'] ?? null) : null);
+                        ?>
+                        <tr>
+                            <td><?= htmlspecialchars($stepLabel) ?></td>
+                            <td>
+                                <?= htmlspecialchars($approver !== '' ? $approver : 'Unassigned') ?>
+                                <?php if (!empty($approval['approver_email'])): ?>
+                                    <span class="cell-sub"><?= htmlspecialchars($approval['approver_email']) ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span class="badge badge-<?= htmlspecialchars($decision) ?>">
+                                    <?= htmlspecialchars(ucfirst($decision)) ?>
+                                </span>
+                            </td>
+                            <td>
+                                <?= !empty($approval['comments'])
+                                    ? nl2br(htmlspecialchars($approval['comments']))
+                                    : '&mdash;' ?>
+                            </td>
+                            <td>
+                                <?= !empty($actedAt)
+                                    ? htmlspecialchars(date('Y-m-d H:i', strtotime($actedAt)))
+                                    : '&mdash;' ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    <?php endif; ?>
+
     <div class="form-actions">
 
-        <?php if (can('gatepass.update')): ?>
+        <?php if (!empty($can_edit)): ?>
         <a href="/gatepasses/<?= (int)$gatepass['id'] ?>/edit"
            class="btn btn-primary">
             Edit
@@ -117,8 +180,8 @@
         <?php if (can('gatepass.delete')): ?>
         <form method="POST"
               action="/gatepasses/<?= (int)$gatepass['id'] ?>/delete"
-              style="display:inline;"
-              onsubmit="return confirm('Are you sure you want to delete this gatepass?');">
+              class="u-d-inline"
+              data-confirm="Are you sure you want to delete this gatepass?">
 
             <!-- CSRF -->
             <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">

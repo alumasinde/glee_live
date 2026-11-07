@@ -12,6 +12,7 @@ use App\Core\Notification\Events;
 use App\Middleware\CSRFMiddleware;
 
 $eventLabels = Events::all();
+$canUpdate   = can('notifications.update');
 ?>
 <div class="page-header">
     <h1 class="page-heading">
@@ -29,12 +30,12 @@ $eventLabels = Events::all();
     <div class="gp-alert gp-alert--success"><?= htmlspecialchars($saved) ?></div>
 <?php endif; ?>
 
-<div class="table-card" style="max-width: 900px;">
+<div class="table-card u-maxw-900">
     <div class="table-card-head">
         <span class="table-card-title">What reaches me</span>
     </div>
     <div class="card-body">
-        <p class="form-text" style="margin-top:0;">
+        <p class="form-text u-mt-0">
             Email and in-app are on unless you switch them off. SMS and app push are opt-in:
             SMS needs a phone number on your profile, app push needs a registered device below.
         </p>
@@ -62,6 +63,7 @@ $eventLabels = Events::all();
                                                name="preferences[<?= htmlspecialchars($eventKey, ENT_QUOTES) ?>][<?= $channel ?>]"
                                                value="on"
                                             <?= !empty($grid[$eventKey][$channel]) ? 'checked' : '' ?>
+                                            <?= $canUpdate ? '' : 'disabled' ?>
                                                aria-label="<?= htmlspecialchars($label . ' via ' . Channel::label($channel)) ?>">
                                     </td>
                                 <?php endforeach; ?>
@@ -71,20 +73,20 @@ $eventLabels = Events::all();
                 </table>
             </div>
 
-            <div class="table-actions" style="margin-top:var(--space-3);">
-                <button type="submit" class="btn btn-primary">Save preferences</button>
+            <div class="table-actions u-mt-s3">
+                <button type="submit" class="btn btn-primary" <?= $canUpdate ? '' : 'disabled' ?>>Save preferences</button>
             </div>
         </form>
     </div>
 </div>
 
-<div class="table-card" style="max-width: 900px; margin-top: var(--space-4);">
+<div class="table-card u-maxw-900 u-mt-s4">
     <div class="table-card-head">
         <span class="table-card-title">Devices for app push</span>
     </div>
     <div class="card-body">
         <?php if (empty($devices)): ?>
-            <p class="form-text" style="margin:0;">
+            <p class="form-text u-m-0">
                 No device is registered for your account yet. The mobile app registers itself
                 automatically when you sign in with push enabled.
             </p>
@@ -105,7 +107,7 @@ $eventLabels = Events::all();
                             <td class="table-actions justify-content-end">
                                 <form method="POST" action="/notifications/devices/<?= (int) $device['id'] ?>/delete">
                                     <input type="hidden" name="_token" value="<?= CSRFMiddleware::token() ?>">
-                                    <button type="submit" class="btn btn-sm btn-outline">Remove</button>
+                                    <button type="submit" class="btn btn-sm btn-outline" <?= $canUpdate ? '' : 'disabled' ?>>Remove</button>
                                 </form>
                             </td>
                         </tr>

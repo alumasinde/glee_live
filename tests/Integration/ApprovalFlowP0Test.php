@@ -247,6 +247,60 @@ final class ApprovalFlowP0Test extends DatabaseTestCase
     }
 
     /* =========================================================
+       NON-CONTIGUOUS STEP ORDER
+    ========================================================= */
+
+    /**
+     * Steps 1 and 3 with no step 2: the engine used to advance by +1, find no
+     * step, and treat that as the end of the workflow — approving step 1
+     * finalised the gatepass while step 3 never ran.
+     */
+    public function testStepOrderGapDoesNotFinaliseTheWorkflow(): void
+    {
+        $firstRole  = $this->makeRole('Gap First ' . $this->suffix);
+        $secondRole = $this->makeRole('Gap Second ' . $this->suffix);
+
+        $requester      = $this->makeUser('req');
+        $firstApprover  = $this->makeUser('oth');
+        $secondApprover = $this->makeUser('gap');
+
+        $this->grantRole($firstApprover, $firstRole);
+        $this->grantRole($secondApprover, $secondRole);
+
+        $workflowId = $this->insert(
+            "INSERT INTO workflows (tenant_id, name, description, is_active) VALUES (%d, 'Gap WF %s', '', 1)",
+            self::TENANT,
+            $this->suffix
+        );
+
+        $this->insertStep($workflowId, 1, $firstRole, true);
+        $this->insertStep($workflowId, 3, $secondRole, true); // order 2 deliberately missing
+
+        $typeId = $this->makeType();
+        $this->bindType($workflowId, $typeId);
+
+        $gatepassId = $this->makeGatepass($requester, $typeId);
+        $this->service->startWorkflow(self::TENANT, $gatepassId, $workflowId);
+
+        $this->service->approve($this->pendingApprovalId($firstApprover, $gatepassId), $firstApprover, 'ok');
+
+        $stmt = $this->db->prepare(
+            'SELECT status, current_step_order FROM gatepass_workflow_instances WHERE tenant_id = ? AND gatepass_id = ? LIMIT 1'
+        );
+        $stmt->execute([self::TENANT, $gatepassId]);
+        $instance = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        $this->assertSame('in_progress', $instance['status'], 'a numbering gap must not end the workflow');
+        $this->assertSame(3, (int) $instance['current_step_order'], 'the next configured step must be materialised');
+
+        // Step 3 really has a live approver waiting on it.
+        $this->service->approve($this->pendingApprovalId($secondApprover, $gatepassId), $secondApprover, 'ok');
+
+        $stmt->execute([self::TENANT, $gatepassId]);
+        $this->assertSame('approved', $stmt->fetch(\PDO::FETCH_ASSOC)['status']);
+    }
+
+    /* =========================================================
        FIXTURE HELPERS (reference rows by id returned here, never hardcoded)
     ========================================================= */
 

@@ -155,7 +155,15 @@ class ApprovalService
                 return $instanceId;
             }
 
-            $this->materializeStep($tenantId, $instanceId, (int) $step['step_order'] + 1);
+            $next = $this->nextStepOrder($instance, $tenantId, (int) $step['step_order']);
+
+            if ($next === null) {
+                $this->finalizeApproved($tenantId, $instanceId, (int) $instance['gatepass_id']);
+
+                return $instanceId;
+            }
+
+            $this->materializeStep($tenantId, $instanceId, $next);
 
             return $instanceId;
         });
@@ -337,8 +345,17 @@ class ApprovalService
             $step = $this->resolveStepConfig($instance, $tenantId, $stepOrder);
 
             if (!$step) {
-                $this->finalizeApproved($tenantId, $instanceId, (int) $instance['gatepass_id']);
-                return;
+                $next = $this->nextStepOrder($instance, $tenantId, $stepOrder);
+
+                if ($next === null) {
+                    $this->finalizeApproved($tenantId, $instanceId, (int) $instance['gatepass_id']);
+                    return;
+                }
+
+                // Step orders need not be contiguous: continue at the next
+                // configured step instead of treating a gap as the end.
+                $stepOrder = $next;
+                continue;
             }
 
             $approvers = $this->resolveApprovers($tenantId, $step, (int) $instance['gatepass_department_id'], (int) ($instance['created_by'] ?? 0));
@@ -401,8 +418,53 @@ class ApprovalService
                 'reason'               => 'no_eligible_approvers',
             ]);
 
-            $stepOrder++;
+            $next = $this->nextStepOrder($instance, $tenantId, (int) $step['step_order']);
+
+            if ($next === null) {
+                $this->finalizeApproved($tenantId, $instanceId, (int) $instance['gatepass_id']);
+                return;
+            }
+
+            $stepOrder = $next;
         }
+    }
+
+    /**
+     * The smallest configured step order above $after, or null when this is the
+     * last step.
+     *
+     * Reads the frozen snapshot when present, like the rest of the engine, so an
+     * admin renumbering a workflow cannot change an in-flight instance.
+     */
+    private function nextStepOrder(array $instance, int $tenantId, int $after): ?int
+    {
+        $steps = $this->decodedSnapshot($instance);
+
+        if ($steps !== null) {
+            $next = null;
+
+            foreach ($steps as $step) {
+                $order = (int) ($step['step_order'] ?? 0);
+
+                if ($order > $after && ($next === null || $order < $next)) {
+                    $next = $order;
+                }
+            }
+
+            return $next;
+        }
+
+        $row = $this->fetchOne("
+            SELECT step_order
+            FROM workflow_steps
+            WHERE workflow_id = ?
+              AND tenant_id = ?
+              AND step_order > ?
+            ORDER BY step_order
+            LIMIT 1
+        ", [(int) $instance['workflow_id'], $tenantId, $after]);
+
+        return $row === null ? null : (int) $row['step_order'];
     }
 
     /**

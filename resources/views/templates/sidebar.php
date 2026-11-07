@@ -24,10 +24,24 @@
         </span>
     </div>
 
+    <?php
+        // Modules the platform has disabled for this tenant disappear from the
+        // navigation; the middleware independently refuses their routes.
+        $enabledModules = null;
+
+        if (!empty($_SESSION['user']['tenant_id'])) {
+            $enabledModules = (new \App\Modules\Platform\Services\ModuleEntitlementService())
+                ->states((int) $_SESSION['user']['tenant_id']);
+        }
+    ?>
+
     <ul class="menu">
 
         <?php foreach (config('menu') as $item): ?>
             <?php if (!can($item['permission'])) {
+                continue;
+            } ?>
+            <?php if ($enabledModules !== null && !empty($item['module']) && empty($enabledModules[$item['module']])) {
                 continue;
             } ?>
             <?php

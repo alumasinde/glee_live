@@ -29,7 +29,7 @@ $state = $state ?? 'setup';
     <div class="gp-alert gp-alert--success"><?= htmlspecialchars($saved) ?></div>
 <?php endif; ?>
 
-<div class="table-card" style="max-width: 720px;">
+<div class="table-card u-maxw-720">
     <div class="table-card-head">
         <span class="table-card-title">
             <?= $state === 'enabled' ? 'Two-factor is active' : ($state === 'codes' ? 'Save your recovery codes' : 'Scan to enrol') ?>
@@ -38,26 +38,26 @@ $state = $state ?? 'setup';
     <div class="card-body">
 
         <?php if ($state === 'setup'): ?>
-            <p class="form-text" style="margin-top:0;">
+            <p class="form-text u-mt-0">
                 Add this key to Google Authenticator, 1Password, Authy or any TOTP app, then confirm
                 the 6-digit code. The set-up expires in a few minutes; reload this page to start again.
             </p>
 
-            <div class="d-flex gap-4 align-items-start" style="flex-wrap:wrap;">
+            <div class="d-flex gap-4 align-items-start flex-wrap">
                 <?php if (!empty($qr)): ?>
                     <img src="<?= htmlspecialchars($qr) ?>" width="220" height="220"
                          alt="QR code for authenticator app enrolment">
                 <?php endif; ?>
 
                 <div>
-                    <div class="cell-main" style="font-family:monospace;letter-spacing:1px;">
+                    <div class="cell-main u-ff-mono u-tracking-1">
                         <?= htmlspecialchars($secret ?? '') ?>
                     </div>
                     <div class="cell-date">Enter this key manually if you cannot scan.</div>
                 </div>
             </div>
 
-            <form method="POST" action="/settings/security/two-factor" style="margin-top:var(--space-4);max-width:420px;">
+            <form method="POST" action="/settings/security/two-factor" class="u-mt-s4 u-maxw-420">
                 <input type="hidden" name="_token" value="<?= CSRFMiddleware::token() ?>">
 
                 <div class="form-group">
@@ -83,11 +83,11 @@ $state = $state ?? 'setup';
             </div>
 
             <div class="table-responsive">
-                <table class="table" style="max-width:420px;">
+                <table class="table u-maxw-420">
                     <tbody>
                         <?php foreach ($recovery_codes ?? [] as $code): ?>
                             <tr>
-                                <td style="font-family:monospace;letter-spacing:1px;">
+                                <td class="u-ff-mono u-tracking-1">
                                     <?= htmlspecialchars($code) ?>
                                 </td>
                             </tr>
@@ -96,12 +96,12 @@ $state = $state ?? 'setup';
                 </table>
             </div>
 
-            <div class="table-actions" style="margin-top:var(--space-3);">
+            <div class="table-actions u-mt-s3">
                 <a class="btn btn-primary" href="/settings/security/two-factor">I have saved these codes</a>
             </div>
 
         <?php else: ?>
-            <ul style="margin:0 0 var(--space-4); padding-left:1.2rem;">
+            <ul class="u-m-0 u-mb-s4 u-pl-12rem">
                 <li>Enabled on <?= htmlspecialchars(format_date($enabled_at ?? null) ?: '—') ?></li>
                 <li>
                     <?= (int) ($recovery_remaining ?? 0) ?> recovery
@@ -111,7 +111,7 @@ $state = $state ?? 'setup';
             </ul>
 
             <form method="POST" action="/settings/security/two-factor/disable"
-                  style="max-width:420px;">
+                  class="u-maxw-420">
                 <input type="hidden" name="_token" value="<?= CSRFMiddleware::token() ?>">
 
                 <div class="form-group">

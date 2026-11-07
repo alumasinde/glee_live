@@ -52,25 +52,25 @@ $link = static function (string $filter): string {
             </div>
         </div>
     <?php else: ?>
-        <ul class="notification-list" style="list-style:none; margin:0; padding:0;">
+        <ul class="notification-list u-list-none u-m-0 u-p-0">
             <?php foreach ($notifications as $note): ?>
-                <li class="table-card" style="box-shadow:none; border-bottom:1px solid rgba(0,0,0,.06); margin:0;">
-                    <div class="card-body" style="padding:var(--space-3) 0;">
-                        <div class="d-flex justify-content-between" style="gap:var(--space-3);">
+                <li class="table-card u-shadow-none u-m-0 u-bb-hairline">
+                    <div class="card-body u-py-s3">
+                        <div class="d-flex justify-content-between u-gap-s3">
                             <div>
                                 <?php if (empty($note['read_at'])): ?>
                                     <span class="badge badge-danger">new</span>
                                 <?php endif; ?>
                                 <strong><?= htmlspecialchars($note['title']) ?></strong>
-                                <p class="form-text" style="margin:var(--space-1) 0 0;">
+                                <p class="form-text u-m-0 u-mt-s1">
                                     <?= nl2br(htmlspecialchars($note['body'] ?? '')) ?>
                                 </p>
                             </div>
-                            <div class="cell-date" style="white-space:nowrap;">
+                            <div class="cell-date u-nowrap">
                                 <?= format_date($note['created_at'] ?? null) ?>
                             </div>
                         </div>
-                        <div class="table-actions" style="margin-top:var(--space-2);">
+                        <div class="table-actions u-mt-s2">
                             <?php if (!empty($note['link'])): ?>
                                 <a class="btn btn-sm btn-primary" href="/notifications/<?= (int) $note['id'] ?>/read">
                                     Open

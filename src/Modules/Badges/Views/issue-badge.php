@@ -110,7 +110,7 @@ $reason  = match (true) {
         </div>
 
         <?php if ($blocked): ?>
-            <div class="alert alert-warning" style="margin-top:var(--space-4)">
+            <div class="alert alert-warning u-mt-s4">
                 <i class="fa-solid fa-circle-exclamation"></i> <?= $e($reason) ?>
             </div>
         <?php endif; ?>
@@ -156,9 +156,9 @@ $reason  = match (true) {
 <?php else: ?>
     <div class="table-card">
         <div class="card-body">
-            <?php if ($badgeOut): ?>
+            <?php if ($badgeOut && can('badges.return')): ?>
                 <form method="POST" action="/badges/<?= $visitId ?>/return" class="form-actions"
-                      onsubmit="return confirm('Record this badge as returned?')">
+                      data-confirm="Record this badge as returned?">
                     <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
                     <input type="hidden" name="redirect_to" value="/badges">
                     <button class="btn btn-secondary">

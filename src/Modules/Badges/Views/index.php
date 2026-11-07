@@ -21,8 +21,9 @@ $search  = trim((string) ($search ?? ($_GET['q'] ?? '')));
 /** Null-safe HTML escape */
 $e = static fn ($value): string => htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
 
-$canBadge = can('visitors.issue_badge');
-$token    = $canBadge ? CSRFMiddleware::token() : '';
+$canIssue  = can('badges.issue');
+$canReturn = can('badges.return');
+$token    = $canReturn ? CSRFMiddleware::token() : '';
 
 /** Pagination link that keeps every active filter. */
 $pageUrl = static function (int $page): string {
@@ -37,7 +38,7 @@ $pageUrl = static function (int $page): string {
     </h1>
 
     <div class="page-actions">
-        <?php if ($canBadge): ?>
+        <?php if ($canIssue): ?>
             <a href="/badges/create" class="btn btn-primary">
                 <i class="fa-solid fa-plus"></i> Issue Badge
             </a>
@@ -47,53 +48,53 @@ $pageUrl = static function (int $page): string {
 
 <form method="GET" action="/badges" class="report-filters">
 
-    <div class="form-group" style="margin-bottom:0">
-        <label class="form-label" style="font-size:0.72rem">Search</label>
+    <div class="form-group mb-0">
+        <label class="form-label u-fs-072">Search</label>
         <input
             type="text"
             name="q"
             value="<?= $e($search) ?>"
             placeholder="Badge code, holder, company…"
-            style="min-width:220px"
+            class="u-minw-220"
         >
     </div>
 
-    <div class="form-group" style="margin-bottom:0">
-        <label class="form-label" style="font-size:0.72rem">Status</label>
-        <select name="status" style="min-width:140px">
+    <div class="form-group mb-0">
+        <label class="form-label u-fs-072">Status</label>
+        <select name="status" class="u-minw-140">
             <option value="">All</option>
             <option value="issued"   <?= ($filters['status'] ?? '') === 'issued'   ? 'selected' : '' ?>>Issued</option>
             <option value="returned" <?= ($filters['status'] ?? '') === 'returned' ? 'selected' : '' ?>>Returned</option>
         </select>
     </div>
 
-    <div class="form-group" style="margin-bottom:0">
-        <label class="form-label" style="font-size:0.72rem">Visit</label>
+    <div class="form-group mb-0">
+        <label class="form-label u-fs-072">Visit</label>
         <input
             type="number"
             name="visit_id"
             min="1"
             value="<?= (int) ($filters['visit_id'] ?? 0) ?: '' ?>"
             placeholder="Visit ID"
-            style="min-width:120px"
+            class="u-minw-120"
         >
     </div>
 
-    <div class="form-group" style="margin-bottom:0">
-        <label class="form-label" style="font-size:0.72rem">Gatepass</label>
+    <div class="form-group mb-0">
+        <label class="form-label u-fs-072">Gatepass</label>
         <input
             type="number"
             name="gatepass_id"
             min="1"
             value="<?= (int) ($filters['gatepass_id'] ?? 0) ?: '' ?>"
             placeholder="Gatepass ID"
-            style="min-width:130px"
+            class="u-minw-130"
         >
     </div>
 
-    <div class="form-group" style="margin-bottom:0">
-        <label class="form-label" style="font-size:0.72rem">Holder</label>
-        <select name="holder_id" style="min-width:170px">
+    <div class="form-group mb-0">
+        <label class="form-label u-fs-072">Holder</label>
+        <select name="holder_id" class="u-minw-170">
             <option value="">All holders</option>
             <?php foreach ($holders as $holderId => $holderName): ?>
                 <option value="<?= (int) $holderId ?>"
@@ -104,9 +105,9 @@ $pageUrl = static function (int $page): string {
         </select>
     </div>
 
-    <div class="form-group" style="margin-bottom:0">
-        <label class="form-label" style="font-size:0.72rem; visibility:hidden">Actions</label>
-        <div style="display:flex; gap:var(--space-2); flex-wrap:wrap">
+    <div class="form-group mb-0">
+        <label class="form-label u-fs-072 u-vis-hidden">Actions</label>
+        <div class="d-flex gap-2 flex-wrap">
             <button type="submit" class="btn btn-primary">
                 <i class="fa-solid fa-filter"></i> Apply
             </button>
@@ -136,7 +137,7 @@ $pageUrl = static function (int $page): string {
             <div class="empty-state-text">
                 Badges are issued against a checked-in visit and closed out when the card comes back.
             </div>
-            <?php if ($canBadge): ?>
+            <?php if ($canIssue): ?>
                 <a href="/badges/create" class="btn btn-primary btn-sm">
                     <i class="fa-solid fa-plus"></i> Issue Badge
                 </a>
@@ -154,7 +155,7 @@ $pageUrl = static function (int $page): string {
                         <th>Issued</th>
                         <th>Returned</th>
                         <th>Status</th>
-                        <?php if ($canBadge): ?>
+                        <?php if ($canIssue || $canReturn): ?>
                             <th class="text-end" width="150">Actions</th>
                         <?php endif; ?>
                     </tr>
@@ -181,7 +182,7 @@ $pageUrl = static function (int $page): string {
                             </td>
 
                             <td>
-                                <span class="cell-sub" style="margin-top:0">#<?= $visitId ?></span>
+                                <span class="cell-sub u-mt-0">#<?= $visitId ?></span>
                                 <span class="cell-date"><?= $e($badge['purpose'] ?? '—') ?></span>
                             </td>
 
@@ -207,17 +208,17 @@ $pageUrl = static function (int $page): string {
                                 <?php endif; ?>
                             </td>
 
-                            <?php if ($canBadge): ?>
+                            <?php if ($canIssue || $canReturn): ?>
                                 <td class="table-actions justify-content-end">
-                                    <?php if ($isIssued): ?>
+                                    <?php if ($isIssued && $canReturn): ?>
                                         <form method="POST" action="/badges/<?= $visitId ?>/return" class="table-action-button"
-                                              onsubmit="return confirm('Record this badge as returned?')">
+                                              data-confirm="Record this badge as returned?">
                                             <input type="hidden" name="_token" value="<?= $e($token) ?>">
                                             <input type="hidden" name="redirect_to" value="/badges">
                                             <button class="btn btn-sm btn-secondary">Return</button>
                                         </form>
                                     <?php else: ?>
-                                        <span class="text-muted" style="font-size:0.75rem">&mdash;</span>
+                                        <span class="text-muted u-fs-075">&mdash;</span>
                                     <?php endif; ?>
                                 </td>
                             <?php endif; ?>
@@ -229,7 +230,7 @@ $pageUrl = static function (int $page): string {
 
         <?php if ((int) ($meta['last_page'] ?? 1) > 1): ?>
             <div class="table-card-foot">
-                <span class="text-muted" style="font-size:0.78rem">
+                <span class="text-muted u-fs-078">
                     Showing <?= (int) ($meta['from'] ?? 1) ?>&ndash;<?= (int) ($meta['to'] ?? 0) ?>
                     of <?= (int) ($meta['total'] ?? 0) ?>
                 </span>

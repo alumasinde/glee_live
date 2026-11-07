@@ -13,7 +13,7 @@
 @import "layout.css?v=20261017b";
 
 /* 4. Reusable components: buttons, cards, tables, forms, toggle */
-@import "components.css?v=20261017b";
+@import "components.css?v=20261107a";
 
 /* 5. Badges & bg-* semantic helpers */
 @import "badges.css?v=20261017b";
@@ -34,4 +34,31 @@
 @import "list.css?v=20261017b";
 
 /* 11. Utilities, responsive, pagination — always last */
-@import "utilities.css?v=20261017b";
+@import "utilities.css?v=20261018a";
+
+/* Support access banner (platform impersonation; tenant layout only) */
+.impersonation-banner {
+    position: sticky;
+    top: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 10px 20px;
+    background: #b45309;
+    color: #ffffff;
+    font-size: 13px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
+}
+
+.impersonation-banner form {
+    margin: 0;
+}
+
+.impersonation-banner .btn {
+    background: #ffffff;
+    color: #7c2d12;
+    border: 0;
+}

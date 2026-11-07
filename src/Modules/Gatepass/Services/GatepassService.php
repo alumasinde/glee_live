@@ -4,6 +4,7 @@ namespace App\Modules\Gatepass\Services;
 
 use App\Core\Audit;
 use App\Core\DB;
+use App\Core\Exceptions\HttpException;
 use App\Modules\Approval\Services\ApprovalService;
 use App\Modules\Badges\Repositories\BadgeRepository;
 use App\Modules\Gatepass\DTOs\GatepassDTO;
@@ -41,6 +42,11 @@ class GatepassService
         $this->gates           = new GateRepository();
         $this->visits          = new VisitRepository();
         $this->badges          = new BadgeRepository();
+    }
+
+    public function approvalTrail(int $tenantId, int $gatepassId): array
+    {
+        return $this->repo->approvalTrail($tenantId, $gatepassId);
     }
 
     public function create(GatepassDTO $dto): int
@@ -111,6 +117,24 @@ class GatepassService
         try {
             $this->db->beginTransaction();
 
+            $current = $this->repo->findById($tenantId, $id);
+
+            if (!$current) {
+                throw new InvalidArgumentException('Gatepass not found.');
+            }
+
+            $routingChanged = (int) $current['needs_approval'] !== (int) $dto->needs_approval
+                || (int) $current['gatepass_type_id'] !== (int) $dto->gatepass_type_id;
+
+            // Routing is frozen once an approval exists: changing the type or
+            // the needs_approval flag afterwards would leave the gatepass and
+            // its workflow instance describing two different things.
+            if ($routingChanged && $this->hasWorkflowInstance($tenantId, $id)) {
+                throw new InvalidArgumentException(
+                    'The gatepass type and approval requirement cannot be changed once a workflow has started.'
+                );
+            }
+
             $updated = $this->repo->update($tenantId, $id, [
                 'visit_id'            => $dto->visit_id,
                 'gatepass_type_id'    => $dto->gatepass_type_id,
@@ -127,12 +151,38 @@ class GatepassService
             $this->itemRepo->deleteByGatepass($tenantId, $id);
             $this->itemRepo->insertMany($tenantId, $id, $dto->items);
 
+            // A pass that now needs approval and has no workflow yet starts one
+            // here, exactly as create() does, so status and routing agree.
+            if ($routingChanged && $dto->needs_approval) {
+                $workflowId = $this->repo->getWorkflowIdFromType($tenantId, $dto->gatepass_type_id);
+
+                if (!$workflowId) {
+                    throw new InvalidArgumentException('No workflow configured for this gatepass type.');
+                }
+
+                $this->repo->updateStatus(
+                    $tenantId,
+                    $id,
+                    $this->statusRepo->requireIdByCode($tenantId, 'PENDING')
+                );
+
+                $this->approvalService->startWorkflow($tenantId, $id, $workflowId);
+            }
+
             $this->db->commit();
+
+            // startWorkflow ran inside this transaction: notify only after it landed.
+            $this->approvalService->flushNotifications();
 
             return true;
 
         } catch (Throwable $e) {
-            $this->db->rollBack();
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+
+            $this->approvalService->discardNotifications();
+
             throw $e;
         }
     }
@@ -142,20 +192,90 @@ class GatepassService
         try {
             $this->db->beginTransaction();
 
+            $gatepass = $this->repo->findById($tenantId, $id);
+
+            if (!$gatepass) {
+                throw new InvalidArgumentException('Gatepass not found or already deleted.');
+            }
+
+            $this->assertDeletable($tenantId, $gatepass);
+
             $this->itemRepo->deleteByGatepass($tenantId, $id);
 
             if (!$this->repo->delete($tenantId, $id)) {
                 throw new InvalidArgumentException('Gatepass not found or already deleted.');
             }
 
+            // Written inside the transaction so the record of the deletion and
+            // the deletion itself land (or fail) together.
+            Audit::log('gatepass.deleted', 'gatepass', $id, [
+                'target_label'    => (string) $gatepass['gatepass_number'],
+                'gatepass_number' => (string) $gatepass['gatepass_number'],
+            ]);
+
             $this->db->commit();
 
             return true;
 
         } catch (Throwable $e) {
-            $this->db->rollBack();
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+
             throw $e;
         }
+    }
+
+    /**
+     * Only an unused pass may be erased. Anything that has been through the gate,
+     * or is waiting on an approver, is evidence and must go through the normal
+     * rejection/return flow instead (deleting it would cascade its approvals and
+     * scan history away with it).
+     */
+    private function assertDeletable(int $tenantId, array $gatepass): void
+    {
+        if (
+            !empty($gatepass['actual_in'])
+            || !empty($gatepass['actual_out'])
+            || !empty($gatepass['actual_return_date'])
+        ) {
+            throw new InvalidArgumentException(
+                'This gatepass has gate activity and cannot be deleted.'
+            );
+        }
+
+        $stmt = $this->db->prepare("
+            SELECT status
+            FROM gatepass_workflow_instances
+            WHERE tenant_id   = :tenant_id
+              AND gatepass_id = :gatepass_id
+            LIMIT 1
+        ");
+
+        $stmt->execute([':tenant_id' => $tenantId, ':gatepass_id' => (int) $gatepass['id']]);
+        $status = $stmt->fetchColumn();
+
+        if ($status === 'in_progress') {
+            throw new InvalidArgumentException(
+                'This gatepass is awaiting approval and cannot be deleted.'
+            );
+        }
+    }
+
+    /** Any workflow instance (in progress or finished) already exists? */
+    private function hasWorkflowInstance(int $tenantId, int $gatepassId): bool
+    {
+        $stmt = $this->db->prepare("
+            SELECT 1
+            FROM gatepass_workflow_instances
+            WHERE tenant_id   = :tenant_id
+              AND gatepass_id = :gatepass_id
+            LIMIT 1
+        ");
+
+        $stmt->execute([':tenant_id' => $tenantId, ':gatepass_id' => $gatepassId]);
+
+        return $stmt->fetchColumn() !== false;
     }
 
     public function checkIn(int $tenantId, int $gatepassId, ?int $userId, ?int $gateId = null): bool
@@ -163,17 +283,17 @@ class GatepassService
     $gatepass = $this->repo->findById($tenantId, $gatepassId);
 
     if (!$gatepass) {
-        throw new RuntimeException('Gatepass not found.');
+        throw new HttpException('Gatepass not found.', 404);
     }
 
     if (!empty($gatepass['actual_in'])) {
-        throw new RuntimeException('Gatepass already checked in.');
+        throw new HttpException('Gatepass already checked in.', 409);
     }
 
     $eligibility = GatepassWorkflow::eligibility($gatepass);
 
     if (!$eligibility['checkin_eligible']) {
-        throw new RuntimeException('Check-in not allowed in current state.');
+        throw new HttpException('Check-in not allowed in current state.', 403);
     }
 
     $this->assertTypeActionAllowed($gatepass, 'checkin');
@@ -215,17 +335,17 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
     $gatepass = $this->repo->findById($tenantId, $gatepassId);
 
     if (!$gatepass) {
-        throw new RuntimeException('Gatepass not found.');
+        throw new HttpException('Gatepass not found.', 404);
     }
 
     if (!empty($gatepass['actual_out'])) {
-        throw new RuntimeException('Gatepass already checked out.');
+        throw new HttpException('Gatepass already checked out.', 409);
     }
 
     $eligibility = GatepassWorkflow::eligibility($gatepass);
 
     if (!$eligibility['checkout_eligible']) {
-        throw new RuntimeException('Checkout not allowed in current state.');
+        throw new HttpException('Checkout not allowed in current state.', 403);
     }
 
     $this->assertTypeActionAllowed($gatepass, 'checkout');
@@ -278,18 +398,18 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
         $labels = ['checkin' => 'Check-in', 'checkout' => 'Checkout', 'return' => 'Return'];
         $label = $labels[$action] ?? ucfirst($action);
 
-        throw new RuntimeException(sprintf(
+        throw new HttpException(sprintf(
             '%s is not permitted for the "%s" gatepass type.',
             $label,
             $gatepass['gatepass_type_name'] ?? 'unknown'
-        ));
+        ), 403);
     }
 
     public function markReturned(int $tenantId, int $gatepassId): bool
     {
         $gatepass = $this->repo->findById($tenantId, $gatepassId);
         if (!$gatepass) {
-            throw new RuntimeException('Gatepass not found.');
+            throw new HttpException('Gatepass not found.', 404);
         }
 
         if (!$gatepass['is_returnable']) {
@@ -297,7 +417,7 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
         }
 
         if (!empty($gatepass['actual_return_date'])) {
-            throw new RuntimeException('Gatepass already returned.');
+            throw new HttpException('Gatepass already returned.', 409);
         }
 
         $this->assertTypeActionAllowed($gatepass, 'return');
@@ -305,7 +425,7 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
         $statusId = $this->statusRepo->requireIdByCode($tenantId, 'RETURNED');
 
         if (!$this->repo->markReturned($tenantId, $gatepassId, date('Y-m-d H:i:s'), $statusId)) {
-            throw new RuntimeException('Return not allowed in current state.');
+            throw new HttpException('Return not allowed in current state.', 403);
         }
 
         // The gate has taken the items back, so the quantities the reporting
@@ -379,7 +499,7 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
             $gate = $this->gates->findActive($tenantId, $gateId);
 
             if (!$gate) {
-                throw new RuntimeException('Invalid or inactive gate.');
+                throw new HttpException('Invalid or inactive gate.', 400);
             }
 
             $gateName = (string) $gate['name'];
@@ -398,7 +518,7 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
 
         if ($subject === null) {
             $this->scanLogs->record($tenantId, $gateId, 'gatepass', 0, 'rejected', $source, $userId, 'Not found: ' . substr($code, 0, 64));
-            throw new RuntimeException('Code not recognized.');
+            throw new HttpException('Code not recognized.', 404);
         }
 
         if ($this->recentDuplicateScan($tenantId, $subject['type'], (int) $subject['row']['id'])) {
@@ -408,7 +528,7 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
                 ? (string) ($row['gatepass_number'] ?? 'Gatepass')
                 : (trim(($row['visitor_first'] ?? '') . ' ' . ($row['visitor_last'] ?? '')) ?: 'Visitor');
 
-            throw new RuntimeException("{$label}: already scanned moments ago.");
+            throw new HttpException("{$label}: already scanned moments ago.", 409);
         }
 
         return $subject['type'] === 'visit'
@@ -453,7 +573,7 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
 
         if ((int) ($gatepass['is_returnable'] ?? 0) === 1) {
             if (!empty($gatepass['actual_return_date'])) {
-                $this->rejectScan($tenantId, $gateId, 'gatepass', $id, $source, $userId, "{$number}: item already returned.");
+                $this->rejectScan($tenantId, $gateId, 'gatepass', $id, $source, $userId, "{$number}: item already returned.", 409);
             }
 
             $this->markReturned($tenantId, $id);
@@ -465,7 +585,7 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
             return $transition('checked_out', "{$number}: checked out successfully.");
         }
 
-        $this->rejectScan($tenantId, $gateId, 'gatepass', $id, $source, $userId, "{$number}: process already completed.");
+        $this->rejectScan($tenantId, $gateId, 'gatepass', $id, $source, $userId, "{$number}: process already completed.", 409);
     }
 
     private function scanVisit(
@@ -481,7 +601,7 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
         $label = $label !== '' ? $label : 'Visitor';
 
         if (!empty($visit['checkout_time'])) {
-            $this->rejectScan($tenantId, $gateId, 'visit', $id, $source, $userId, "{$label}: visit already completed.");
+            $this->rejectScan($tenantId, $gateId, 'visit', $id, $source, $userId, "{$label}: visit already completed.", 409);
         }
 
         $transition = fn (string $action): array => $this->scanResult(
@@ -491,7 +611,7 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
 
         if (empty($visit['checkin_time'])) {
             if ((int) ($visit['is_blacklisted'] ?? 0) === 1) {
-                $this->rejectScan($tenantId, $gateId, 'visit', $id, $source, $userId, 'Blacklisted visitors cannot check in.');
+                $this->rejectScan($tenantId, $gateId, 'visit', $id, $source, $userId, 'Blacklisted visitors cannot check in.', 403);
             }
 
             $this->visits->checkIn($tenantId, $id, $this->visitStatusId($tenantId, 'CHECKED_IN'), $gateId);
@@ -502,7 +622,7 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
         }
 
         if ($this->badges->hasActiveBadge($id, $tenantId)) {
-            $this->rejectScan($tenantId, $gateId, 'visit', $id, $source, $userId, 'Badge must be returned before checkout.');
+            $this->rejectScan($tenantId, $gateId, 'visit', $id, $source, $userId, 'Badge must be returned before checkout.', 403);
         }
 
         $this->visits->checkOut($tenantId, $id, $this->visitStatusId($tenantId, 'CHECKED_OUT'), $gateId);
@@ -554,13 +674,14 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
         ?int $gateId,
         string $type,
         int $id,
-        string $source,
-        ?int $userId,
-        string $message
-    ): never {
+        string $source,        ?int $userId,
+        string $message,
+        int $status = 400
+    ): never
+    {
         $this->scanLogs->record($tenantId, $gateId, $type, $id, 'rejected', $source, $userId, $message);
 
-        throw new RuntimeException($message);
+        throw new HttpException($message, $status);
     }
 
     private function visitStatusId(int $tenantId, string $code): int
@@ -730,20 +851,6 @@ public function checkOut(int $tenantId, int $gatepassId, ?int $userId, ?int $gat
         if ($config['reset_yearly'] && (string) $config['current_year'] !== $year) {
             $config['sequence']     = 1;
             $config['current_year'] = (int) $year;
-        }
-
-        $parts = [];
-
-        if (!empty($config['prefix'])) {
-            $parts[] = $config['prefix'];
-        }
-
-        if (!empty($config['include_year'])) {
-            $parts[] = $year;
-        }
-
-        if (!empty($config['include_month'])) {
-            $parts[] = $month;
         }
 
         $parts = [];

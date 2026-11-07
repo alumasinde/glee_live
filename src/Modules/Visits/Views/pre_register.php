@@ -25,7 +25,7 @@
             <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
             <!-- Honeypot: humans never fill this -->
-            <div style="position:absolute;left:-9999px;" aria-hidden="true">
+            <div class="u-pos-absolute u-left-offscreen" aria-hidden="true">
                 <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
             </div>
 

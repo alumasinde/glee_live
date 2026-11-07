@@ -4,6 +4,7 @@
    ════════════════════════════════════════════════════════════ */
 
 @import "token.css";
+@import "utilities.css?v=20261018a";
 
 body {
     margin: 0;

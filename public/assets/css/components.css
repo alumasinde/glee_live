@@ -431,3 +431,51 @@ label,
 }
 .toggle-switch input:checked + .slider             { background: var(--color-success); }
 .toggle-switch input:checked + .slider::before     { transform: translateX(22px); }
+
+/* ── Filter bar (audit, delegation, users) ─────────────────── */
+
+.filter-bar {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-xs);
+    padding: var(--space-4);
+    margin-bottom: var(--space-5);
+}
+
+/* Controls keep a predictable width instead of stretching a lone select
+   across the page; extra fields wrap onto the next row. */
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 320px));
+    gap: var(--space-4);
+    align-items: end;
+    justify-content: start;
+}
+
+/* Inside an existing card (e.g. the delegation form) the grid is the only
+   layout wrapper, so fields must not add their own bottom margin. */
+.filter-grid .form-group { margin-bottom: 0; }
+
+.filter-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-top: var(--space-4);
+}
+
+.filter-bar .filter-actions {
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-border);
+}
+
+@media (max-width: 768px) {
+    .filter-grid { grid-template-columns: 1fr; }
+    .filter-actions { justify-content: flex-start; }
+}
+
+@media (max-width: 480px) {
+    .filter-bar { padding: var(--space-3); }
+}

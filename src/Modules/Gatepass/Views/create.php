@@ -75,12 +75,12 @@
         <!-- ITEMS -->
         <div class="gp-section-header">
             <h3 class="gp-section-title">Items</h3>
-            <button type="button" class="gp-btn gp-btn--outline" onclick="addItem()">
+            <button type="button" class="gp-btn gp-btn--outline" id="add-item">
                 <i class="fa-solid fa-plus"></i> Add Item
             </button>
         </div>
 
-        <div id="items-wrapper">
+        <div id="items-wrapper" data-next-index="<?= isset($_POST['items']) ? count((array) $_POST['items']) : 1 ?>" data-returnable-overridden="<?= isset($_POST['is_returnable']) ? '1' : '0' ?>">
             <?php
             $oldItems = $_POST['items'] ?? [
                 ['item_name' => '', 'description' => '', 'quantity' => 1, 'serial_number' => '', 'is_returnable' => 0]
@@ -123,7 +123,7 @@
                             <span class="gp-checkbox__label">Returnable Item</span>
                         </label>
 
-                        <button type="button" class="gp-btn gp-btn--danger gp-btn--sm" onclick="removeItem(this)">
+                        <button type="button" class="gp-btn gp-btn--danger gp-btn--sm" data-remove-item>
                             <i class="fa-solid fa-trash-can"></i> Remove
                         </button>
                     </div>
@@ -146,88 +146,4 @@
     </form>
 </div>
 
-<script>
-let itemIndex = <?= count($oldItems) ?>;
-
-function addItem() {
-    const wrapper = document.getElementById('items-wrapper');
-    const row = document.createElement('div');
-    row.classList.add('gp-item');
-    row.innerHTML = `
-        <div class="gp-item__fields">
-            <div class="gp-field gp-field--grow-2">
-                <label class="gp-label">Item Name <span class="gp-required">*</span></label>
-                <input class="gp-input" type="text" name="items[${itemIndex}][item_name]" required>
-            </div>
-            <div class="gp-field gp-field--grow-2">
-                <label class="gp-label">Description</label>
-                <input class="gp-input" type="text" name="items[${itemIndex}][description]">
-            </div>
-            <div class="gp-field gp-field--shrink">
-                <label class="gp-label">Qty</label>
-                <input class="gp-input" type="number" name="items[${itemIndex}][quantity]" value="1" min="1">
-            </div>
-            <div class="gp-field gp-field--grow-1">
-                <label class="gp-label">Serial No.</label>
-                <input class="gp-input" type="text" name="items[${itemIndex}][serial_number]">
-            </div>
-        </div>
-        <div class="gp-item__footer">
-            <input type="hidden" name="items[${itemIndex}][is_returnable]" value="0">
-            <label class="gp-checkbox">
-                <input type="checkbox" name="items[${itemIndex}][is_returnable]" value="1">
-                <span class="gp-checkbox__box"></span>
-                <span class="gp-checkbox__label">Returnable Item</span>
-            </label>
-            <button type="button" class="gp-btn gp-btn--danger gp-btn--sm" onclick="removeItem(this)">
-                <i class="fa-solid fa-trash-can"></i> Remove
-            </button>
-        </div>
-    `;
-    wrapper.appendChild(row);
-    itemIndex++;
-}
-
-function removeItem(button) {
-    button.closest('.gp-item').remove();
-}
-
-/* Type decides the starting Returnable value; the requester may still change it. */
-(function () {
-    const typeSelect = document.querySelector('select[name="gatepass_type_id"]');
-    const returnable = document.getElementById('is_returnable');
-    const returnDate = document.getElementById('expected_return_date');
-    const hint       = document.getElementById('return-date-hint');
-
-    if (!typeSelect || !returnable || !returnDate) return;
-
-    // A submitted form already carries the requester's own choice.
-    let overridden = <?= isset($_POST['is_returnable']) ? 'true' : 'false' ?>;
-
-    function typeDefault() {
-        const opt = typeSelect.selectedOptions[0];
-        return !!opt && opt.dataset.returnable === '1';
-    }
-
-    function syncDateRequirement() {
-        returnDate.required = returnable.checked;
-
-        if (hint) {
-            hint.textContent = returnable.checked ? '(Required for a returnable pass)' : '(Optional)';
-        }
-    }
-
-    typeSelect.addEventListener('change', function () {
-        if (!overridden) returnable.checked = typeDefault();
-        syncDateRequirement();
-    });
-
-    returnable.addEventListener('change', function () {
-        overridden = true;
-        syncDateRequirement();
-    });
-
-    if (!overridden && typeSelect.value) returnable.checked = typeDefault();
-    syncDateRequirement();
-})();
-</script>
+<script src="/assets/js/pages/gatepass-form.js" defer></script>

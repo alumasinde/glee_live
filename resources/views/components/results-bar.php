@@ -40,11 +40,11 @@ $label = $total === 1 ? $noun : $plural;
         <span class="results-active">
             <?php if ($query !== ''): ?>
                 <span class="chip">
-                    <i class="fa-solid fa-magnifying-glass" style="font-size:0.65rem"></i>
+                    <i class="fa-solid fa-magnifying-glass u-fs-065"></i>
                     <?= htmlspecialchars($query, ENT_QUOTES, 'UTF-8') ?>
                 </span>
             <?php endif; ?>
-            <a class="back-link" style="margin:0" href="<?= htmlspecialchars((string) $clearUrl, ENT_QUOTES, 'UTF-8') ?>">
+            <a class="back-link u-m-0" href="<?= htmlspecialchars((string) $clearUrl, ENT_QUOTES, 'UTF-8') ?>">
                 <i class="fa-solid fa-xmark"></i> Clear
             </a>
         </span>

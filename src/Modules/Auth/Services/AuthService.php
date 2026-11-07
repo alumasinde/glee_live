@@ -5,6 +5,7 @@ namespace App\Modules\Auth\Services;
 use App\Modules\Auth\Repositories\UserRepository;
 use App\Modules\Tenant\Repositories\TenantRepository;
 use App\Core\Mailer;
+use App\Middleware\CSRFMiddleware;
 use RuntimeException;
 
 class AuthService
@@ -116,9 +117,9 @@ public function __construct(
         }
 
         // Password verified: clear the lockout counters and stamp
-        // tokens_invalid_before = NOW() so a later session-validity check has a
-        // database basis (compare it against $_SESSION['auth_at']).
-        $this->users->recordLoginSuccess($tenantId, $userId);
+        // tokens_invalid_before, which App\Core\Auth compares session auth_at
+        // against to decide whether a session may continue.
+        $authAt = $this->users->recordLoginSuccess($tenantId, $userId);
 
         if ($this->twoFactorRequired($user)) {
             $this->stashPendingChallenge($tenantId, $userId);
@@ -126,7 +127,7 @@ public function __construct(
             return ['status' => self::STATUS_MFA_REQUIRED];
         }
 
-        $this->completeLogin($user);
+        $this->completeLogin($user, $authAt);
 
         return ['status' => self::STATUS_LOGIN, 'user' => $user];
     }
@@ -142,12 +143,15 @@ public function __construct(
      * login and a successful two-factor challenge end here, so regeneration and
      * the $_SESSION['user'] shape stay byte-identical to the pre-MFA behaviour.
      */
-    public function completeLogin(array $user): void
+    public function completeLogin(array $user, ?string $authAt = null): void
     {
         // Prevent session fixation
         session_regenerate_id(true);
 
         unset($_SESSION[self::MFA_SESSION_KEY]);
+
+        // A CSRF token minted before authentication must not survive it.
+        CSRFMiddleware::rotate();
 
         $_SESSION['user'] = [
             'id'            => (int) $user['id'],
@@ -161,10 +165,10 @@ public function __construct(
             'tenant_logo'   => $user['tenant_logo'],
         ];
 
-        // Basis for the future session-invalidity check against
-        // users.tokens_invalid_before; deliberately a sibling key so the
-        // $_SESSION['user'] shape above is unchanged.
-        $_SESSION['auth_at'] = time();
+        // The exact value stamped into users.tokens_invalid_before by
+        // recordLoginSuccess(); Auth::sessionIsValid() compares the two, so a
+        // later password change or reset ends this session on its next request.
+        $_SESSION['auth_at'] = $authAt ?? date('Y-m-d H:i:s');
     }
 
     public function twoFactorRequired(array $user): bool
@@ -271,8 +275,8 @@ public function __construct(
         }
 
         if ($method !== null) {
-            $this->users->recordLoginSuccess($tenantId, $userId);
-            $this->completeLogin($user);
+            $authAt = $this->users->recordLoginSuccess($tenantId, $userId);
+            $this->completeLogin($user, $authAt);
 
             return ['status' => self::STATUS_LOGIN, 'user' => $user, 'method' => $method];
         }
@@ -480,6 +484,10 @@ public function getTenantContext(int $id): array
             $rawToken,
             $newHash
         );
+
+        // A reset is a revocation: every session issued for the old password
+        // stops being valid on its next request.
+        $this->users->invalidateSessions($tenantId, (int) $user['id']);
 
         return $user;
     }

@@ -3,6 +3,7 @@
 namespace App\Modules\Gatepass\Controllers;
 
 use App\Core\Controller;
+use App\Core\Exceptions\HttpException;
 use App\Core\Request;
 use App\Core\Response;
 use App\Modules\Gatepass\Services\GatepassService;
@@ -58,20 +59,13 @@ class DeviceScanController extends Controller
                 'message' => $result['message'],
             ]);
         } catch (Throwable $e) {
-            $message = $e->getMessage();
-
-            $http = match (true) {
-                str_contains($message, 'not recognized')          => 404,
-                str_contains($message, 'already')                 => 409,
-                str_contains($message, 'Blacklisted')             => 403,
-                str_contains($message, 'not allowed')             => 403,
-                default                                           => 400,
-            };
-
+            // The status now travels with the exception. Guessing it from the
+            // message text meant rewording a guard silently changed the wire
+            // contract the gate hardware depends on.
             Response::json([
                 'status'  => 'rejected',
-                'message' => $message,
-            ], $http);
+                'message' => $e->getMessage(),
+            ], $e instanceof HttpException ? $e->status() : 400);
         }
     }
 }

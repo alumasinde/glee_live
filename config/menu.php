@@ -5,7 +5,8 @@
 | Sidebar Menu
 |--------------------------------------------------------------------------
 |
-| Each entry is rendered only when the user holds `permission`.
+| Each entry is rendered only when the user holds `permission` and the
+| tenant's module entitlement is enabled (see ModuleEntitlementService).
 | match: "exact" highlights only on the route itself,
 |        "prefix" highlights on the route and any child path.
 |
@@ -18,6 +19,7 @@ return [
         'label'      => 'Dashboard',
         'icon'       => 'fa-solid fa-gauge-high',
         'permission' => 'dashboard.access',
+        'module'     => 'dashboard',
         'match'      => 'exact',
     ],
 
@@ -26,6 +28,7 @@ return [
         'label'      => 'Gatepasses',
         'icon'       => 'fa-solid fa-file-signature',
         'permission' => 'gatepass.view',
+        'module'     => 'gatepass',
         'match'      => 'prefix',
     ],
 
@@ -34,6 +37,7 @@ return [
         'label'      => 'Visitors',
         'icon'       => 'fa-solid fa-user',
         'permission' => 'visitors.view',
+        'module'     => 'visitors',
         'match'      => 'prefix',
     ],
 
@@ -42,6 +46,7 @@ return [
         'label'      => 'Visits',
         'icon'       => 'fa-solid fa-right-to-bracket',
         'permission' => 'visits.view',
+        'module'     => 'visits',
         'match'      => 'prefix',
     ],
 
@@ -49,7 +54,8 @@ return [
         'route'      => '/badges',
         'label'      => 'Badges',
         'icon'       => 'fa-solid fa-id-card-clip',
-        'permission' => 'visitors.issue_badge',
+        'permission' => 'badges.view',
+        'module'     => 'badges',
         'match'      => 'prefix',
     ],
 
@@ -58,6 +64,7 @@ return [
         'label'      => 'Approvals',
         'icon'       => 'fa-solid fa-circle-check',
         'permission' => 'approval.view',
+        'module'     => 'approval',
         'match'      => 'prefix',
     ],
 
@@ -66,6 +73,7 @@ return [
         'label'      => 'Notifications',
         'icon'       => 'fa-solid fa-bell',
         'permission' => 'notifications.view',
+        'module'     => 'notifications',
         'match'      => 'prefix',
     ],
 
@@ -74,6 +82,7 @@ return [
         'label'      => 'Reports',
         'icon'       => 'fa-solid fa-chart-column',
         'permission' => 'reports.view',
+        'module'     => 'reports',
         'match'      => 'prefix',
     ],
 
@@ -82,6 +91,7 @@ return [
         'label'      => 'Audit trail',
         'icon'       => 'fa-solid fa-clock-rotate-left',
         'permission' => 'audit.view',
+        'module'     => 'audit',
         'match'      => 'prefix',
     ],
 
@@ -90,6 +100,7 @@ return [
         'label'      => 'Roles',
         'icon'       => 'fa-solid fa-shield-halved',
         'permission' => 'roles.view',
+        'module'     => 'roles',
         'match'      => 'prefix',
     ],
 
@@ -98,6 +109,7 @@ return [
         'label'      => 'Settings',
         'icon'       => 'fa-solid fa-gear',
         'permission' => 'settings.view',
+        'module'     => 'settings',
         'match'      => 'prefix',
     ],
 

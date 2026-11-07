@@ -30,7 +30,7 @@ $canCheckout = (bool)($actions['can_checkout'] ?? false);
 $hasAnyAction = $canCheckin || $canCheckout;
 ?>
 
-<div class="gs-page">
+<div class="gs-page" data-gatepass-id="<?= (int) $gatepass['id'] ?>">
 
     <!-- ── Breadcrumb ───────────────────────────────────────────── -->
     <nav class="gs-breadcrumb" aria-label="Breadcrumb">
@@ -152,7 +152,7 @@ $hasAnyAction = $canCheckin || $canCheckout;
                         <?php if ($canCheckin): ?>
                             <button
                                 class="gs-action-btn gs-action-btn--checkin"
-                                onclick="confirmAction('checkin')"
+                                data-gp-action="checkin"
                             >
                                 <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 3v7.5M9 10.5l-3-3M9 10.5l3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                                 Record Check-in
@@ -162,7 +162,7 @@ $hasAnyAction = $canCheckin || $canCheckout;
                         <?php if ($canCheckout): ?>
                             <button
                                 class="gs-action-btn gs-action-btn--checkout"
-                                onclick="confirmAction('checkout')"
+                                data-gp-action="checkout"
                             >
                                 <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 15V7.5M9 7.5l-3 3M9 7.5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 3h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                                 Record Check-out
@@ -234,98 +234,12 @@ $hasAnyAction = $canCheckin || $canCheckout;
         <h2 class="gs-modal__title" id="gsModalTitle"></h2>
         <p class="gs-modal__body" id="gsModalBody"></p>
         <div class="gs-modal__footer">
-            <button class="gt-btn gt-btn--ghost" onclick="closeActionModal()">Cancel</button>
-            <button class="gt-btn" id="gsConfirmBtn" onclick="submitAction()">Confirm</button>
+            <button type="button" class="gt-btn gt-btn--ghost" id="gsCancelBtn">Cancel</button>
+            <button type="button" class="gt-btn" id="gsConfirmBtn">Confirm</button>
         </div>
     </div>
 </div>
 
 
 <!-- ── Script ────────────────────────────────────────────────────── -->
-<script>
-(function () {
-    'use strict';
-
-    const GATEPASS_ID = <?= (int)$gatepass['id'] ?>;
-    let pendingAction = null;
-
-    const CONFIG = {
-        checkin: {
-            icon:    '⬇️',
-            title:   'Confirm Check-in',
-            body:    'This will record the actual check-in time as now. This cannot be undone.',
-            btnClass: 'gt-btn gt-btn--checkin',
-            btnLabel: 'Record Check-in',
-            endpoint: '/gatepasses/' + GATEPASS_ID + '/checkin',
-        },
-        checkout: {
-            icon:    '⬆️',
-            title:   'Confirm Check-out',
-            body:    'This will record the actual check-out time as now. This cannot be undone.',
-            btnClass: 'gt-btn gt-btn--checkout',
-            btnLabel: 'Record Check-out',
-            endpoint: '/gatepasses/' + GATEPASS_ID + '/checkout',
-        },
-    };
-
-    window.confirmAction = function (action) {
-        const cfg = CONFIG[action];
-        if (!cfg) return;
-
-        pendingAction = action;
-
-        document.getElementById('gsModalIcon').textContent  = cfg.icon;
-        document.getElementById('gsModalTitle').textContent = cfg.title;
-        document.getElementById('gsModalBody').textContent  = cfg.body;
-
-        const btn = document.getElementById('gsConfirmBtn');
-        btn.className   = cfg.btnClass;
-        btn.textContent = cfg.btnLabel;
-
-        document.getElementById('gsOverlay').hidden = false;
-        btn.focus();
-    };
-
-    window.closeActionModal = function () {
-        document.getElementById('gsOverlay').hidden = true;
-        pendingAction = null;
-    };
-
-    window.submitAction = async function () {
-        if (!pendingAction) return;
-
-        const cfg = CONFIG[pendingAction];
-        const btn = document.getElementById('gsConfirmBtn');
-
-        btn.disabled    = true;
-        btn.textContent = 'Recording…';
-
-        try {
-            const res = await apiPut(cfg.endpoint, { id: GATEPASS_ID });
-
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                throw new Error(data.message || 'Action failed. Please try again.');
-            }
-
-            // Hard reload so all derived state (status, timestamps, actions) is fresh from server
-            window.location.reload();
-
-        } catch (err) {
-            showToast(err.message, 'error');
-            closeActionModal();
-        } finally {
-            btn.disabled    = false;
-            btn.textContent = cfg.btnLabel;
-        }
-    };
-
-    // Backdrop / Escape close
-    document.getElementById('gsOverlay').addEventListener('click', function (e) {
-        if (e.target === this) closeActionModal();
-    });
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeActionModal();
-    });
-})();
-</script>
+<script src="/assets/js/pages/gatepass-show.js" defer></script>

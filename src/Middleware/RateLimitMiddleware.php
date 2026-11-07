@@ -30,6 +30,14 @@ class RateLimitMiddleware
             $this->maxAttempts = (int) $args[1];
             $this->decayMinutes = (int) $args[2];
         } else {
+            // Routes declare their bucket as "RateLimitMiddleware:scan". Ignoring
+            // that argument left every limiter sharing the "default" bucket (and
+            // its 5/15min ceiling), so the configured per-route limits — and the
+            // matching RateLimitMiddleware::reset() calls — never applied.
+            if (!empty($args[0])) {
+                $this->key = (string) $args[0];
+            }
+
             // Use config values if not overridden
             $config = function_exists('config') ? config("security.rate_limiting.{$this->key}") : null;
             if ($config) {
@@ -56,15 +64,31 @@ class RateLimitMiddleware
 
     private function resolveIdentifier(?Request $request): string
     {
-        // Use IP address as identifier
+        return self::identifier($this->key, $request);
+    }
+
+    /**
+     * The bucket a request counts against: IP plus, for credential forms, the
+     * submitted email so one address cannot be sprayed across many accounts.
+     */
+    public static function identifier(string $key, ?Request $request = null): string
+    {
         $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 
-        // For login attempts, also include email to prevent email-specific brute force
         if ($request && $request->input('email')) {
-            return $this->key . ':' . $ip . ':' . md5($request->input('email'));
+            return $key . ':' . $ip . ':' . md5((string) $request->input('email'));
         }
 
-        return $this->key . ':' . $ip;
+        return $key . ':' . $ip;
+    }
+
+    /**
+     * Clear the bucket for a successful authentication, so a legitimate user who
+     * signs in repeatedly is not locked out by their own successes.
+     */
+    public static function reset(string $key, ?Request $request = null): void
+    {
+        Redis::delete('rate_limit:' . self::identifier($key, $request));
     }
 
     private function getAttempts(string $identifier): int

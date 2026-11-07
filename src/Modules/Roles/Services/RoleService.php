@@ -122,6 +122,39 @@ class RoleService
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Resolve "module.action" keys to permission ids, used to strip
+     * platform-restricted keys out of tenant submissions.
+     *
+     * @param string[] $keys
+     * @return int[]
+     */
+    public function permissionIdsForKeys(array $keys): array
+    {
+        $keys = array_values(array_filter(array_map(
+            static fn ($key): string => strtolower(trim((string) $key)),
+            $keys
+        )));
+
+        if ($keys === []) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($keys), '?'));
+
+        $stmt = $this->db->prepare("
+            SELECT p.id
+            FROM permissions p
+            INNER JOIN modules m ON m.id = p.module_id
+            INNER JOIN actions a ON a.id = p.action_id
+            WHERE LOWER(CONCAT(m.name, '.', a.name)) IN ({$placeholders})
+        ");
+
+        $stmt->execute($keys);
+
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
     public function getRolePermissions(int $tenantId, int $roleId): array
     {
         $stmt = $this->db->prepare("

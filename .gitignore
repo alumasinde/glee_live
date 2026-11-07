@@ -25,6 +25,7 @@ desktop.ini
 
 # Cache / build artifacts
 /cache/
+/var/cache/
 /node_modules/
 *.sql.bak
 

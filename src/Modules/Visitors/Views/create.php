@@ -70,7 +70,7 @@
         <?php endforeach; ?>
     </select>
 
-    <small style="display:block;margin:8px 0;">— OR —</small>
+    <small class="d-block u-my-8">— OR —</small>
 
     <input class="gp-input"
         type="text"

@@ -17,10 +17,10 @@
             ?>
 
             <?php if ($logoFile && is_file($logoFile)): ?>
-                <div style="margin-bottom: var(--space-3);">
+                <div class="u-mb-s3">
                     <img src="/uploads/tenants/<?= htmlspecialchars(basename($logo)) ?>"
                          alt="Company logo"
-                         style="max-height: 64px; max-width: 200px; object-fit: contain;">
+                         class="u-maxh-64 u-maxw-200 u-ofit-contain">
                 </div>
             <?php endif; ?>
 

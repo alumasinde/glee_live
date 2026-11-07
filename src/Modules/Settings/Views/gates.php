@@ -19,27 +19,27 @@
 </div>
 
 <?php if ($error): ?>
-    <div class="gp-alert gp-alert--danger" style="max-width: 900px;">
+    <div class="gp-alert gp-alert--danger u-maxw-900">
         <?= htmlspecialchars((string) $error) ?>
     </div>
 <?php endif; ?>
 
 <?php if ($createdKey): ?>
-    <div class="table-card mb-4" style="max-width: 900px;">
+    <div class="table-card mb-4 u-maxw-900">
         <div class="table-card-head">
             <span class="table-card-title">
                 <i class="fa-solid fa-key"></i> Device key for gate <?= htmlspecialchars($createdKey[0]) ?>
             </span>
         </div>
         <div class="card-body">
-            <p class="form-text" style="margin-top:0; margin-bottom:var(--space-3)">
+            <p class="form-text u-mt-0 u-mb-s3">
                 Copy this key now — it is shown only once and cannot be recovered later.
             </p>
-            <code id="gate-device-key" class="cell-mono" style="display:block; padding:10px; word-break:break-all; background:var(--color-surface-subtle); border:1px solid var(--color-border); border-radius:var(--radius-sm);">
+            <code id="gate-device-key" class="cell-mono d-block u-p-10 u-wb-break-all u-bg-subtle u-b-border u-radius-sm">
                 <?= htmlspecialchars($createdKey[1]) ?>
             </code>
             <div class="form-actions">
-                <button type="button" class="btn btn-secondary" onclick="copyGateKey()">
+                <button type="button" class="btn btn-secondary" data-copy="#gate-device-key">
                     <i class="fa-solid fa-copy"></i> Copy key
                 </button>
             </div>
@@ -56,7 +56,7 @@
         </span>
     </div>
 
-    <div class="card-body" style="max-width:560px">
+    <div class="card-body u-maxw-560">
         <form method="POST" action="/settings/gates">
             <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
 
@@ -145,11 +145,11 @@
                             <td class="table-actions justify-content-end">
                                 <?php if (can('gates.update')): ?>
                                     <button class="btn btn-sm btn-ghost btn-icon" title="Edit"
-                                            data-gate-edit
-                                            data-id="<?= $gid ?>"
-                                            data-name="<?= htmlspecialchars($gate['name'], ENT_QUOTES) ?>"
-                                            data-code="<?= htmlspecialchars($gate['code'], ENT_QUOTES) ?>"
-                                            data-active="<?= (int) $gate['is_active'] ?>">
+                                            data-open-form="#gateEditModal"
+                                            data-field-id="<?= $gid ?>"
+                                            data-field-name="<?= htmlspecialchars($gate['name'], ENT_QUOTES) ?>"
+                                            data-field-code="<?= htmlspecialchars($gate['code'], ENT_QUOTES) ?>"
+                                            data-field-active="<?= (int) $gate['is_active'] ?>">
                                         <i class="fa-solid fa-pen"></i>
                                     </button>
                                 <?php endif; ?>
@@ -160,7 +160,7 @@
                                         <input type="hidden" name="id" value="<?= $gid ?>">
                                         <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Rotate device key"
                                                 <?= $gate['has_key'] ? '' : 'disabled' ?>
-                                                onclick="return confirm('Rotate key? The old device key stops working immediately.');">
+                                                data-confirm="Rotate key? The old device key stops working immediately.">
                                             <i class="fa-solid fa-rotate"></i>
                                         </button>
                                     </form>
@@ -171,8 +171,8 @@
                                         <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
                                         <input type="hidden" name="id" value="<?= $gid ?>">
                                         <button type="submit" class="btn btn-sm btn-ghost btn-icon" title="Delete"
-                                                onclick="return confirm('Delete this gate? Gates with scan history must be deactivated instead.');">
-                                            <i class="fa-solid fa-trash" style="color:var(--color-danger)"></i>
+                                                data-confirm="Delete this gate? Gates with scan history must be deactivated instead.">
+                                            <i class="fa-solid fa-trash text-danger"></i>
                                         </button>
                                     </form>
                                 <?php endif; ?>
@@ -186,14 +186,14 @@
 </div>
 
 <!-- ===================== EDIT FORM ===================== -->
-<div id="gateEditModal" style="display:none;" class="table-card mt-4" >
+<div id="gateEditModal" class="table-card mt-4 u-d-none" >
     <div class="table-card-head">
         <span class="table-card-title">
             <i class="fa-solid fa-pen"></i> Edit Gate
         </span>
     </div>
 
-    <div class="card-body" style="max-width:560px">
+    <div class="card-body u-maxw-560">
         <form method="POST" action="/settings/gates/update">
             <input type="hidden" name="_token" value="<?= \App\Middleware\CSRFMiddleware::token() ?>">
             <input type="hidden" name="id" id="gate_edit_id">
@@ -217,35 +217,9 @@
 
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Update</button>
-                <button type="button" class="btn btn-secondary" onclick="closeGateEdit()">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-close="#gateEditModal">Cancel</button>
             </div>
         </form>
     </div>
 </div>
 
-<script>
-function openGateEdit(id, name, code, active) {
-    document.getElementById('gate_edit_id').value = id;
-    document.getElementById('gate_edit_name').value = name;
-    document.getElementById('gate_edit_code').value = code;
-    document.getElementById('gate_edit_active').checked = !!active;
-    const modal = document.getElementById('gateEditModal');
-    modal.style.display = 'block';
-    modal.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-document.querySelectorAll('[data-gate-edit]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-        openGateEdit(btn.dataset.id, btn.dataset.name, btn.dataset.code, btn.dataset.active === '1');
-    });
-});
-
-function closeGateEdit() {
-    document.getElementById('gateEditModal').style.display = 'none';
-}
-
-function copyGateKey() {
-    var el = document.getElementById('gate-device-key');
-    navigator.clipboard.writeText(el.textContent.trim()).catch(function () {});
-}
-</script>
