@@ -199,7 +199,7 @@ class WorkflowController extends Controller
         $stmt = $this->db->prepare("
             SELECT ws.*, r.name AS role_name, fr.name AS fallback_role_name, d.name AS department_name
             FROM workflow_steps ws
-            JOIN roles r
+            LEFT JOIN roles r
               ON r.id         = ws.role_id
              AND r.tenant_id  = ws.tenant_id
             LEFT JOIN roles fr
@@ -215,6 +215,32 @@ class WorkflowController extends Controller
 
         $stmt->execute([':workflow_id' => $id, ':tenant_id' => $tenantId]);
         $steps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $rosterStmt = $this->db->prepare("
+            SELECT wsa.workflow_step_id, wsa.user_id,
+                   CONCAT(u.first_name, ' ', u.last_name) AS name,
+                   u.is_active
+            FROM workflow_step_approvers wsa
+            INNER JOIN workflow_steps ws
+                    ON ws.id = wsa.workflow_step_id AND ws.tenant_id = wsa.tenant_id
+            LEFT JOIN users u
+                    ON u.id = wsa.user_id AND u.tenant_id = wsa.tenant_id
+            WHERE wsa.tenant_id   = :tenant_id
+              AND ws.workflow_id  = :workflow_id
+            ORDER BY name ASC
+        ");
+
+        $rosterStmt->execute([':tenant_id' => $tenantId, ':workflow_id' => $id]);
+
+        $roster = [];
+        foreach ($rosterStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $roster[(int) $row['workflow_step_id']][] = $row;
+        }
+
+        foreach ($steps as &$step) {
+            $step['approvers'] = $roster[(int) $step['id']] ?? [];
+        }
+        unset($step);
 
         $roleStmt = $this->db->prepare("
             SELECT id, name
@@ -237,12 +263,53 @@ class WorkflowController extends Controller
         $deptStmt->execute([':tenant_id' => $tenantId]);
         $departments = $deptStmt->fetchAll(PDO::FETCH_ASSOC);
 
+        $peopleStmt = $this->db->prepare("
+            SELECT u.id, u.department_id,
+                   CONCAT(u.first_name, ' ', u.last_name) AS name,
+                   d.name AS department_name,
+                   GROUP_CONCAT(r.name ORDER BY r.name SEPARATOR ', ') AS role_names
+            FROM users u
+            LEFT JOIN user_roles ur ON ur.user_id = u.id AND ur.tenant_id = u.tenant_id
+            LEFT JOIN roles r       ON r.id = ur.role_id AND r.tenant_id = ur.tenant_id
+            LEFT JOIN departments d ON d.id = u.department_id AND d.tenant_id = u.tenant_id
+            WHERE u.tenant_id = :tenant_id
+              AND u.is_active = 1
+            GROUP BY u.id, u.department_id, u.first_name, u.last_name, d.name
+            ORDER BY name ASC
+        ");
+
+        $peopleStmt->execute([':tenant_id' => $tenantId]);
+        $people = $peopleStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Who actually holds each role, so the screen can show what a step
+        // resolves to instead of leaving the admin to guess.
+        $holderStmt = $this->db->prepare("
+            SELECT ur.role_id, u.id, u.department_id,
+                   CONCAT(u.first_name, ' ', u.last_name) AS name,
+                   d.name AS department_name
+            FROM user_roles ur
+            INNER JOIN users u       ON u.id = ur.user_id AND u.tenant_id = ur.tenant_id
+            LEFT JOIN departments d  ON d.id = u.department_id AND d.tenant_id = u.tenant_id
+            WHERE ur.tenant_id = :tenant_id
+              AND u.is_active = 1
+            ORDER BY name ASC
+        ");
+
+        $holderStmt->execute([':tenant_id' => $tenantId]);
+
+        $holdersByRole = [];
+        foreach ($holderStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $holdersByRole[(int) $row['role_id']][] = $row;
+        }
+
         return $this->view('Settings::Workflows/steps', [
-            'title'       => 'Workflow Steps',
-            'workflow'    => $workflow,
-            'steps'       => $steps,
-            'roles'       => $roles,
-            'departments' => $departments,
+            'title'          => 'Workflow Steps',
+            'workflow'       => $workflow,
+            'steps'          => $steps,
+            'roles'          => $roles,
+            'departments'    => $departments,
+            'people'         => $people,
+            'holders_by_role' => $holdersByRole,
         ]);
     }
 
@@ -251,17 +318,20 @@ class WorkflowController extends Controller
         $tenantId = $this->tenantId();
         $this->findOrFail($tenantId, $id);
 
-        $data = $this->validateStepPayload($request, $tenantId);
+        $data    = $this->validateStepPayload($request, $tenantId);
+        $roster  = $data['user_ids'];
+        unset($data['user_ids']);
 
-        // schema — workflow_steps has no created_at column
         try {
+            $this->db->beginTransaction();
+
             $stmt = $this->db->prepare("
                 INSERT INTO workflow_steps
-                    (tenant_id, workflow_id, step_order, name, role_id, fallback_role_id,
-                     is_mandatory, approval_mode, department_source, department_id)
+                    (tenant_id, workflow_id, step_order, name, approver_kind, role_id,
+                     fallback_role_id, is_mandatory, approval_mode, department_source, department_id)
                 VALUES
-                    (:tenant_id, :workflow_id, :step_order, :name, :role_id, :fallback_role_id,
-                     :is_mandatory, :approval_mode, :department_source, :department_id)
+                    (:tenant_id, :workflow_id, :step_order, :name, :approver_kind, :role_id,
+                     :fallback_role_id, :is_mandatory, :approval_mode, :department_source, :department_id)
             ");
 
             $stmt->execute(array_merge($data, [
@@ -269,12 +339,24 @@ class WorkflowController extends Controller
                 ':workflow_id' => $id,
             ]));
 
-            $this->logConfigChange('workflow.step_created', 'workflow_step', (int) $this->db->lastInsertId(), $data['name'], [
-                'workflow_id' => $id,
-                'step_order'  => $data['step_order'],
-                'role_id'     => $data['role_id'],
+            $stepId = (int) $this->db->lastInsertId();
+
+            $this->syncStepApprovers($tenantId, $stepId, $roster);
+
+            $this->db->commit();
+
+            $this->logConfigChange('workflow.step_created', 'workflow_step', $stepId, $data['name'], [
+                'workflow_id'   => $id,
+                'step_order'    => $data['step_order'],
+                'approver_kind' => $data['approver_kind'],
+                'role_id'       => $data['role_id'],
+                'user_ids'      => $roster,
             ]);
         } catch (\PDOException $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+
             $this->rethrowDuplicateOrder($e, $id);
         }
 
@@ -291,13 +373,18 @@ class WorkflowController extends Controller
         $this->findOrFail($tenantId, $id);
         $step = $this->findStep($tenantId, $id, $stepId);
 
-        $data = $this->validateStepPayload($request, $tenantId);
+        $data   = $this->validateStepPayload($request, $tenantId);
+        $roster = $data['user_ids'];
+        unset($data['user_ids']);
 
         try {
+            $this->db->beginTransaction();
+
             $stmt = $this->db->prepare("
                 UPDATE workflow_steps
                 SET step_order        = :step_order,
                     name              = :name,
+                    approver_kind     = :approver_kind,
                     role_id           = :role_id,
                     fallback_role_id  = :fallback_role_id,
                     is_mandatory      = :is_mandatory,
@@ -315,19 +402,30 @@ class WorkflowController extends Controller
                 ':tenant_id'   => $tenantId,
             ]));
 
+            $this->syncStepApprovers($tenantId, (int) $step['id'], $roster);
+
+            $this->db->commit();
+
             $this->logConfigChange('workflow.step_updated', 'workflow_step', (int) $step['id'], $data['name'], [
-                'workflow_id' => $id,
-                'step_order'  => $data['step_order'],
-                'role_id'     => $data['role_id'],
-                'was'         => [
-                    'step_order'  => (int) $step['step_order'],
-                    'name'        => $step['name'],
-                    'role_id'     => (int) $step['role_id'],
-                    'is_mandatory' => (int) $step['is_mandatory'],
+                'workflow_id'   => $id,
+                'step_order'    => $data['step_order'],
+                'approver_kind' => $data['approver_kind'],
+                'role_id'       => $data['role_id'],
+                'user_ids'      => $roster,
+                'was'           => [
+                    'step_order'    => (int) $step['step_order'],
+                    'name'          => $step['name'],
+                    'approver_kind' => $step['approver_kind'] ?? 'role',
+                    'role_id'       => (int) ($step['role_id'] ?? 0),
+                    'is_mandatory'  => (int) $step['is_mandatory'],
                     'approval_mode' => $step['approval_mode'],
                 ],
             ]);
         } catch (\PDOException $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+
             $this->rethrowDuplicateOrder($e, $id);
         }
 
@@ -373,9 +471,10 @@ class WorkflowController extends Controller
         $stmt->execute([':step_id' => $step['id'], ':workflow_id' => $id, ':tenant_id' => $tenantId]);
 
         $this->logConfigChange('workflow.step_deleted', 'workflow_step', (int) $step['id'], $step['name'], [
-            'workflow_id' => $id,
-            'step_order'  => (int) $step['step_order'],
-            'role_id'     => (int) $step['role_id'],
+            'workflow_id'   => $id,
+            'step_order'    => (int) $step['step_order'],
+            'approver_kind' => $step['approver_kind'] ?? 'role',
+            'role_id'       => (int) ($step['role_id'] ?? 0),
         ]);
 
         return $this->redirect("/settings/workflows/{$id}/steps");
@@ -403,20 +502,26 @@ class WorkflowController extends Controller
     }
 
     /**
-     * @return array{step_order:int, name:string, role_id:int, fallback_role_id:?int, is_mandatory:int,
-     *               approval_mode:string, department_source:string, department_id:?int}
+     * @return array{step_order:int, name:string, approver_kind:string, role_id:?int, fallback_role_id:?int,
+     *               is_mandatory:int, approval_mode:string, department_source:string,
+     *               department_id:?int, user_ids:list<int>}
      */
     private function validateStepPayload(Request $request, int $tenantId): array
     {
         $stepOrder     = (int) $request->input('step_order');
         $stepName      = trim((string) ($request->input('step_name') ?? ''));
+        $approverKind  = (string) $request->input('approver_kind', 'role');
         $roleId        = (int) $request->input('role_id');
         $isMandatory   = $request->input('is_mandatory') ? 1 : 0;
         $approvalMode  = (string) $request->input('approval_mode', 'any');
         $deptSource    = (string) $request->input('department_source', 'none');
 
-        if ($stepOrder <= 0 || $stepName === '' || $roleId <= 0) {
-            Response::abort(422, 'Step order, name and role are required.');
+        if ($stepOrder <= 0 || $stepName === '') {
+            Response::abort(422, 'Step order and name are required.');
+        }
+
+        if (!in_array($approverKind, ['role', 'users'], true)) {
+            Response::abort(422, 'Approver type must be "role" or "users".');
         }
 
         if (!in_array($approvalMode, ['any', 'all'], true)) {
@@ -427,45 +532,64 @@ class WorkflowController extends Controller
             Response::abort(422, 'Invalid department scope.');
         }
 
-        $roleStmt = $this->db->prepare("
-            SELECT id
-            FROM roles
-            WHERE id = :id AND tenant_id = :tenant_id
-            LIMIT 1
-        ");
-        $roleStmt->execute([':id' => $roleId, ':tenant_id' => $tenantId]);
-
-        if (!$roleStmt->fetch()) {
-            Response::abort(403, 'Invalid role for this tenant.');
-        }
-
+        $userIds      = [];
         $departmentId = null;
+        $rolePicked   = null;
 
-        if ($deptSource === 'step') {
-            $departmentId = (int) $request->input('department_id');
-
-            if ($departmentId <= 0) {
-                Response::abort(422, 'A department is required when the step is scoped to a fixed department.');
+        if ($approverKind === 'users') {
+            // The roster replaces the role, and with it the department scope —
+            // the people named ARE the approvers.
+            $deptSource = 'none';
+            $userIds    = $this->validateStepRoster($tenantId, (array) $request->input('user_ids', []));
+        } else {
+            if ($roleId <= 0) {
+                Response::abort(422, 'Choose a role, or switch the approver type to named people.');
             }
 
-            $deptStmt = $this->db->prepare("
+            $roleStmt = $this->db->prepare("
                 SELECT id
-                FROM departments
-                WHERE id = :id AND tenant_id = :tenant_id AND is_active = 1
+                FROM roles
+                WHERE id = :id AND tenant_id = :tenant_id
                 LIMIT 1
             ");
-            $deptStmt->execute([':id' => $departmentId, ':tenant_id' => $tenantId]);
+            $roleStmt->execute([':id' => $roleId, ':tenant_id' => $tenantId]);
 
-            if (!$deptStmt->fetch()) {
-                Response::abort(403, 'Invalid department for this tenant.');
+            if (!$roleStmt->fetch()) {
+                Response::abort(403, 'Invalid role for this tenant.');
+            }
+
+            $rolePicked = $roleId;
+
+            if ($deptSource === 'step') {
+                $departmentId = (int) $request->input('department_id');
+
+                if ($departmentId <= 0) {
+                    Response::abort(422, 'A department is required when the step is scoped to a fixed department.');
+                }
+
+                $deptStmt = $this->db->prepare("
+                    SELECT id
+                    FROM departments
+                    WHERE id = :id AND tenant_id = :tenant_id AND is_active = 1
+                    LIMIT 1
+                ");
+                $deptStmt->execute([':id' => $departmentId, ':tenant_id' => $tenantId]);
+
+                if (!$deptStmt->fetch()) {
+                    Response::abort(403, 'Invalid department for this tenant.');
+                }
+            } else {
+                $departmentId = null;
             }
         }
 
-        // Optional fallback role used when the primary role resolves to no eligible approvers
+        // Optional fallback role used when the primary target resolves to no
+        // eligible approvers — a named roster included, whose people may all be
+        // the requester or deactivated.
         $fallbackRoleId = (int) $request->input('fallback_role_id');
 
         if ($fallbackRoleId > 0) {
-            if ($fallbackRoleId === $roleId) {
+            if ($fallbackRoleId === $rolePicked) {
                 Response::abort(422, 'The fallback role must differ from the step role.');
             }
 
@@ -487,13 +611,70 @@ class WorkflowController extends Controller
         return [
             'step_order'        => $stepOrder,
             'name'              => $stepName,
-            'role_id'           => $roleId,
+            'approver_kind'     => $approverKind,
+            'role_id'           => $rolePicked,
             'fallback_role_id'  => $fallbackRoleId,
             'is_mandatory'      => $isMandatory,
             'approval_mode'     => $approvalMode,
             'department_source' => $deptSource,
             'department_id'     => $departmentId,
+            'user_ids'          => $userIds,
         ];
+    }
+
+    /**
+     * @param list<mixed> $raw checked values from the people picker
+     * @return list<int>
+     */
+    private function validateStepRoster(int $tenantId, array $raw): array
+    {
+        $ids = array_values(array_unique(array_filter(
+            array_map('intval', $raw),
+            static fn(int $id): bool => $id > 0
+        )));
+
+        if (!$ids) {
+            Response::abort(422, 'Tick at least one approver for a named-people step.');
+        }
+
+        $in = implode(',', array_fill(0, count($ids), '?'));
+
+        $stmt = $this->db->prepare("
+            SELECT id
+            FROM users
+            WHERE tenant_id = ? AND is_active = 1 AND id IN ($in)
+        ");
+        $stmt->execute(array_merge([$tenantId], $ids));
+
+        $valid = array_map('intval', array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id'));
+
+        if (count($valid) !== count($ids)) {
+            Response::abort(403, 'One or more approvers are not active users of this tenant.');
+        }
+
+        return $valid;
+    }
+
+    /** @param list<int> $userIds */
+    private function syncStepApprovers(int $tenantId, int $stepId, array $userIds): void
+    {
+        $this->db->prepare("
+            DELETE FROM workflow_step_approvers
+            WHERE tenant_id = :tenant_id AND workflow_step_id = :step_id
+        ")->execute([':tenant_id' => $tenantId, ':step_id' => $stepId]);
+
+        if (!$userIds) {
+            return;
+        }
+
+        $insert = $this->db->prepare("
+            INSERT INTO workflow_step_approvers (tenant_id, workflow_step_id, user_id)
+            VALUES (:tenant_id, :workflow_step_id, :user_id)
+        ");
+
+        foreach ($userIds as $userId) {
+            $insert->execute([':tenant_id' => $tenantId, ':workflow_step_id' => $stepId, ':user_id' => $userId]);
+        }
     }
 
     private function rethrowDuplicateOrder(\PDOException $e, int $workflowId): never

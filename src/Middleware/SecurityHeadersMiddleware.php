@@ -20,10 +20,11 @@ class SecurityHeadersMiddleware
                 "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; " .
                 "img-src 'self' data: https:; " .
                 "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; " .
-                "connect-src 'self'; " .
+                "connect-src 'self' https://cdn.jsdelivr.net; " .
                 "frame-ancestors 'none'; " .
                 "form-action 'self'; " .
                 "base-uri 'self';";
+                
 
             // Add report URI if configured
             $reportUri = config('security.csp.report_uri');

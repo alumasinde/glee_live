@@ -112,6 +112,16 @@ body {
     font-size: 0.9rem;
     pointer-events: none;
 }
+
+.input-icon > i {
+    position: absolute;
+    top: 50%;
+    left: 11px;
+    transform: translateY(-50%);
+    color: var(--color-text-subtle);
+    font-size: 0.9rem;
+    pointer-events: none;
+}
 .input-icon input {
     width: 100%;
     padding: 10px 40px 10px 34px;
@@ -133,19 +143,38 @@ body {
 .reveal-toggle {
     position: absolute;
     top: 50%;
-    right: 26px;
+    right: 6px;
     transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
     border: none;
-    background: none;
-    padding: 6px;
+    background: transparent;
     color: var(--color-text-subtle);
-    font-size: 0.875rem;
     cursor: pointer;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-sm);
+    z-index: 2;
     transition: color var(--tx);
 }
 .reveal-toggle:hover { color: var(--color-text-secondary); }
-
+.reveal-toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-primary-ring);
+}
+.reveal-toggle svg,
+.reveal-toggle img,
+.reveal-toggle i {
+    position: static;      /* cancel any inherited absolute positioning */
+    transform: none;
+    width: 18px;
+    height: 18px;
+    font-size: 18px;       /* for icon-font <i> */
+    line-height: 18px;
+    pointer-events: none;
+}
 /* ── Error alert ────────────────────────────────────────────── */
 
 .alert-error {

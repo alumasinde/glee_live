@@ -12,6 +12,7 @@ use RuntimeException;
  *
  * Steps are resolved from configuration, not code paths:
  *   workflow_steps.approval_mode      'any' = first responder advances, 'all' = unanimous
+ *   workflow_steps.approver_kind      'role' (role_id + scope) | 'users' (named roster)
  *   workflow_steps.department_source  'none' | 'step' (step's department_id) | 'gatepass' (requester's department)
  *   workflow_steps.is_mandatory       0 = step auto-skips when it resolves to zero approvers
  *
@@ -75,12 +76,21 @@ class ApprovalService
 
             // Freeze the step configuration so later admin edits cannot hijack this instance.
             $steps = $this->fetchAll("
-                SELECT id, name, role_id, fallback_role_id, step_order, is_mandatory,
-                       approval_mode, department_source, department_id
+                SELECT id, name, approver_kind, role_id, fallback_role_id, step_order,
+                       is_mandatory, approval_mode, department_source, department_id
                 FROM workflow_steps
                 WHERE workflow_id = ? AND tenant_id = ?
                 ORDER BY step_order
             ", [$workflowId, $tenantId]);
+
+            // A named-people roster is frozen as ids; a role step keeps resolving
+            // its members live, exactly as before.
+            foreach ($steps as &$step) {
+                $step['approver_user_ids'] = $step['approver_kind'] === 'users'
+                    ? $this->stepApproverIds($tenantId, (int) $step['id'])
+                    : [];
+            }
+            unset($step);
 
             if ($steps) {
                 $this->db->prepare("
@@ -397,23 +407,44 @@ class ApprovalService
 
     /**
      * Approvers eligible to act on the step, excluding the requester (no
-     * self-approval). Falls back to step.fallback_role_id members when the
-     * primary role resolves to nobody, then redirects anyone covered by an
-     * active delegation onto their delegate.
+     * self-approval). A step either fans out to its role members (optionally
+     * scoped to a department) or to the named people on its roster. When the
+     * primary target resolves to nobody, step.fallback_role_id members are used,
+     * then anyone covered by an active delegation is redirected.
      *
      * @return list<array{id:int, email:?string, first_name:?string, last_name:?string, name?:string, covers?:array}>
      */
     private function resolveApprovers(int $tenantId, array $step, int $gatepassDepartmentId, int $requesterUserId): array
     {
-        $roleId    = (int) $step['role_id'];
-        $approvers = $this->approversForRole($tenantId, $roleId, $step, $gatepassDepartmentId, $requesterUserId);
+        $isRoster = ($step['approver_kind'] ?? 'role') === 'users';
 
-        if (!$approvers && !empty($step['fallback_role_id'])) {
-            $roleId    = (int) $step['fallback_role_id'];
-            $approvers = $this->approversForRole($tenantId, $roleId, $step, $gatepassDepartmentId, $requesterUserId);
+        $primaryRoleId = !empty($step['role_id']) ? (int) $step['role_id'] : null;
+
+        if ($isRoster) {
+            $approvers = $this->approversForUsers(
+                $tenantId,
+                $this->stepApproverUserIds($tenantId, $step),
+                $requesterUserId
+            );
+        } else {
+            $approvers = $primaryRoleId === null
+                ? []
+                : $this->approversForRole($tenantId, $primaryRoleId, $step, $gatepassDepartmentId, $requesterUserId);
         }
 
-        return $this->applyDelegations($tenantId, $approvers, $roleId, $requesterUserId);
+        if (!$approvers && !empty($step['fallback_role_id'])) {
+            $approvers = $this->approversForRole(
+                $tenantId,
+                (int) $step['fallback_role_id'],
+                $step,
+                $gatepassDepartmentId,
+                $requesterUserId
+            );
+        }
+
+        // A roster has no role context, so only a blanket (all-roles) delegation
+        // can cover one of its people.
+        return $this->applyDelegations($tenantId, $approvers, $isRoster ? null : $primaryRoleId, $requesterUserId);
     }
 
     /**
@@ -424,7 +455,7 @@ class ApprovalService
      * signal that the step cannot be staffed, and is_mandatory decides whether
      * the workflow skips or errors.
      */
-    private function applyDelegations(int $tenantId, array $approvers, int $roleId, int $requesterUserId): array
+    private function applyDelegations(int $tenantId, array $approvers, ?int $roleId, int $requesterUserId): array
     {
         if (!$approvers) {
             return [];
@@ -513,6 +544,55 @@ class ApprovalService
         }
 
         return $this->fetchAll($query, $params);
+    }
+
+    /**
+     * The named people on a roster step. Still filtered to active accounts of
+     * this tenant and never the requester, so a person who is deactivated after
+     * being ticked simply drops out and the fallback role covers the step.
+     */
+    private function approversForUsers(int $tenantId, array $userIds, int $requesterUserId): array
+    {
+        $userIds = array_values(array_unique(array_map('intval', $userIds)));
+
+        if (!$userIds) {
+            return [];
+        }
+
+        $in = implode(',', array_fill(0, count($userIds), '?'));
+
+        return $this->fetchAll("
+            SELECT id, email, first_name, last_name
+            FROM users
+            WHERE tenant_id = ?
+              AND is_active = 1
+              AND id <> ?
+              AND id IN ($in)
+            ORDER BY id
+        ", array_merge([$tenantId, $requesterUserId], $userIds));
+    }
+
+    /** Roster ids from the frozen snapshot, or from the table for pre-snapshot instances. */
+    private function stepApproverUserIds(int $tenantId, array $step): array
+    {
+        if (isset($step['approver_user_ids']) && is_array($step['approver_user_ids'])) {
+            return array_map('intval', $step['approver_user_ids']);
+        }
+
+        return $this->stepApproverIds($tenantId, (int) $step['id']);
+    }
+
+    /** @return list<int> */
+    private function stepApproverIds(int $tenantId, int $stepId): array
+    {
+        $rows = $this->fetchAll("
+            SELECT user_id
+            FROM workflow_step_approvers
+            WHERE tenant_id = ? AND workflow_step_id = ?
+            ORDER BY user_id
+        ", [$tenantId, $stepId]);
+
+        return array_map('intval', array_column($rows, 'user_id'));
     }
 
     private function lockInstance(int $instanceId, int $tenantId): array
@@ -653,7 +733,7 @@ class ApprovalService
         }
 
         return $this->fetchOne("
-            SELECT id, name, role_id, fallback_role_id, step_order, is_mandatory,
+            SELECT id, name, approver_kind, role_id, fallback_role_id, step_order, is_mandatory,
                    approval_mode, department_source, department_id
             FROM workflow_steps
             WHERE workflow_id = ? AND tenant_id = ? AND step_order = ?
@@ -675,7 +755,7 @@ class ApprovalService
         }
 
         return $this->fetchOne("
-            SELECT id, name, role_id, fallback_role_id, step_order, is_mandatory,
+            SELECT id, name, approver_kind, role_id, fallback_role_id, step_order, is_mandatory,
                    approval_mode, department_source, department_id
             FROM workflow_steps
             WHERE id = ? AND tenant_id = ?
