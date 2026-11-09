@@ -421,6 +421,7 @@ final class GatepassRepository
             SELECT
                 g.id, g.gatepass_number, g.actual_in, g.actual_out,
                 g.is_returnable, g.needs_approval, g.purpose, g.created_at,
+                g.created_by,
 
                 gs.name AS status_name,
                 gs.code AS status_code,
@@ -500,6 +501,7 @@ final class GatepassRepository
             SELECT
                 g.id, g.gatepass_number, g.actual_in, g.actual_out,
                 g.is_returnable, g.needs_approval, g.purpose, g.created_at,
+                g.created_by,
                 gs.name AS status_name,
                 gs.code AS status_code,
                 gt.name AS gatepass_type_name,

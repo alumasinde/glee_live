@@ -1,0 +1,55 @@
+Let me verify the exact platform login route, the seeded account, and how the demo server is started so the instructions match this project.
+
+The routes are confirmed; I’m checking the project’s platform-admin helper and README so I can give you the exact URL, command, and account for this setup.
+
+Platform admin uses a **separate login** from tenant users:
+
+**`/platform/login`** — not `/login`.
+
+## Steps
+
+1. From the project root, start the demo server against the schema that has the platform account:
+
+```bash
+DEMO_DB=glee_demo php -S 127.0.0.1:8123 bin/serve-demo.php
+```
+
+PowerShell equivalent:
+
+```powershell
+$env:DEMO_DB="glee_demo"; php -S 127.0.0.1:8123 bin/serve-demo.php
+```
+
+2. Open:
+
+**http://127.0.0.1:8123/platform/login**
+
+3. Sign in with the existing demo platform account:
+
+- **Email:** `ops@platform.local`
+- **Password:** `Platform!2026check`
+
+After login you land on `/platform`, the provider console for tenants, modules, feature flags, audit, and support access.
+
+## Why `DEMO_DB` matters
+
+The project’s normal `.env` database is `glee_test`, which currently has **no platform users**. The `ops@platform.local` account exists only in `glee_demo`, as confirmed by:
+
+```bash
+php bin/platform-admin.php list --db=glee_demo
+```
+
+No server was running on ports 8000, 8080, or 8142 at the time of this check, so you’ll need to start it as above.
+
+## Create your own platform account
+
+```bash
+php bin/platform-admin.php create --db=glee_demo \
+  --email=you@example.com \
+  --name="Your Name" \
+  --password="at-least-12-chars"
+
+php bin/platform-admin.php list --db=glee_demo
+```
+
+For a real deployment, create the account without `--db` against your production-style database and don’t keep the demo credentials.

@@ -54,8 +54,11 @@ class GatepassPolicy
             return false;
         }
 
-        return (int) $gatepass['created_by'] === (int) $user['id']
-            && strtoupper($gatepass['status_code']) === 'PENDING';
+        $userId = (int) ($user['id'] ?? 0);
+
+        return $userId > 0
+            && (int) ($gatepass['created_by'] ?? 0) === $userId
+            && strtoupper((string) ($gatepass['status_code'] ?? '')) === 'PENDING';
     }
 
     public function delete(): bool
